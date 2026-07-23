@@ -105,7 +105,7 @@ export default async function ListingPage({
             </dl>
           </div>
 
-          <PhoneBlock hasPhone={listing.has_phone} />
+          <PhoneBlock hasPhone={listing.has_phone} phone={listing.phone} />
 
           <a
             href={listing.url}

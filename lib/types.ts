@@ -21,6 +21,8 @@ export interface Listing {
   image_status: "pending" | "ready" | "failed";
   first_seen_at: string;
   last_seen_at: string;
+  /** Seller phone when available (public by product design). */
+  phone: string | null;
   has_phone: boolean;
 }
 
