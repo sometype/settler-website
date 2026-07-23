@@ -1,8 +1,9 @@
 -- Product decision: show seller phones to buyers on the public site.
--- Only expose a number when we actually have one (resolved/unmasked or ss full number).
--- Note: the anon key can read these numbers (by design for Settler).
+-- DROP + recreate required when column list changes (Postgres view replace limit).
 
-create or replace view public.listings_public as
+drop view if exists public.listings_public;
+
+create view public.listings_public as
 select
   id,
   source,
@@ -24,7 +25,6 @@ select
   image_status,
   first_seen_at,
   last_seen_at,
-  -- digits only when present; UI shows "pending" when null
   case
     when phone is not null and btrim(phone) <> '' then phone
     else null
