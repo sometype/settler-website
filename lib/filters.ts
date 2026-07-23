@@ -17,18 +17,28 @@ function num(v: string | string[] | undefined): number | undefined {
 export function parseFilters(params: SearchParams): FeedFilters {
   const source = str(params.source);
   const rooms = str(params.rooms);
+  const deal = str(params.deal) ?? str(params.deal_type);
+  // Default to rent so the homepage doesn't mix $500/mo with $80k sales.
+  const dealType =
+    deal === "sale" || deal === "rent" ? deal : deal === "all" ? undefined : "rent";
   return {
     district: str(params.district),
     minPrice: num(params.min),
     maxPrice: num(params.max),
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
     source: source === "myhome" || source === "ss" ? source : undefined,
+    dealType,
     page: Math.max(1, num(params.page) ?? 1),
   };
 }
 
 export function hasActiveFilters(f: FeedFilters): boolean {
   return Boolean(
-    f.district || f.minPrice !== undefined || f.maxPrice !== undefined || f.rooms || f.source
+    f.district ||
+      f.minPrice !== undefined ||
+      f.maxPrice !== undefined ||
+      f.rooms ||
+      f.source ||
+      (f.dealType && f.dealType !== "rent")
   );
 }

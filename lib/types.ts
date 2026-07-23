@@ -1,10 +1,12 @@
 export type ListingSource = "myhome" | "ss";
+export type DealType = "rent" | "sale";
 
 export interface Listing {
   id: number;
   source: ListingSource;
   source_id: string;
   url: string;
+  deal_type: DealType;
   district: string | null;
   rooms: string | null;
   price_usd: number | null;
@@ -40,5 +42,7 @@ export interface FeedFilters {
   maxPrice?: number;
   rooms?: string;
   source?: "myhome" | "ss";
+  /** Default on the feed is rent so sale prices don't mix unlabeled. */
+  dealType?: DealType;
   page: number;
 }

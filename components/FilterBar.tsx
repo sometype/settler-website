@@ -15,9 +15,16 @@ export function FilterBar() {
   const [max, setMax] = useState(params.get("max") ?? "");
   const rooms = params.get("rooms") ?? "";
   const source = params.get("source") ?? "";
+  // Default rent when param missing (matches parseFilters).
+  const deal = params.get("deal") ?? "rent";
 
   const hasFilters = Boolean(
-    params.get("district") || params.get("min") || params.get("max") || rooms || source
+    params.get("district") ||
+      params.get("min") ||
+      params.get("max") ||
+      rooms ||
+      source ||
+      (params.get("deal") && params.get("deal") !== "rent")
   );
 
   function apply(overrides: Record<string, string>) {
@@ -46,6 +53,27 @@ export function FilterBar() {
         apply({});
       }}
     >
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {(
+          [
+            ["rent", "For rent"],
+            ["sale", "For sale"],
+          ] as const
+        ).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => apply({ deal: value })}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
+              deal === value
+                ? "bg-stone-900 text-white ring-stone-900"
+                : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-[1fr_repeat(3,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
           <span className="text-xs font-medium text-stone-500">District</span>
@@ -107,7 +135,7 @@ export function FilterBar() {
                 setDistrict("");
                 setMin("");
                 setMax("");
-                startTransition(() => router.push("/"));
+                startTransition(() => router.push("/?deal=rent"));
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-stone-500 transition hover:text-stone-800"
             >

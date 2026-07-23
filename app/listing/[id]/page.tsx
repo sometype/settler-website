@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchListing, formatPrice, isNew } from "@/lib/listings";
 import { Gallery } from "@/components/Gallery";
 import { PhoneBlock } from "@/components/PhoneBlock";
-import { SourceBadge, NewBadge } from "@/components/SourceBadge";
+import { SourceBadge, DealBadge, NewBadge } from "@/components/SourceBadge";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +46,12 @@ export default async function ListingPage({
   const { listing, images } = data;
   if (!listing) notFound();
 
-  const price = formatPrice(listing.price_usd);
+  const deal = listing.deal_type === "sale" ? "sale" : "rent";
+  const price = formatPrice(listing.price_usd, deal);
   const title = [
     listing.rooms ? `${listing.rooms}-room apartment` : "Apartment",
     listing.district ? `in ${listing.district}` : "in Tbilisi",
+    deal === "sale" ? "for sale" : "for rent",
   ].join(" ");
 
   return (
@@ -68,6 +70,7 @@ export default async function ListingPage({
           <header className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               {isNew(listing.first_seen_at) && <NewBadge />}
+              <DealBadge dealType={deal} />
               <SourceBadge source={listing.source} />
             </div>
             <h1 className="text-2xl font-bold text-stone-900">{title}</h1>

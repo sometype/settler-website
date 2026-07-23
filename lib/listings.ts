@@ -40,6 +40,9 @@ export async function fetchFeed(filters: FeedFilters): Promise<FeedResult> {
   if (filters.source) {
     query = query.eq("source", filters.source);
   }
+  if (filters.dealType) {
+    query = query.eq("deal_type", filters.dealType);
+  }
 
   const from = (filters.page - 1) * PAGE_SIZE;
   const { data, error, count } = await query.range(from, from + PAGE_SIZE - 1);
@@ -106,7 +109,12 @@ export function isNew(firstSeenAt: string): boolean {
   return Date.now() - new Date(firstSeenAt).getTime() < 24 * 60 * 60 * 1000;
 }
 
-export function formatPrice(priceUsd: number | null): string | null {
+export function formatPrice(
+  priceUsd: number | null,
+  dealType: "rent" | "sale" | null | undefined = "rent"
+): string | null {
   if (priceUsd === null || priceUsd === undefined) return null;
-  return `$${priceUsd.toLocaleString("en-US")} / mo`;
+  const amount = `$${priceUsd.toLocaleString("en-US")}`;
+  if (dealType === "sale") return amount; // full sale price
+  return `${amount} / mo`;
 }

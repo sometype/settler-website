@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Settler — Fresh Tbilisi rentals, curated.",
+  title: "Settler — Fresh Tbilisi homes, curated.",
   description:
-    "Curated apartment rentals in Tbilisi, Georgia. Fewer, better listings from real owners.",
+    "Curated apartments for rent and sale in Tbilisi, Georgia. Fewer, better listings from real owners.",
 };
 
 export default function RootLayout({
@@ -36,14 +36,14 @@ export default function RootLayout({
               Settler
             </Link>
             <span className="hidden text-sm text-stone-500 sm:inline">
-              Fresh Tbilisi rentals, curated.
+              Fresh Tbilisi rentals &amp; sales, curated.
             </span>
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
         <footer className="border-t border-stone-200 bg-white">
           <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-stone-500">
-            Settler — curated Tbilisi apartment rentals. Test launch.
+            Settler — curated Tbilisi apartments for rent and sale. Test launch.
           </div>
         </footer>
       </body>
