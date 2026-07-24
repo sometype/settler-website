@@ -56,8 +56,8 @@ export function FilterBar() {
       <div className="mb-3 flex flex-wrap gap-1.5">
         {(
           [
-            ["rent", "For rent"],
-            ["sale", "For sale"],
+            ["rent", "ქირავდება"],
+            ["sale", "იყიდება"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -76,17 +76,17 @@ export function FilterBar() {
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-[1fr_repeat(3,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-          <span className="text-xs font-medium text-stone-500">District</span>
+          <span className="text-xs font-medium text-stone-500">უბანი</span>
           <input
             type="text"
             value={district}
             onChange={(e) => setDistrict(e.target.value)}
-            placeholder="e.g. Saburtalo / საბურთალო"
+            placeholder="მაგ. საბურთალო"
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">Min $</span>
+          <span className="text-xs font-medium text-stone-500">მინ. $</span>
           <input
             type="number"
             inputMode="numeric"
@@ -98,25 +98,25 @@ export function FilterBar() {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">Max $</span>
+          <span className="text-xs font-medium text-stone-500">მაქს. $</span>
           <input
             type="number"
             inputMode="numeric"
             min={0}
             value={max}
             onChange={(e) => setMax(e.target.value)}
-            placeholder="Any"
+            placeholder="ნებისმიერი"
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">Source</span>
+          <span className="text-xs font-medium text-stone-500">წყარო</span>
           <select
             value={source}
             onChange={(e) => apply({ source: e.target.value })}
             className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           >
-            <option value="">All sources</option>
+            <option value="">ყველა წყარო</option>
             <option value="myhome">myhome.ge</option>
             <option value="ss">ss.ge</option>
           </select>
@@ -126,7 +126,7 @@ export function FilterBar() {
             type="submit"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
           >
-            Search
+            ძებნა
           </button>
           {hasFilters && (
             <button
@@ -139,13 +139,13 @@ export function FilterBar() {
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-stone-500 transition hover:text-stone-800"
             >
-              Clear
+              გასუფთავება
             </button>
           )}
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs font-medium text-stone-500">Rooms:</span>
+        <span className="mr-1 text-xs font-medium text-stone-500">ოთახები:</span>
         <button
           type="button"
           onClick={() => apply({ rooms: "" })}
@@ -155,7 +155,7 @@ export function FilterBar() {
               : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
           }`}
         >
-          Any
+          ნებისმიერი
         </button>
         {ROOM_OPTIONS.map((r) => (
           <button

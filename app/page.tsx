@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { fetchFeed } from "@/lib/listings";
 import { parseFilters, hasActiveFilters, type SearchParams } from "@/lib/filters";
+import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
 import { ListingCard } from "@/components/ListingCard";
 import { Pagination } from "@/components/Pagination";
@@ -17,11 +18,13 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   } catch (err) {
     return (
       <div className="rounded-2xl bg-red-50 p-8 text-center ring-1 ring-red-200">
-        <h2 className="text-lg font-semibold text-red-800">Couldn&apos;t load listings</h2>
+        <h2 className="text-lg font-semibold text-red-800">
+          განცხადებების ჩატვირთვა ვერ მოხერხდა
+        </h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-red-700">
-          {err instanceof Error ? err.message : "Unexpected error talking to the database."}
+          {err instanceof Error ? err.message : "ბაზასთან კავშირის მოულოდნელი შეცდომა."}
         </p>
-        <p className="mt-2 text-sm text-red-600">Please try again in a moment.</p>
+        <p className="mt-2 text-sm text-red-600">გთხოვთ, სცადოთ ცოტა ხანში.</p>
       </div>
     );
   }
@@ -30,12 +33,12 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
     return (
       <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
         <h2 className="text-lg font-semibold text-stone-800">
-          {hasActiveFilters(filters) ? "No listings match" : "No listings yet"}
+          {hasActiveFilters(filters) ? "ფილტრს არაფერი ემთხვევა" : "ჯერ არ არის განცხადებები"}
         </h2>
         <p className="mt-2 text-sm text-stone-500">
           {hasActiveFilters(filters)
-            ? "Try widening your price range or clearing the filters."
-            : "Fresh listings land here as soon as they're curated. Check back soon."}
+            ? "სცადე ფასის დიაპაზონის გაფართოება ან ფილტრების გასუფთავება."
+            : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე."}
         </p>
       </div>
     );
@@ -44,8 +47,8 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <p className="mb-3 text-sm text-stone-500">
-        {result.total} listing{result.total === 1 ? "" : "s"}
-        {hasActiveFilters(filters) ? " match your filters" : ""}
+        {result.total.toLocaleString("en-US")} განცხადება
+        {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {result.listings.map((listing) => (
@@ -67,18 +70,21 @@ export default async function HomePage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  // Keyed so typed-but-unapplied input resets when the URL's filters change
-  // (Clear button, back/forward navigation).
   const filterKey = ["district", "min", "max"]
     .map((k) => `${k}=${params[k] ?? ""}`)
     .join("&");
 
   return (
-    <div className="space-y-5">
-      <FilterBar key={filterKey} />
-      <Suspense key={JSON.stringify(params)} fallback={<FeedSkeleton />}>
-        <Feed searchParams={params} />
+    <>
+      <Suspense fallback={<div className="h-72 bg-stone-950 sm:h-96" />}>
+        <Hero />
       </Suspense>
-    </div>
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
+        <FilterBar key={filterKey} />
+        <Suspense key={JSON.stringify(params)} fallback={<FeedSkeleton />}>
+          <Feed searchParams={params} />
+        </Suspense>
+      </div>
+    </>
   );
 }

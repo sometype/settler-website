@@ -1,22 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Noto_Sans_Georgian } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+// Georgian-first: this font self-hosts the Georgian glyphs (the old Geist font
+// was Latin-only, so Georgian text fell back to an ugly system font).
+const georgian = Noto_Sans_Georgian({
+  subsets: ["georgian", "latin"],
+  variable: "--font-georgian",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Settler — Fresh Tbilisi homes, curated.",
+  metadataBase: new URL("https://mepatrone.com"),
+  title: "მე პატრონი — ბინები პირდაპირ პატრონებისგან",
   description:
-    "Curated apartments for rent and sale in Tbilisi, Georgia. Fewer, better listings from real owners.",
+    "ბინები ქირავდება და იყიდება თბილისში — პირდაპირ პატრონებისგან. აგენტების, სპამის და ძველი განცხადებების გარეშე.",
+  openGraph: {
+    title: "მე პატრონი — ბინები პირდაპირ პატრონებისგან",
+    description:
+      "აგენტების, სპამის და ძველი განცხადებების გარეშე — მხოლოდ ნამდვილი, ახალი განცხადებები.",
+    locale: "ka_GE",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -25,25 +31,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
+    <html lang="ka" className={`${georgian.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-stone-50 font-sans text-stone-900">
         <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-3.5">
-            <Link href="/" className="text-xl font-bold tracking-tight text-stone-900">
-              Settler
+          <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3.5">
+            <Link href="/" className="flex items-baseline gap-2">
+              <span className="text-2xl font-black tracking-tight text-stone-900">
+                მე პატრონი
+              </span>
+              <span className="hidden text-sm font-medium text-emerald-700 sm:inline">
+                ბინები პირდაპირ პატრონებისგან
+              </span>
             </Link>
-            <span className="hidden text-sm text-stone-500 sm:inline">
-              Fresh Tbilisi rentals &amp; sales, curated.
-            </span>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">{children}</main>
+        <main className="flex-1">{children}</main>
         <footer className="border-t border-stone-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-stone-500">
-            Settler — curated Tbilisi apartments for rent and sale. Test launch.
+          <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-stone-500">
+            <p className="font-black text-stone-800">მე პატრონი</p>
+            <p className="mt-1">
+              ნამდვილი, ახალი განცხადებები თბილისში — პირდაპირ პატრონებისგან, აგენტების გარეშე.
+            </p>
           </div>
         </footer>
       </body>

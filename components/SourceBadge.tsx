@@ -23,7 +23,7 @@ export function DealBadge({ dealType }: { dealType: DealType | string | null | u
           : "bg-sky-50 text-sky-800 ring-sky-200"
       }`}
     >
-      {sale ? "For sale" : "For rent"}
+      {sale ? "იყიდება" : "ქირავდება"}
     </span>
   );
 }
@@ -31,7 +31,7 @@ export function DealBadge({ dealType }: { dealType: DealType | string | null | u
 export function NewBadge() {
   return (
     <span className="inline-flex items-center rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white">
-      New
+      ახალი
     </span>
   );
 }

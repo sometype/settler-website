@@ -38,7 +38,7 @@ export function PhoneBlock({
 
   return (
     <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-      <h2 className="text-sm font-semibold text-stone-900">Contact seller</h2>
+      <h2 className="text-sm font-semibold text-stone-900">დაუკავშირდი პატრონს</h2>
       {show && number ? (
         <div className="mt-3 space-y-3">
           <p className="text-lg font-semibold tracking-wide text-stone-900">
@@ -48,7 +48,7 @@ export function PhoneBlock({
             href={telHref(number)}
             className="flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
           >
-            Call
+            დარეკვა
           </a>
           <a
             href={`https://wa.me/${digitsOnly(number).startsWith("995") ? digitsOnly(number) : `995${digitsOnly(number)}`}`}
@@ -62,7 +62,7 @@ export function PhoneBlock({
       ) : (
         <p className="mt-2 text-sm text-stone-500">
           <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-stone-300 align-middle" />
-          Number pending — check back soon, or open the original listing.
+          ნომერი მალე დაემატება — შემოგვიარე მოგვიანებით ან იხილე ორიგინალი განცხადება.
         </p>
       )}
     </div>

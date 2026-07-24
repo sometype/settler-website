@@ -19,7 +19,7 @@ export function Gallery({
   if (images.length === 0) {
     return (
       <div className="aspect-[16/10] overflow-hidden rounded-2xl ring-1 ring-stone-200">
-        <ListingImage src={null} alt={alt} placeholderLabel="No photos yet" />
+        <ListingImage src={null} alt={alt} placeholderLabel="ფოტოები ჯერ არ არის" />
       </div>
     );
   }
@@ -43,7 +43,7 @@ export function Gallery({
               key={`${img.position}-${i}`}
               type="button"
               onClick={() => setActive(i)}
-              aria-label={`Show photo ${i + 1}`}
+              aria-label={`ფოტო ${i + 1}`}
               className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg ring-2 transition ${
                 i === active ? "ring-emerald-600" : "ring-transparent hover:ring-stone-300"
               }`}

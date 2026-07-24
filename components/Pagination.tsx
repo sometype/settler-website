@@ -33,20 +33,20 @@ export function Pagination({
     <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Pagination">
       {page > 1 ? (
         <Link href={pageHref(searchParams, page - 1)} className={linkClass}>
-          ← Previous
+          ← წინა
         </Link>
       ) : (
-        <span className={disabledClass}>← Previous</span>
+        <span className={disabledClass}>← წინა</span>
       )}
       <span className="text-sm text-stone-500">
-        Page {page} of {pageCount}
+        გვერდი {page} / {pageCount}
       </span>
       {page < pageCount ? (
         <Link href={pageHref(searchParams, page + 1)} className={linkClass}>
-          Next →
+          შემდეგი →
         </Link>
       ) : (
-        <span className={disabledClass}>Next →</span>
+        <span className={disabledClass}>შემდეგი →</span>
       )}
     </nav>
   );

@@ -116,5 +116,26 @@ export function formatPrice(
   if (priceUsd === null || priceUsd === undefined) return null;
   const amount = `$${priceUsd.toLocaleString("en-US")}`;
   if (dealType === "sale") return amount; // full sale price
-  return `${amount} / mo`;
+  return `${amount} / თვეში`;
+}
+
+export interface FeedStats {
+  total: number;
+  addedToday: number;
+}
+
+// Live trust numbers for the hero — proof the catalog is fresh + curated.
+export async function fetchStats(): Promise<FeedStats> {
+  const supabase = getSupabase();
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [{ count: total }, { count: addedToday }] = await Promise.all([
+    supabase.from("listings_public").select("*", { count: "exact", head: true }),
+    supabase
+      .from("listings_public")
+      .select("*", { count: "exact", head: true })
+      .gte("first_seen_at", dayAgo),
+  ]);
+
+  return { total: total ?? 0, addedToday: addedToday ?? 0 };
 }

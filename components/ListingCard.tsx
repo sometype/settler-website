@@ -23,7 +23,7 @@ export function ListingCard({
       <div className="relative aspect-[4/3] overflow-hidden">
         <ListingImage
           src={src}
-          alt={`${listing.rooms ?? "?"}-room apartment in ${listing.district ?? "Tbilisi"}`}
+          alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${listing.district ?? "თბილისი"}`}
           className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
@@ -36,15 +36,15 @@ export function ListingCard({
       </div>
       <div className="space-y-1.5 p-4">
         {price ? (
-          <p className="text-xl font-bold text-stone-900">{price}</p>
+          <p className="text-xl font-black text-stone-900">{price}</p>
         ) : (
-          <p className="text-xl font-semibold text-stone-400">Price on request</p>
+          <p className="text-xl font-semibold text-stone-400">ფასი მოთხოვნით</p>
         )}
         <p className="text-sm text-stone-600">
           {[
-            listing.rooms ? `${listing.rooms} room${listing.rooms === "1" ? "" : "s"}` : null,
-            listing.area ? `${listing.area} m²` : null,
-            listing.floor ? `Floor ${listing.floor}` : null,
+            listing.rooms ? `${listing.rooms} ოთახი` : null,
+            listing.area ? `${listing.area} მ²` : null,
+            listing.floor ? `სართ. ${listing.floor}` : null,
           ]
             .filter(Boolean)
             .join(" · ")}
