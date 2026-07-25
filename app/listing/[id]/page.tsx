@@ -7,6 +7,8 @@ import { conditionLabel, statusLabel, projectTypeLabel } from "@/lib/labels";
 import { presentAmenities } from "@/lib/amenities";
 import { Gallery } from "@/components/Gallery";
 import { PhoneBlock } from "@/components/PhoneBlock";
+import { StickyContactBar } from "@/components/StickyContactBar";
+import { ListingOpenBeacon } from "@/components/ListingOpenBeacon";
 import { DealBadge, NewBadge } from "@/components/Badges";
 import { AmenityIcon } from "@/components/AmenityIcon";
 import type { DescFacts } from "@/lib/types";
@@ -23,7 +25,6 @@ function termsFromFacts(facts: DescFacts | null, isRent: boolean): string[] {
   if (facts.utilities_included === "yes") terms.push("კომუნალურები ფასშია");
   if (facts.min_months && facts.min_months > 0)
     terms.push(`მინიმალური ვადა: ${facts.min_months} თვე`);
-  // pets "yes" already shows as an amenity; an explicit "no" is a term.
   if (facts.pets_allowed === "no") terms.push("ცხოველების გარეშე");
   return terms;
 }
@@ -74,8 +75,6 @@ export default async function ListingPage({
   const deal = listing.deal_type === "sale" ? "sale" : "rent";
   const dealLabel = deal === "sale" ? "იყიდება" : "ქირავდება";
   const price = formatPrice(listing.price_usd, deal);
-  // Prefer the worker's cleaned Georgian text; the raw source fallback carries
-  // literal HTML (<br /> etc.) and must be stripped before display.
   const description = listing.description_ka?.trim() || stripHtml(listing.description);
   const district = districtLabel(listing.district_code, listing.district);
   const title = [
@@ -85,18 +84,40 @@ export default async function ListingPage({
   ].join(", ");
   const amenities = presentAmenities(listing.amenities);
   const terms = termsFromFacts(listing.desc_facts, deal === "rent");
-  // ss stores balcony as "yes" / "0" / a count — georgianize the enum-ish ones.
   const balcony =
     listing.balcony === "yes" ? "კი" : listing.balcony === "0" ? null : listing.balcony;
-  // ss has no build year — its status string doubles as build_period, which
-  // would render the same value twice. Show it only when it adds information.
   const buildPeriod =
     listing.build_period && listing.build_period !== listing.status
       ? listing.build_period
       : null;
 
+  const phone = listing.phone?.trim() || null;
+  const canCall = Boolean(listing.has_phone && phone);
+  // Trust chip only when the description worker actually cleaned this row.
+  const textClean = listing.description_status === "clean";
+  const ageHours =
+    (Date.now() - new Date(listing.first_seen_at).getTime()) / (1000 * 60 * 60);
+  const ageLabel =
+    ageHours < 24
+      ? "დამატებულია დღეს"
+      : ageHours < 48
+        ? "დამატებულია გუშინ"
+        : null;
+
   return (
-    <article className="mx-auto max-w-6xl space-y-5 px-4 py-6">
+    <article
+      className={`mx-auto max-w-6xl space-y-5 px-4 py-6 ${canCall ? "pb-28 lg:pb-6" : ""}`}
+    >
+      <ListingOpenBeacon
+        listingId={listing.id}
+        meta={{
+          deal,
+          district_code: listing.district_code,
+          rooms: listing.rooms,
+          has_phone: listing.has_phone,
+        }}
+      />
+
       <Link
         href="/"
         className="inline-flex items-center gap-1 text-sm font-medium text-stone-500 transition hover:text-stone-800"
@@ -104,7 +125,12 @@ export default async function ListingPage({
         ← მთავარ გვერდზე
       </Link>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      {/*
+        Call-first hierarchy (mobile order):
+        gallery → price/title → contact → trust → specs → amenities → description
+        Desktop: contact sticks in the right column.
+      */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
         <div className="space-y-5">
           <Gallery images={images} alt={title} />
 
@@ -113,13 +139,63 @@ export default async function ListingPage({
               {isNew(listing.first_seen_at) && <NewBadge />}
               <DealBadge dealType={deal} />
             </div>
-            <h1 className="text-2xl font-black text-stone-900">{title}</h1>
             {price ? (
               <p className="text-3xl font-black text-emerald-700">{price}</p>
             ) : (
               <p className="text-2xl font-semibold text-stone-400">ფასი მოთხოვნით</p>
             )}
+            <h1 className="text-2xl font-black text-stone-900">{title}</h1>
+            <p className="text-sm text-stone-600">
+              {[
+                listing.rooms ? `${listing.rooms} ოთახი` : null,
+                listing.area ? `${listing.area} მ²` : null,
+                listing.floor ? `სართ. ${listing.floor}` : null,
+                district,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
           </header>
+
+          {/* Contact early on mobile (before long amenity/description walls). */}
+          <div className="lg:hidden">
+            <PhoneBlock
+              hasPhone={listing.has_phone}
+              phone={listing.phone}
+              listingId={listing.id}
+            />
+          </div>
+
+          {(textClean || ageLabel) && (
+            <div className="flex flex-wrap gap-1.5">
+              {textClean && (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
+                  ტექსტი შემოწმებული
+                </span>
+              )}
+              {ageLabel && (
+                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
+                  {ageLabel}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200 lg:hidden">
+            <h2 className="text-sm font-semibold text-stone-900">დეტალები</h2>
+            <dl className="mt-2">
+              <Fact label="უბანი" value={district} />
+              <Fact label="ოთახები" value={listing.rooms} />
+              <Fact label="ფართი" value={listing.area ? `${listing.area} მ²` : null} />
+              <Fact label="სართული" value={listing.floor} />
+              <Fact label="სველი წერტილი" value={listing.bathrooms} />
+              <Fact label="მდგომარეობა" value={conditionLabel(listing.condition)} />
+              <Fact label="შენობის სტატუსი" value={statusLabel(listing.status)} />
+              <Fact label="პროექტის ტიპი" value={projectTypeLabel(listing.project_type)} />
+              <Fact label="აივანი" value={balcony} />
+              <Fact label="აშენების პერიოდი" value={buildPeriod} />
+            </dl>
+          </div>
 
           {amenities.length > 0 && (
             <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
@@ -164,7 +240,12 @@ export default async function ListingPage({
           )}
         </div>
 
-        <aside className="space-y-4">
+        <aside className="hidden space-y-4 lg:sticky lg:top-20 lg:block">
+          <PhoneBlock
+            hasPhone={listing.has_phone}
+            phone={listing.phone}
+            listingId={listing.id}
+          />
           <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
             <h2 className="text-sm font-semibold text-stone-900">დეტალები</h2>
             <dl className="mt-2">
@@ -180,10 +261,12 @@ export default async function ListingPage({
               <Fact label="აშენების პერიოდი" value={buildPeriod} />
             </dl>
           </div>
-
-          <PhoneBlock hasPhone={listing.has_phone} phone={listing.phone} />
         </aside>
       </div>
+
+      {canCall && phone && (
+        <StickyContactBar phone={phone} listingId={listing.id} />
+      )}
     </article>
   );
 }

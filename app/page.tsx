@@ -7,11 +7,26 @@ import { FilterBar } from "@/components/FilterBar";
 import { ListingCard } from "@/components/ListingCard";
 import { Pagination } from "@/components/Pagination";
 import { FeedSkeleton } from "@/components/Skeletons";
+import { FeedBeacon } from "@/components/FeedBeacon";
 
 export const dynamic = "force-dynamic";
 
+function filterMeta(filters: ReturnType<typeof parseFilters>) {
+  return {
+    deal: filters.dealType ?? "rent",
+    district: filters.district ?? null,
+    rooms: filters.rooms ?? null,
+    min: filters.minPrice ?? null,
+    max: filters.maxPrice ?? null,
+    amenities: filters.amenities ?? [],
+    page: filters.page,
+    has_filters: hasActiveFilters(filters),
+  };
+}
+
 async function Feed({ searchParams }: { searchParams: SearchParams }) {
   const filters = parseFilters(searchParams);
+  const meta = filterMeta(filters);
 
   let result;
   try {
@@ -40,6 +55,7 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
     return (
       <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
+        <FeedBeacon empty meta={{ ...meta, reason: "page_out_of_range", total: result.total }} />
         <h2 className="text-lg font-semibold text-stone-800">ასეთი გვერდი არ არსებობს</h2>
         <p className="mt-2 text-sm text-stone-500">
           სულ {result.pageCount.toLocaleString("ka-GE")} გვერდია.
@@ -57,6 +73,7 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   if (result.listings.length === 0) {
     return (
       <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
+        <FeedBeacon empty meta={{ ...meta, total: 0 }} />
         <h2 className="text-lg font-semibold text-stone-800">
           {hasActiveFilters(filters) ? "ფილტრს არაფერი ემთხვევა" : "ჯერ არ არის განცხადებები"}
         </h2>
@@ -71,6 +88,7 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
+      <FeedBeacon empty={false} meta={{ ...meta, total: result.total }} />
       <p className="mb-3 text-sm text-stone-500">
         {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
