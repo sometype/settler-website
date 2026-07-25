@@ -26,7 +26,7 @@ Source: live-site + source torture test, 2026-07-25. Grade at time of test: D+.
 | Phase | What | Why |
 |---|---|---|
 | A. Stop the bleeding | Strip HTML; sanity prices; real 404; empty page state; remove fake "0"; hide competitor badge; use description_ka; prefer own images | Trust |
-| B. Call-first detail | Sticky call, clean hierarchy, Georgian 404/empty | Conversion |
+| B. Call-first detail | Sticky call, clean hierarchy, first-party call/WA events | Conversion |
 | C. Rails + sort | Hot / value / new using velocity + medians | Moat visible |
 | D. District IA | EN→KA map, chip filter | Usability |
 | E. SEO + speed | sitemap, JSON-LD, ISR, image CDN | Growth |

@@ -48,8 +48,9 @@ export function trackEvent(
   try {
     if (navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
-      navigator.sendBeacon("/api/events", blob);
-      return;
+      // sendBeacon returns false when the browser's beacon queue is full —
+      // fall through to fetch instead of silently dropping the event.
+      if (navigator.sendBeacon("/api/events", blob)) return;
     }
   } catch {
     /* fall through */

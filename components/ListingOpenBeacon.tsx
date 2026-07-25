@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { trackEvent } from "@/lib/events";
 
-/** Fires once per mount when a listing detail is viewed. */
+/** Fires once per listing id mount — not on every parent re-render with a new meta object. */
 export function ListingOpenBeacon({
   listingId,
   meta,
@@ -11,8 +11,15 @@ export function ListingOpenBeacon({
   listingId: number;
   meta?: Record<string, unknown>;
 }) {
+  const fired = useRef(false);
+  const metaRef = useRef(meta);
+  metaRef.current = meta;
+
   useEffect(() => {
-    trackEvent("listing_open", { listingId, meta });
-  }, [listingId, meta]);
+    if (fired.current) return;
+    fired.current = true;
+    trackEvent("listing_open", { listingId, meta: metaRef.current });
+  }, [listingId]);
+
   return null;
 }

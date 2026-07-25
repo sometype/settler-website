@@ -46,6 +46,11 @@ export async function POST(req: Request) {
     body.meta && typeof body.meta === "object" && !Array.isArray(body.meta)
       ? body.meta
       : {};
+  // session_id/path are length-capped above; cap meta too, or this endpoint
+  // is an open invitation to bloat the free-tier DB with megabyte blobs.
+  if (JSON.stringify(meta).length > 2048) {
+    return NextResponse.json({ ok: false, error: "meta_too_big" }, { status: 400 });
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
