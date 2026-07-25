@@ -1,3 +1,10 @@
+-- ⚠️⚠️ SUPERSEDED BY 006 — DO NOT APPLY THIS FILE. ⚠️⚠️
+--
+-- This migration was written but never applied. 006 contains everything below PLUS the
+-- `canonical_id is null` alias filter that the dedupe layer depends on. Applying 005
+-- after 006 would silently put duplicate cards back on the live site.
+-- Kept only for the reasoning in its comments.
+--
 -- Remove collection provenance from the public read model.
 --
 -- WHY THIS IS A DB CHANGE AND NOT JUST A UI CHANGE
