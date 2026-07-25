@@ -2,12 +2,16 @@
 --
 -- WHY THIS IS A DB CHANGE AND NOT JUST A UI CHANGE
 --
--- The site authenticates to PostgREST with the anon key, which is embedded in
--- the client JavaScript bundle and is therefore public by construction. Anyone
--- can lift it and query `listings_public` directly. So removing the source
--- badge, the source filter and the outbound "original listing" link from the
--- UI does not hide provenance — it only stops rendering it. `source`,
--- `source_id` and `url` have to leave the view itself.
+-- Not rendering a column is not the same as not exposing it. Today every
+-- Supabase call in this app runs server-side, so the anon key is NOT inlined
+-- into any client chunk (verified against the deployed bundle: 9 chunks, no
+-- key). That is a property of the current call sites, not a guarantee — the key
+-- is stored under a NEXT_PUBLIC_ name, so the day someone calls getSupabase()
+-- from a "use client" component, Next inlines it and anyone can query
+-- `listings_public` directly.
+--
+-- The view is the durable boundary; the UI is not. Dropping these three columns
+-- means provenance cannot be read back no matter how the front end changes.
 --
 -- The site no longer selects any of these three columns (lib/listings.ts uses
 -- an explicit column list), so this migration can be applied before or after

@@ -16,7 +16,8 @@ Source: live-site + source torture test, 2026-07-25. Grade at time of test: D+.
    outbound "original listing" link, no upstream image host, no `source` /
    `source_id` / `url` column over the wire, no working `?source=` param. Images
    are served only through `/img/{listingId}/{position}` on our own origin.
-   Assume the anon Supabase key is public — anything the view exposes is exposed.
+   Treat the public view — not the UI — as the boundary: keep Supabase calls
+   server-side, and never expose a column you are only choosing not to render.
 4. Never hardcode trust stats — wire to live counts or remove.
 5. Price sanity: hide or flag $0, absurd sale-as-rent, etc.
 
@@ -44,7 +45,7 @@ Source: live-site + source torture test, 2026-07-25. Grade at time of test: D+.
 - [x] ka-GE number locale for counts; Georgian gallery alts + photo counter; Georgian pagination aria-label
 - [x] Starter SVG junk deleted from `public/`
 - [x] **All collection provenance removed from the client.** Source filter dropped from FilterBar and `parseFilters` (a stray `?source=ss` is now inert); `source` / `source_id` / `url` no longer selected (explicit column list in `lib/listings.ts`); outbound "original listing" link removed entirely; images served through `/img/{listingId}/{position}`, so no upstream host appears in markup, network requests, or referrers. Verified: served HTML contains no `myhome` / `ss.ge` / `tnet.ge`, and the browser contacts only our own origin.
-- [ ] **Apply `sql/005_listings_public_drop_source.sql`** — drops `source` / `source_id` / `url` from the public view. Until applied, the anon key (public by construction — it ships in the JS bundle) can still read provenance straight from `listings_public`. Site code is already migration-order-independent.
+- [ ] **Apply `sql/005_listings_public_drop_source.sql`** — drops `source` / `source_id` / `url` from the public view. Defense-in-depth, not urgent: the anon key is currently *not* in any client chunk (verified against the deployed bundle), because every Supabase call runs server-side. But it is stored under a `NEXT_PUBLIC_` name, so one `"use client"` call site would inline it and expose the view. Site code is migration-order-independent.
 - [ ] **Last machine-readable trace:** `listing_images.source_url` stays anon-readable because `/img` resolves it at request time. Closed by finishing the bucket move (preferred) or a server-only service-role key — see the notes at the bottom of migration 005.
 - [ ] First-party images: **blocked on infra** — photos are on VPS disk (`/opt/settler/images`), not a public bucket. Move to R2/Supabase storage, then set `NEXT_PUBLIC_IMAGE_BASE_URL`; `/img` then 308-redirects to the stored copy and stops touching upstream entirely. That also removes the proxy's cold-fetch cost (~0.5–1.2s uncached in dev; CDN-cached for a year in production).
 
