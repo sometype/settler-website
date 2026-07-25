@@ -2,6 +2,9 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
+import { DISTRICTS } from "@/lib/districts";
+import { FILTER_AMENITIES } from "@/lib/amenities";
+import { AmenityIcon } from "./AmenityIcon";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
@@ -16,12 +19,14 @@ export function FilterBar() {
   const rooms = params.get("rooms") ?? "";
   // Default rent when param missing (matches parseFilters).
   const deal = params.get("deal") ?? "rent";
+  const selectedAmenities = (params.get("amen") ?? "").split(",").filter(Boolean);
 
   const hasFilters = Boolean(
     params.get("district") ||
       params.get("min") ||
       params.get("max") ||
       rooms ||
+      selectedAmenities.length > 0 ||
       (params.get("deal") && params.get("deal") !== "rent")
   );
 
@@ -42,6 +47,20 @@ export function FilterBar() {
       router.push(next.size ? `/?${next.toString()}` : "/");
     });
   }
+
+  function toggleAmenity(key: string) {
+    const set = new Set(selectedAmenities);
+    if (set.has(key)) set.delete(key);
+    else set.add(key);
+    apply({ amen: [...set].join(",") });
+  }
+
+  const chip = (active: boolean) =>
+    `rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition ${
+      active
+        ? "bg-stone-900 text-white ring-stone-900"
+        : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
+    }`;
 
   return (
     <form
@@ -75,13 +94,23 @@ export function FilterBar() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
           <span className="text-xs font-medium text-stone-500">უბანი</span>
-          <input
-            type="text"
+          <select
             value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            placeholder="მაგ. საბურთალო"
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-          />
+            onChange={(e) => {
+              // Apply immediately — a dropdown pick is a complete intent,
+              // unlike typing a price which needs the ძებნა commit.
+              setDistrict(e.target.value);
+              apply({ district: e.target.value });
+            }}
+            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+          >
+            <option value="">ყველა უბანი</option>
+            {DISTRICTS.map((d) => (
+              <option key={d.code} value={d.code}>
+                {d.ka}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-stone-500">მინ. $</span>
@@ -132,31 +161,31 @@ export function FilterBar() {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-xs font-medium text-stone-500">ოთახები:</span>
-        <button
-          type="button"
-          onClick={() => apply({ rooms: "" })}
-          className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition ${
-            rooms === ""
-              ? "bg-stone-900 text-white ring-stone-900"
-              : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
-          }`}
-        >
+        <button type="button" onClick={() => apply({ rooms: "" })} className={chip(rooms === "")}>
           ნებისმიერი
         </button>
         {ROOM_OPTIONS.map((r) => (
-          <button
-            key={r}
-            type="button"
-            onClick={() => apply({ rooms: r })}
-            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition ${
-              rooms === r
-                ? "bg-stone-900 text-white ring-stone-900"
-                : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
-            }`}
-          >
+          <button key={r} type="button" onClick={() => apply({ rooms: r })} className={chip(rooms === r)}>
             {r}
           </button>
         ))}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {FILTER_AMENITIES.map((a) => {
+          const active = selectedAmenities.includes(a.key);
+          return (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => toggleAmenity(a.key)}
+              aria-pressed={active}
+              className={`inline-flex items-center gap-1.5 ${chip(active)}`}
+            >
+              <AmenityIcon name={a.key} className="h-3.5 w-3.5" />
+              {a.ka}
+            </button>
+          );
+        })}
       </div>
     </form>
   );

@@ -12,7 +12,7 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
  */
 // Kept as one literal (not a joined array) so supabase-js can infer row types.
 const LISTING_COLUMNS =
-  "id, deal_type, district, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, views, image_status, first_seen_at, last_seen_at, phone, has_phone";
+  "id, deal_type, district, district_code, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, phone, has_phone";
 
 /** Client-safe image columns: enough to build the /img path, nothing more. */
 const IMAGE_COLUMNS = "listing_id, position, is_main";
@@ -34,12 +34,19 @@ interface Filterable {
   lte(column: string, value: number): Filterable;
   in(column: string, values: string[]): Filterable;
   eq(column: string, value: string): Filterable;
+  contains(column: string, value: Record<string, boolean>): Filterable;
 }
 
 function applyFilters<T>(query: T, filters: FeedFilters): T {
   let q = query as unknown as Filterable;
   if (filters.district) {
-    q = q.ilike("district", `%${filters.district}%`);
+    // Canonical code (parseFilters validated it) — matches the listing no
+    // matter which language the source spelled the district in.
+    q = q.eq("district_code", filters.district);
+  }
+  for (const key of filters.amenities ?? []) {
+    // jsonb containment — each selected amenity must be present (AND).
+    q = q.contains("amenities", { [key]: true });
   }
   if (filters.minPrice !== undefined) {
     q = q.gte("price_usd", filters.minPrice);

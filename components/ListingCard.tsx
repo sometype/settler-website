@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { isNew, formatPrice } from "@/lib/listings";
+import { districtLabel } from "@/lib/districts";
 import { ListingImage } from "./ListingImage";
 import { DealBadge, NewBadge } from "./Badges";
 
@@ -14,6 +15,7 @@ export function ListingCard({
 }) {
   const src = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
+  const district = districtLabel(listing.district_code, listing.district);
 
   return (
     <Link
@@ -23,7 +25,7 @@ export function ListingCard({
       <div className="relative aspect-[4/3] overflow-hidden">
         <ListingImage
           src={src}
-          alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${listing.district ?? "თბილისი"}`}
+          alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${district ?? "თბილისი"}`}
           className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
@@ -46,8 +48,8 @@ export function ListingCard({
             .filter(Boolean)
             .join(" · ")}
         </p>
-        {listing.district && (
-          <p className="truncate text-sm font-medium text-stone-800">{listing.district}</p>
+        {district && (
+          <p className="truncate text-sm font-medium text-stone-800">{district}</p>
         )}
       </div>
     </Link>
