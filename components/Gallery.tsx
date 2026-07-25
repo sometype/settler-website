@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
+import type { ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { ListingImage } from "./ListingImage";
 
 export function Gallery({
   images,
-  imageStatus,
   alt,
 }: {
   images: ListingImageRow[];
-  imageStatus: Listing["image_status"];
   alt: string;
 }) {
   const [active, setActive] = useState(0);
@@ -28,13 +26,18 @@ export function Gallery({
 
   return (
     <div className="space-y-2">
-      <div className="aspect-[16/10] overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
         <ListingImage
           key={activeImage.position}
-          src={resolveImageUrl(activeImage, imageStatus)}
-          alt={`${alt} — photo ${active + 1}`}
+          src={resolveImageUrl(activeImage)}
+          alt={`${alt} — ფოტო ${active + 1}`}
           className="h-full w-full object-cover"
         />
+        {images.length > 1 && (
+          <span className="absolute bottom-2 right-2 rounded-full bg-stone-950/70 px-2.5 py-1 text-xs font-medium text-white">
+            {active + 1} / {images.length}
+          </span>
+        )}
       </div>
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -49,7 +52,7 @@ export function Gallery({
               }`}
             >
               <ListingImage
-                src={resolveImageUrl(img, imageStatus)}
+                src={resolveImageUrl(img)}
                 alt=""
                 className="h-full w-full object-cover"
               />

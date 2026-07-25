@@ -62,7 +62,7 @@ export function PhoneBlock({
       ) : (
         <p className="mt-2 text-sm text-stone-500">
           <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-stone-300 align-middle" />
-          ნომერი მალე დაემატება — შემოგვიარე მოგვიანებით ან იხილე ორიგინალი განცხადება.
+          ნომერი მალე დაემატება — შემოგვიარე მოგვიანებით.
         </p>
       )}
     </div>

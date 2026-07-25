@@ -15,18 +15,22 @@ function num(v: string | string[] | undefined): number | undefined {
 }
 
 export function parseFilters(params: SearchParams): FeedFilters {
-  const source = str(params.source);
   const rooms = str(params.rooms);
   const deal = str(params.deal) ?? str(params.deal_type);
   // Default to rent so the homepage doesn't mix $500/mo with $80k sales.
   const dealType =
     deal === "sale" || deal === "rent" ? deal : deal === "all" ? undefined : "rent";
+  let minPrice = num(params.min);
+  let maxPrice = num(params.max);
+  // Reversed range would silently return nothing; treat it as the intended range.
+  if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
+    [minPrice, maxPrice] = [maxPrice, minPrice];
+  }
   return {
     district: str(params.district),
-    minPrice: num(params.min),
-    maxPrice: num(params.max),
+    minPrice,
+    maxPrice,
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
-    source: source === "myhome" || source === "ss" ? source : undefined,
     dealType,
     page: Math.max(1, num(params.page) ?? 1),
   };
@@ -38,7 +42,6 @@ export function hasActiveFilters(f: FeedFilters): boolean {
       f.minPrice !== undefined ||
       f.maxPrice !== undefined ||
       f.rooms ||
-      f.source ||
       (f.dealType && f.dealType !== "rent")
   );
 }

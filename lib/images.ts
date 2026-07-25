@@ -1,21 +1,12 @@
-import type { Listing, ListingImage } from "./types";
+import type { ListingImage } from "./types";
 
 /**
- * Resolve the display URL for one image record.
- * 1) stored copy if the pipeline finished and a CDN base is configured
- * 2) original source URL as a temporary fallback (may be referrer-blocked)
- * 3) null → caller renders a placeholder
+ * Every image is addressed through our own origin. The route behind this path
+ * decides whether to serve the stored copy or fetch upstream, so no collection
+ * source is ever exposed to the browser.
  */
-export function resolveImageUrl(
-  image: ListingImage,
-  imageStatus: Listing["image_status"]
-): string | null {
-  const base = process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
-  if (image.stored_path && imageStatus === "ready" && base) {
-    return `${base.replace(/\/$/, "")}/${image.stored_path}`;
-  }
-  if (image.source_url) return image.source_url;
-  return null;
+export function resolveImageUrl(image: ListingImage): string {
+  return `/img/${image.listing_id}/${image.position}`;
 }
 
 /** Main image: is_main flag wins, else lowest position. */

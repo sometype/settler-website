@@ -49,10 +49,10 @@ export async function Hero() {
           გაფილტრული აგენტებისა და დუბლიკატებისგან.
         </p>
 
+        {/* Live counts only — never hardcoded trust numbers. */}
         <div className="mt-9 flex flex-wrap gap-8 sm:gap-12">
-          <Stat value={stats.total.toLocaleString("en-US")} label="ნამდვილი განცხადება" />
-          <Stat value={`+${stats.addedToday.toLocaleString("en-US")}`} label="დღეს დამატებული" accent />
-          <Stat value="0" label="აგენტი · სპამი · დუბლიკატი" />
+          <Stat value={stats.total.toLocaleString("ka-GE")} label="ნამდვილი განცხადება" />
+          <Stat value={`+${stats.addedToday.toLocaleString("ka-GE")}`} label="დღეს დამატებული" accent />
         </div>
       </div>
     </section>

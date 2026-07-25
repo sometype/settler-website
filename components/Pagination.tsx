@@ -30,7 +30,7 @@ export function Pagination({
     "rounded-lg px-4 py-2 text-sm font-medium text-stone-300 ring-1 ring-stone-200";
 
   return (
-    <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Pagination">
+    <nav className="mt-8 flex items-center justify-center gap-3" aria-label="გვერდები">
       {page > 1 ? (
         <Link href={pageHref(searchParams, page - 1)} className={linkClass}>
           ← წინა

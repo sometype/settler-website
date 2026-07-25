@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchListing, formatPrice, isNew } from "@/lib/listings";
+import { stripHtml } from "@/lib/text";
 import { Gallery } from "@/components/Gallery";
 import { PhoneBlock } from "@/components/PhoneBlock";
-import { SourceBadge, DealBadge, NewBadge } from "@/components/SourceBadge";
+import { DealBadge, NewBadge } from "@/components/Badges";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,9 @@ export default async function ListingPage({
   const deal = listing.deal_type === "sale" ? "sale" : "rent";
   const dealLabel = deal === "sale" ? "იყიდება" : "ქირავდება";
   const price = formatPrice(listing.price_usd, deal);
+  // Prefer the worker's cleaned Georgian text; the raw source fallback carries
+  // literal HTML (<br /> etc.) and must be stripped before display.
+  const description = listing.description_ka?.trim() || stripHtml(listing.description);
   const title = [
     listing.rooms ? `${listing.rooms}-ოთახიანი ბინა` : "ბინა",
     listing.district ?? "თბილისი",
@@ -68,13 +72,12 @@ export default async function ListingPage({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          <Gallery images={images} imageStatus={listing.image_status} alt={title} />
+          <Gallery images={images} alt={title} />
 
           <header className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               {isNew(listing.first_seen_at) && <NewBadge />}
               <DealBadge dealType={deal} />
-              <SourceBadge source={listing.source} />
             </div>
             <h1 className="text-2xl font-black text-stone-900">{title}</h1>
             {price ? (
@@ -84,11 +87,11 @@ export default async function ListingPage({
             )}
           </header>
 
-          {listing.description && (
+          {description && (
             <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
               <h2 className="text-sm font-semibold text-stone-900">აღწერა</h2>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-stone-700">
-                {listing.description}
+                {description}
               </p>
             </section>
           )}
@@ -112,15 +115,6 @@ export default async function ListingPage({
           </div>
 
           <PhoneBlock hasPhone={listing.has_phone} phone={listing.phone} />
-
-          <a
-            href={listing.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-2xl bg-white p-4 text-center text-sm font-semibold text-stone-700 ring-1 ring-stone-200 transition hover:ring-stone-400"
-          >
-            ორიგინალი განცხადება ↗
-          </a>
         </aside>
       </div>
     </article>

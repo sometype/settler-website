@@ -3,7 +3,7 @@ import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { isNew, formatPrice } from "@/lib/listings";
 import { ListingImage } from "./ListingImage";
-import { SourceBadge, DealBadge, NewBadge } from "./SourceBadge";
+import { DealBadge, NewBadge } from "./Badges";
 
 export function ListingCard({
   listing,
@@ -12,7 +12,7 @@ export function ListingCard({
   listing: Listing;
   mainImage: ListingImageRow | null;
 }) {
-  const src = mainImage ? resolveImageUrl(mainImage, listing.image_status) : null;
+  const src = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
 
   return (
@@ -29,9 +29,6 @@ export function ListingCard({
         <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
           {isNew(listing.first_seen_at) && <NewBadge />}
           <DealBadge dealType={listing.deal_type} />
-        </div>
-        <div className="absolute right-2 top-2">
-          <SourceBadge source={listing.source} />
         </div>
       </div>
       <div className="space-y-1.5 p-4">

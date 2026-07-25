@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { fetchFeed } from "@/lib/listings";
 import { parseFilters, hasActiveFilters, type SearchParams } from "@/lib/filters";
 import { Hero } from "@/components/Hero";
@@ -29,6 +30,30 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
+  // page= beyond the last page: results exist, the page number doesn't.
+  if (result.listings.length === 0 && result.total > 0 && filters.page > result.pageCount) {
+    const backParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams)) {
+      const v = Array.isArray(value) ? value[0] : value;
+      if (v && key !== "page") backParams.set(key, v);
+    }
+    const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
+    return (
+      <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
+        <h2 className="text-lg font-semibold text-stone-800">ასეთი გვერდი არ არსებობს</h2>
+        <p className="mt-2 text-sm text-stone-500">
+          სულ {result.pageCount.toLocaleString("ka-GE")} გვერდია.
+        </p>
+        <Link
+          href={backHref}
+          className="mt-4 inline-block text-sm font-semibold text-emerald-700 underline underline-offset-2"
+        >
+          პირველ გვერდზე დაბრუნება
+        </Link>
+      </div>
+    );
+  }
+
   if (result.listings.length === 0) {
     return (
       <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
@@ -47,7 +72,7 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <p className="mb-3 text-sm text-stone-500">
-        {result.total.toLocaleString("en-US")} განცხადება
+        {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
       </p>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

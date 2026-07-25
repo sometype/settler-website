@@ -14,7 +14,6 @@ export function FilterBar() {
   const [min, setMin] = useState(params.get("min") ?? "");
   const [max, setMax] = useState(params.get("max") ?? "");
   const rooms = params.get("rooms") ?? "";
-  const source = params.get("source") ?? "";
   // Default rent when param missing (matches parseFilters).
   const deal = params.get("deal") ?? "rent";
 
@@ -23,7 +22,6 @@ export function FilterBar() {
       params.get("min") ||
       params.get("max") ||
       rooms ||
-      source ||
       (params.get("deal") && params.get("deal") !== "rent")
   );
 
@@ -74,7 +72,7 @@ export function FilterBar() {
           </button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-[1fr_repeat(3,minmax(0,0.6fr))_auto]">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
           <span className="text-xs font-medium text-stone-500">უბანი</span>
           <input
@@ -109,19 +107,7 @@ export function FilterBar() {
             className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">წყარო</span>
-          <select
-            value={source}
-            onChange={(e) => apply({ source: e.target.value })}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
-          >
-            <option value="">ყველა წყარო</option>
-            <option value="myhome">myhome.ge</option>
-            <option value="ss">ss.ge</option>
-          </select>
-        </label>
-        <div className="col-span-2 flex items-end gap-2 sm:col-span-4 lg:col-span-1">
+        <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
             type="submit"
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"

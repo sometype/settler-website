@@ -27,8 +27,8 @@ function Placeholder({ label }: { label?: string }) {
 }
 
 /**
- * <img> with graceful fallback: hotlinked source images may be
- * referrer-blocked, so a load error swaps in a clean placeholder.
+ * <img> with graceful fallback: an image the /img route can't serve swaps in a
+ * clean placeholder rather than a broken-image icon.
  */
 export function ListingImage({
   src,
@@ -48,7 +48,7 @@ export function ListingImage({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- remote hosts are arbitrary; next/image remotePatterns can't cover them
+    // eslint-disable-next-line @next/next/no-img-element -- next/image would add a second hop on top of the /img route; revisit with the CDN work
     <img
       src={src}
       alt={alt}
