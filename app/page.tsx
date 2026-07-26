@@ -11,6 +11,8 @@ import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
 import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
+import { HotRail } from "@/components/HotRail";
+import { DistrictPulse } from "@/components/DistrictPulse";
 import { Pagination } from "@/components/Pagination";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
@@ -138,6 +140,23 @@ export default async function HomePage({
         {showJustAdded && (
           <Suspense fallback={<div className="h-56" />}>
             <JustAddedRail dealType={homeFilters.dealType} />
+          </Suspense>
+        )}
+        {/* Below just-added on purpose: freshness is the product's claim, and
+            attention is the second-order signal. Hidden under the same
+            narrowing-filter rule — an unfiltered "others are looking" strip
+            would contradict the filtered list directly beneath it. Renders
+            nothing at all when there are too few genuinely-hot cards. */}
+        {showJustAdded && (
+          <Suspense fallback={null}>
+            <HotRail dealType={homeFilters.dealType} />
+          </Suspense>
+        )}
+        {/* Directly above the feed: it is a way INTO the list, so it belongs
+            next to it rather than up with the rails. */}
+        {showJustAdded && (
+          <Suspense fallback={null}>
+            <DistrictPulse dealType={homeFilters.dealType} />
           </Suspense>
         )}
         <Suspense key={JSON.stringify(params)} fallback={<FeedSkeleton />}>

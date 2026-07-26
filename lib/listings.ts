@@ -193,6 +193,139 @@ export async function fetchJustAdded(
   return { listings, mainImages };
 }
 
+/** Minimum cards before the hot rail renders — same discipline as just-added:
+ *  a rail padded with lukewarm listings lies about what it is showing. */
+export const HOT_MIN_CARDS = 4;
+/** Only the top of each (source × age band) cohort, and only cohorts big enough
+ *  for a percentile to mean anything. */
+const HOT_MIN_PCT = 90;
+const HOT_MIN_BAND_N = 8;
+
+/**
+ * "People are looking at this" — a rolling 12h peak from view_samples, ranked
+ * inside each source and age band. See sql/010 for why every one of those words
+ * matters; the short version is that the obvious implementations produce either
+ * an all-myhome list, a list of listings that were hot three days ago, or a
+ * duplicate of just-added.
+ */
+export async function fetchHot(
+  dealType: FeedFilters["dealType"],
+  limit = 8
+): Promise<JustAddedResult> {
+  const supabase = getSupabase();
+
+  // Sale is intentionally excluded until the "sales die faster than rentals"
+  // anomaly (median 18h vs 39h) is explained — its velocity is not trusted.
+  if (dealType === "sale") return { listings: [], mainImages: new Map() };
+
+  const { data: hot, error: hotErr } = await supabase
+    .from("listings_hot")
+    .select("listing_id, pct_in_band, hot_vph")
+    .eq("deal_type", "rent")
+    .gte("pct_in_band", HOT_MIN_PCT)
+    .gte("band_n", HOT_MIN_BAND_N)
+    .order("pct_in_band", { ascending: false })
+    .order("hot_vph", { ascending: false })
+    .limit(limit * 2);
+
+  if (hotErr || !hot || hot.length === 0) return { listings: [], mainImages: new Map() };
+
+  const ids = (hot as { listing_id: number }[]).map((h) => h.listing_id);
+
+  // Re-fetch through listings_public rather than trusting the ranking view for
+  // visibility: that view is the single boundary deciding what anon may see.
+  const { data, error } = await supabase
+    .from("listings_public")
+    .select(LISTING_COLUMNS)
+    .in("id", ids)
+    .eq("deal_type", "rent")
+    .limit(limit);
+
+  if (error || !data) return { listings: [], mainImages: new Map() };
+
+  // Preserve the heat order the ranking gave us; .in() returns arbitrary order.
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  const listings = (data as Listing[]).sort(
+    (a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999)
+  );
+
+  const mainImages = new Map<number, ListingImage>();
+  if (listings.length > 0) {
+    const { data: images } = await supabase
+      .from("listing_images")
+      .select(IMAGE_COLUMNS)
+      .in(
+        "listing_id",
+        listings.map((l) => l.id)
+      )
+      .order("position", { ascending: true });
+    for (const img of (images ?? []) as ListingImage[]) {
+      const current = mainImages.get(img.listing_id);
+      if (!current || (img.is_main && !current.is_main)) {
+        mainImages.set(img.listing_id, img);
+      }
+    }
+  }
+
+  return { listings, mainImages };
+}
+
+export interface DistrictPulse {
+  code: string;
+  live: number;
+  new24h: number;
+}
+
+/** Districts must have this many arrivals in 24h to earn a chip. Below it the
+ *  strip becomes a row of zeros, which reads as a dead site rather than a busy
+ *  one. */
+const DISTRICT_MIN_NEW_24H = 3;
+
+/**
+ * "Where the river is today" — districts ranked by arrivals in the last 24h.
+ *
+ * Uses district_code, not the raw district string: myhome ships English names
+ * and ss ships Georgian, so counting the raw column would split Saburtalo across
+ * two chips. Deliberately NOT a map — coordinate coverage is 60-79% and a map is
+ * a browsing toy, while these chips are a filter shortcut.
+ */
+export async function fetchDistrictPulse(
+  dealType: FeedFilters["dealType"],
+  limit = 8
+): Promise<DistrictPulse[]> {
+  const supabase = getSupabase();
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const deal = dealType === "sale" ? "sale" : "rent";
+
+  // Two head-counts per district would be N round trips; instead pull the ids
+  // once and tally locally. The public view is already filtered to what anon may
+  // see, so no visibility logic is duplicated here.
+  const { data, error } = await supabase
+    .from("listings_public")
+    .select("district_code, first_seen_at")
+    .eq("deal_type", deal)
+    .not("district_code", "is", null);
+
+  if (error || !data) return [];
+
+  const tally = new Map<string, DistrictPulse>();
+  for (const row of data as { district_code: string; first_seen_at: string }[]) {
+    const t = tally.get(row.district_code) ?? {
+      code: row.district_code,
+      live: 0,
+      new24h: 0,
+    };
+    t.live += 1;
+    if (row.first_seen_at >= dayAgo) t.new24h += 1;
+    tally.set(row.district_code, t);
+  }
+
+  return [...tally.values()]
+    .filter((d) => d.new24h >= DISTRICT_MIN_NEW_24H)
+    .sort((a, b) => b.new24h - a.new24h)
+    .slice(0, limit);
+}
+
 export async function fetchListing(
   id: number
 ): Promise<{ listing: Listing | null; images: ListingImage[] }> {
