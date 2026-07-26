@@ -55,6 +55,25 @@ function notFound(): Response {
   return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
 }
 
+/**
+ * ss.ge stamps its logo on the default image URL; appending `_Original` to the
+ * stem serves the same photo unstamped (image_worker.py does exactly this for
+ * the stored copies — measured 250/250 available, never lower resolution).
+ * Without this, a brand-new ss listing shows the logo for its first ~25 minutes
+ * while the bridge proxies upstream, then flips clean once R2 syncs — and those
+ * first minutes are precisely the just-added rail, i.e. the front door.
+ * The stamped URL stays as the fallback, so a missing variant costs a logo,
+ * never a photo. Suffix is case-sensitive.
+ */
+function unstampedCandidates(upstream: URL): URL[] {
+  if (upstream.hostname !== "static.ss.ge") return [upstream];
+  const m = upstream.pathname.match(/^(.*)(\.[A-Za-z]+)$/);
+  if (!m || m[1].endsWith("_Original")) return [upstream];
+  const clean = new URL(upstream.href);
+  clean.pathname = `${m[1]}_Original${m[2]}`;
+  return [clean, upstream];
+}
+
 /** Shared by the legacy no-stored-path branch and the young-image bridge. */
 async function proxyUpstream(sourceUrl: string, cacheControl: string): Promise<Response> {
   let upstream: URL;
@@ -67,29 +86,32 @@ async function proxyUpstream(sourceUrl: string, cacheControl: string): Promise<R
     return notFound();
   }
 
-  let res: Response;
-  try {
-    res = await fetch(upstream, {
-      headers: { Accept: "image/*" },
-      redirect: "follow",
-      signal: AbortSignal.timeout(10_000),
+  for (const candidate of unstampedCandidates(upstream)) {
+    let res: Response;
+    try {
+      res = await fetch(candidate, {
+        headers: { Accept: "image/*" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      continue;
+    }
+    if (!res.ok || !res.body) continue;
+
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.startsWith("image/")) continue;
+
+    return new Response(res.body, {
+      status: 200,
+      headers: {
+        "Content-Type": type,
+        "Cache-Control": cacheControl,
+        "X-Content-Type-Options": "nosniff",
+      },
     });
-  } catch {
-    return notFound();
   }
-  if (!res.ok || !res.body) return notFound();
-
-  const type = res.headers.get("content-type") ?? "";
-  if (!type.startsWith("image/")) return notFound();
-
-  return new Response(res.body, {
-    status: 200,
-    headers: {
-      "Content-Type": type,
-      "Cache-Control": cacheControl,
-      "X-Content-Type-Options": "nosniff",
-    },
-  });
+  return notFound();
 }
 
 export async function GET(
