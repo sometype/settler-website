@@ -5,6 +5,15 @@ import type { ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { ListingImage } from "./ListingImage";
 
+/**
+ * Fixed-frame gallery. Owners upload every orientation under the sun (phone
+ * portraits 770×1712, landscape rooms, video-frame screenshots). The frame
+ * size must NEVER depend on the active image's intrinsic dimensions — if the
+ * main <img> is in normal flow, swapping a landscape for a tall portrait
+ * reflows the page, the vertical scrollbar appears/disappears, and the whole
+ * layout wobbles left-right. Both the blur plate and the photo are therefore
+ * position:absolute inside a pure aspect-ratio box.
+ */
 export function Gallery({
   images,
   alt,
@@ -16,46 +25,50 @@ export function Gallery({
 
   if (images.length === 0) {
     return (
-      <div className="aspect-[16/10] overflow-hidden rounded-2xl ring-1 ring-stone-200">
-        <ListingImage src={null} alt={alt} placeholderLabel="ფოტოები ჯერ არ არის" />
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl ring-1 ring-stone-200">
+        <ListingImage
+          src={null}
+          alt={alt}
+          placeholderLabel="ფოტოები ჯერ არ არის"
+          className="absolute inset-0 h-full w-full"
+        />
       </div>
     );
   }
 
   const activeImage = images[Math.min(active, images.length - 1)];
+  const src = resolveImageUrl(activeImage);
 
   return (
     <div className="space-y-2">
-      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
-        {/*
-          object-contain, never object-cover: owners upload phone screenshots
-          and video frames (770×1669 portraits), and a forced 16:10 cover crop
-          shows a random horizontal band of them. The blurred copy underneath
-          fills the letterbox so portraits don't float on flat gray.
-        */}
-        <img
-          key={`bg-${activeImage.position}`}
-          src={resolveImageUrl(activeImage)}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-        />
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
+        {/* Blur plate — fills letterbox; scale is clipped by overflow-hidden. */}
+        {src && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`bg-${activeImage.position}`}
+            src={src}
+            alt=""
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+          />
+        )}
         <ListingImage
           key={activeImage.position}
-          src={resolveImageUrl(activeImage)}
+          src={src}
           alt={`${alt} — ფოტო ${active + 1}`}
-          className="relative h-full w-full object-contain"
+          className="absolute inset-0 h-full w-full object-contain"
         />
         {images.length > 1 && (
-          <span className="absolute bottom-2 right-2 rounded-full bg-stone-950/70 px-2.5 py-1 text-xs font-medium text-white">
+          <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-stone-950/70 px-2.5 py-1 text-xs font-medium text-white">
             {active + 1} / {images.length}
           </span>
         )}
       </div>
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
           {images.map((img, i) => (
             <button
               key={`${img.position}-${i}`}

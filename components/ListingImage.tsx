@@ -44,7 +44,13 @@ export function ListingImage({
   const [failed, setFailed] = useState(false);
 
   if (!src || failed) {
-    return <Placeholder label={placeholderLabel} />;
+    // Keep className (often absolute inset-0) so a failed load cannot collapse
+    // a fixed-aspect gallery frame and reflow the page.
+    return (
+      <div className={className}>
+        <Placeholder label={placeholderLabel} />
+      </div>
+    );
   }
 
   return (
@@ -54,6 +60,7 @@ export function ListingImage({
       alt={alt}
       className={className}
       loading="lazy"
+      decoding="async"
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
     />

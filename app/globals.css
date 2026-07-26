@@ -11,8 +11,15 @@
   --font-sans: var(--font-georgian);
 }
 
+/* Reserve scrollbar space so gallery image swaps cannot show/hide the vertical
+   bar and shove the whole page left-right (listing 1437-class mixed ratios). */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-georgian), "Noto Sans Georgian", system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
 }
