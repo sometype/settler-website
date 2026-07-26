@@ -31,13 +31,32 @@ export function ListingCard({
       href={`/listing/${listing.id}`}
       className="group overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200 transition hover:shadow-lg hover:ring-stone-300 focus-visible:outline-2 focus-visible:outline-emerald-600"
     >
-      <div className="relative aspect-[4/3] overflow-hidden">
+      {/* Same treatment the gallery got in 5cf8c83, for the same reason: owners
+          upload panoramas pasted into portrait canvases and phone screenshots,
+          and object-cover crops those to a meaningless slice. Measured over
+          13,943 stored photos, 59 listings have a cover with uniform bars — and
+          24 of them have no cleaner photo to swap to, so contain+blur fixes
+          cases that reordering never could. The blur plate keeps the frame
+          filled so the grid does not show letterboxed black holes. */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+        {src && (
+          // eslint-disable-next-line @next/next/no-img-element -- same reason as ListingImage: next/image would add a second hop on top of the /img route
+          <img
+            src={src}
+            alt=""
+            aria-hidden="true"
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+          />
+        )}
         <ListingImage
           src={src}
           alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${district ?? "თბილისი"}`}
-          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+          className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
         />
-        <div className="absolute left-2 top-2 flex flex-wrap gap-1.5">
+        <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-1.5">
           {isNew(listing.first_seen_at) && <NewBadge />}
           <DealBadge dealType={listing.deal_type} />
         </div>

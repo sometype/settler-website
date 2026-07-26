@@ -21,6 +21,15 @@ export function FilterBar() {
   const deal = params.get("deal") ?? "rent";
   const selectedAmenities = (params.get("amen") ?? "").split(",").filter(Boolean);
 
+  // Phones only: everything except the rent/sale toggle collapses behind a
+  // button. Measured before this change — hero 260px + filter bar 471px meant
+  // the first apartment sat at y=896 on a 812px screen, so a visitor still had
+  // to scroll past a full screen of chrome to see the product. Desktop keeps the
+  // bar always open (sm:block below); it has the room.
+  // Opens by default when filters are already applied, so a returning visitor
+  // can see and clear what is narrowing their results.
+  const [openOnMobile, setOpenOnMobile] = useState(false);
+
   const hasFilters = Boolean(
     params.get("district") ||
       params.get("min") ||
@@ -62,6 +71,11 @@ export function FilterBar() {
         : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
     }`;
 
+  // Hidden on phones unless toggled or already filtering; always shown from sm up.
+  const openFilters = `${
+    openOnMobile || hasFilters ? "block" : "hidden"
+  } sm:block`;
+
   return (
     <form
       className="rounded-2xl bg-white p-4 ring-1 ring-stone-200"
@@ -90,7 +104,24 @@ export function FilterBar() {
             {label}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={() => setOpenOnMobile((v) => !v)}
+          aria-expanded={openOnMobile}
+          className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-600 ring-1 ring-inset ring-stone-300 transition hover:ring-stone-400 sm:hidden"
+        >
+          ფილტრი
+          <svg
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+            className={`h-3.5 w-3.5 transition ${openOnMobile ? "rotate-180" : ""}`}
+          >
+            <path fillRule="evenodd" d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.58l3.3-3.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.42Z" clipRule="evenodd" />
+          </svg>
+        </button>
       </div>
+      <div className={openFilters}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
           <span className="text-xs font-medium text-stone-500">უბანი</span>
@@ -186,6 +217,7 @@ export function FilterBar() {
             </button>
           );
         })}
+      </div>
       </div>
     </form>
   );
