@@ -27,11 +27,26 @@ export function Gallery({
   return (
     <div className="space-y-2">
       <div className="relative aspect-[16/10] overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
+        {/*
+          object-contain, never object-cover: owners upload phone screenshots
+          and video frames (770×1669 portraits), and a forced 16:10 cover crop
+          shows a random horizontal band of them. The blurred copy underneath
+          fills the letterbox so portraits don't float on flat gray.
+        */}
+        <img
+          key={`bg-${activeImage.position}`}
+          src={resolveImageUrl(activeImage)}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
         <ListingImage
           key={activeImage.position}
           src={resolveImageUrl(activeImage)}
           alt={`${alt} — ფოტო ${active + 1}`}
-          className="h-full w-full object-cover"
+          className="relative h-full w-full object-contain"
         />
         {images.length > 1 && (
           <span className="absolute bottom-2 right-2 rounded-full bg-stone-950/70 px-2.5 py-1 text-xs font-medium text-white">
