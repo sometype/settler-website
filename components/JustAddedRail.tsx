@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { fetchJustAdded, formatPrice, JUST_ADDED_MIN_CARDS } from "@/lib/listings";
+import { formatPrice, JUST_ADDED_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
 import { resolveImageUrl } from "@/lib/images";
 import { districtLabel } from "@/lib/districts";
 import { relativeTimeKa, isVeryFresh } from "@/lib/time";
-import type { FeedFilters } from "@/lib/types";
 import { ListingImage } from "./ListingImage";
 import { TimeAgo } from "./TimeAgo";
 
@@ -12,12 +11,12 @@ import { TimeAgo } from "./TimeAgo";
  * under paid VIP ads; we see them within minutes. That is the one claim the
  * incumbents cannot make, so it gets the position directly above the feed.
  */
-export async function JustAddedRail({
-  dealType,
+export function JustAddedRail({
+  data,
 }: {
-  dealType: FeedFilters["dealType"];
+  data: JustAddedResult;
 }) {
-  const { listings, mainImages } = await fetchJustAdded(dealType, 8);
+  const { listings, mainImages } = data;
   // Too few genuinely-fresh cards → no rail. Padding with older stock would
   // put stale listings under a heading that promises the opposite.
   if (listings.length < JUST_ADDED_MIN_CARDS) return null;

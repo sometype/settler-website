@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { fetchFeed } from "@/lib/listings";
+import { fetchFeed, fetchRailPlan, type RailPlan } from "@/lib/listings";
 import {
   parseFilters,
   hasActiveFilters,
@@ -13,6 +13,7 @@ import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
 import { HotRail } from "@/components/HotRail";
 import { DistrictPulse } from "@/components/DistrictPulse";
+import { DistrictRail } from "@/components/DistrictRail";
 import { Pagination } from "@/components/Pagination";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
@@ -32,13 +33,19 @@ function filterMeta(filters: ReturnType<typeof parseFilters>) {
   };
 }
 
-async function Feed({ searchParams }: { searchParams: SearchParams }) {
+async function Feed({
+  searchParams,
+  excludeIds = [],
+}: {
+  searchParams: SearchParams;
+  excludeIds?: number[];
+}) {
   const filters = parseFilters(searchParams);
   const meta = filterMeta(filters);
 
   let result;
   try {
-    result = await fetchFeed(filters);
+    result = await fetchFeed(filters, excludeIds);
   } catch (err) {
     return (
       <div className="rounded-2xl bg-red-50 p-8 text-center ring-1 ring-red-200">
@@ -115,6 +122,47 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+/**
+ * Plans and renders everything above the feed, plus the feed itself — they share
+ * one component because the feed needs to know which listings the rails already
+ * used. Under a narrowing filter the rails disappear and the feed is unmodified.
+ */
+async function Rails({ searchParams }: { searchParams: SearchParams }) {
+  const filters = parseFilters(searchParams);
+  const showRails = !hasNarrowingFilters(filters);
+
+  if (!showRails) {
+    return <Feed searchParams={searchParams} />;
+  }
+
+  let plan: RailPlan | null = null;
+  try {
+    plan = await fetchRailPlan(filters.dealType);
+  } catch {
+    // Rails are decoration over the feed — never let them break the page.
+    plan = null;
+  }
+
+  return (
+    <div className="space-y-5">
+      {plan && plan.justAdded.listings.length > 0 && (
+        <JustAddedRail data={plan.justAdded} />
+      )}
+      {/* Below just-added on purpose: freshness is the product's claim, and
+          attention is the second-order signal. */}
+      {plan && plan.hot.listings.length > 0 && <HotRail data={plan.hot} />}
+      {/* District strips: the axis people actually hunt on. Count is one
+          constant (DISTRICT_RAILS) — see lib/listings.ts. */}
+      {plan?.districts.map((d) => (
+        <DistrictRail key={d.code} data={d} dealType={filters.dealType} />
+      ))}
+      {/* Chips are the way into the other ~40 districts that have no rail. */}
+      <DistrictPulse dealType={filters.dealType} />
+      <Feed searchParams={searchParams} excludeIds={plan?.shownIds ?? []} />
+    </div>
+  );
+}
+
 export default async function HomePage({
   searchParams,
 }: {
@@ -128,7 +176,6 @@ export default async function HomePage({
   // The strip is a browse aid for someone with no stated intent. Once a filter
   // is on, unfiltered arrivals would contradict the list right below them.
   const homeFilters = parseFilters(params);
-  const showJustAdded = !hasNarrowingFilters(homeFilters);
 
   return (
     <>
@@ -137,30 +184,11 @@ export default async function HomePage({
       </Suspense>
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
         <FilterBar key={filterKey} />
-        {showJustAdded && (
-          <Suspense fallback={<div className="h-56" />}>
-            <JustAddedRail dealType={homeFilters.dealType} />
-          </Suspense>
-        )}
-        {/* Below just-added on purpose: freshness is the product's claim, and
-            attention is the second-order signal. Hidden under the same
-            narrowing-filter rule — an unfiltered "others are looking" strip
-            would contradict the filtered list directly beneath it. Renders
-            nothing at all when there are too few genuinely-hot cards. */}
-        {showJustAdded && (
-          <Suspense fallback={null}>
-            <HotRail dealType={homeFilters.dealType} />
-          </Suspense>
-        )}
-        {/* Directly above the feed: it is a way INTO the list, so it belongs
-            next to it rather than up with the rails. */}
-        {showJustAdded && (
-          <Suspense fallback={null}>
-            <DistrictPulse dealType={homeFilters.dealType} />
-          </Suspense>
-        )}
-        <Suspense key={JSON.stringify(params)} fallback={<FeedSkeleton />}>
-          <Feed searchParams={params} />
+        {/* All rails are planned together (fetchRailPlan) rather than fetching
+            independently, because they must not repeat each other's listings —
+            and the feed must not repeat any of them. */}
+        <Suspense key={`rails-${homeFilters.dealType ?? "rent"}-${JSON.stringify(params)}`} fallback={<FeedSkeleton />}>
+          <Rails searchParams={params} />
         </Suspense>
       </div>
     </>

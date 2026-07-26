@@ -63,16 +63,30 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
   return q as unknown as T;
 }
 
-export async function fetchFeed(filters: FeedFilters): Promise<FeedResult> {
+export async function fetchFeed(
+  filters: FeedFilters,
+  /**
+   * Listings already shown in a rail above the feed. Measured on production
+   * before this existed: the just-added rail's 8 cards were the feed's first 8,
+   * same ids in the same order — the page repeated itself and read as padding.
+   * Excluded from the ROWS only; `total` still counts the whole inventory,
+   * because "784 განცხადება" should mean what it says.
+   */
+  excludeIds: number[] = []
+): Promise<FeedResult> {
   const supabase = getSupabase();
 
-  const query = applyFilters(
+  let base = applyFilters(
     supabase
       .from("listings_public")
       .select(LISTING_COLUMNS, { count: "exact" })
       .order("first_seen_at", { ascending: false }),
     filters
   );
+  if (excludeIds.length > 0) {
+    base = base.not("id", "in", `(${excludeIds.join(",")})`);
+  }
+  const query = base;
 
   const from = (filters.page - 1) * PAGE_SIZE;
   let { data, error, count } = await query.range(from, from + PAGE_SIZE - 1);
@@ -324,6 +338,125 @@ export async function fetchDistrictPulse(
     .filter((d) => d.new24h >= DISTRICT_MIN_NEW_24H)
     .sort((a, b) => b.new24h - a.new24h)
     .slice(0, limit);
+}
+
+/**
+ * How many district rails the homepage shows. THIS CONSTANT IS THE WHOLE
+ * "how many rails?" debate — set it, look at the page, change it. One rail is
+ * relevant-per-scroll; five looks more like a product to someone who landed by
+ * accident. Both defensible, so it is a number rather than an argument.
+ * Above ~6 the page becomes stacked carousels, which is the failure mode.
+ */
+export const DISTRICT_RAILS = 3;
+
+/** Same discipline as the other rails: a thin strip lies about what it shows. */
+const DISTRICT_RAIL_MIN_CARDS = 4;
+const DISTRICT_RAIL_SIZE = 8;
+
+export interface DistrictRailData {
+  code: string;
+  live: number;
+  new24h: number;
+  listings: Listing[];
+  mainImages: Map<number, ListingImage>;
+}
+
+export interface RailPlan {
+  justAdded: JustAddedResult;
+  hot: JustAddedResult;
+  districts: DistrictRailData[];
+  /** Everything rendered above the feed, so the feed can skip it. */
+  shownIds: number[];
+}
+
+/**
+ * Plans every rail on the homepage in one place, because the rails have to know
+ * about each other.
+ *
+ * DEDUPE IS THE POINT. A flat appearing in just-added AND hot AND its district
+ * rail reads as padding — the exact disease this page already had. Priority is
+ * new → hot → district, so each strip shows something the ones above it did not.
+ * Verified safe before building: removing the 16 ids that new+hot occupy leaves
+ * the top ten districts with 6-42 fresh listings each, so no rail starves.
+ *
+ * NOT personalised to the visitor's last district. That needs a cookie to be
+ * readable server-side, and this site deliberately ships no cookie banner —
+ * adding a personalisation cookie quietly would undercut that. Districts are
+ * ordered by 24h arrivals instead, so the page still changes daily.
+ */
+export async function fetchRailPlan(
+  dealType: FeedFilters["dealType"],
+  railCount: number = DISTRICT_RAILS
+): Promise<RailPlan> {
+  const supabase = getSupabase();
+
+  const [justAdded, hot, pulse] = await Promise.all([
+    fetchJustAdded(dealType, 8),
+    fetchHot(dealType, 8),
+    fetchDistrictPulse(dealType, 40),
+  ]);
+
+  const shown = new Set<number>([
+    ...justAdded.listings.map((l) => l.id),
+    ...hot.listings.map((l) => l.id),
+  ]);
+
+  const deal = dealType === "sale" ? "sale" : "rent";
+  const candidates = pulse.slice(0, Math.max(0, railCount));
+
+  const fetched = await Promise.all(
+    candidates.map(async (d) => {
+      let q = supabase
+        .from("listings_public")
+        .select(LISTING_COLUMNS)
+        .eq("deal_type", deal)
+        .eq("district_code", d.code)
+        .order("first_seen_at", { ascending: false })
+        .limit(DISTRICT_RAIL_SIZE + shown.size);
+      const skip = [...shown];
+      if (skip.length > 0) q = q.not("id", "in", `(${skip.join(",")})`);
+      const { data, error } = await q;
+      if (error || !data) return null;
+      const listings = (data as Listing[]).slice(0, DISTRICT_RAIL_SIZE);
+      if (listings.length < DISTRICT_RAIL_MIN_CARDS) return null;
+      return { code: d.code, live: d.live, new24h: d.new24h, listings };
+    })
+  );
+
+  const rails = fetched.filter((r): r is NonNullable<typeof r> => r !== null);
+
+  // One image query for every district rail rather than one per rail.
+  const allIds = rails.flatMap((r) => r.listings.map((l) => l.id));
+  const imagesById = new Map<number, ListingImage>();
+  if (allIds.length > 0) {
+    const { data: images } = await supabase
+      .from("listing_images")
+      .select(IMAGE_COLUMNS)
+      .in("listing_id", allIds)
+      .order("position", { ascending: true });
+    for (const img of (images ?? []) as ListingImage[]) {
+      const current = imagesById.get(img.listing_id);
+      if (!current || (img.is_main && !current.is_main)) {
+        imagesById.set(img.listing_id, img);
+      }
+    }
+  }
+
+  const districts: DistrictRailData[] = rails.map((r) => ({
+    code: r.code,
+    live: r.live,
+    new24h: r.new24h,
+    listings: r.listings,
+    mainImages: new Map(
+      r.listings
+        .map((l) => [l.id, imagesById.get(l.id)] as const)
+        .filter((e): e is readonly [number, ListingImage] => Boolean(e[1]))
+    ),
+  }));
+
+  for (const d of districts) for (const l of d.listings) shown.add(l.id);
+
+  return { justAdded, hot, districts, shownIds: [...shown] };
 }
 
 export async function fetchListing(

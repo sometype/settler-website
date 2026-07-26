@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { fetchHot, formatPrice, HOT_MIN_CARDS } from "@/lib/listings";
+import { formatPrice, HOT_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
 import { resolveImageUrl } from "@/lib/images";
 import { districtLabel } from "@/lib/districts";
-import type { FeedFilters } from "@/lib/types";
 import { ListingImage } from "./ListingImage";
 
 /**
@@ -17,12 +16,12 @@ import { ListingImage } from "./ListingImage";
  * people opened a page; we do not know whether the flat is good, and a heading
  * that implied otherwise would be a claim we cannot support.
  */
-export async function HotRail({
-  dealType,
+export function HotRail({
+  data,
 }: {
-  dealType: FeedFilters["dealType"];
+  data: JustAddedResult;
 }) {
-  const { listings, mainImages } = await fetchHot(dealType, 8);
+  const { listings, mainImages } = data;
 
   // Too few genuinely-hot cards → no rail at all. Padding with lukewarm stock
   // would put ordinary listings under a heading promising the opposite, which is
