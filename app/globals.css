@@ -20,7 +20,9 @@
   --card: #fffdf8;
   --ink: #211b13;
   --mink: #5f5546; /* muted ink — 5.9:1 on paper */
-  --faint: #93876f;
+  /* 4.58:1 on paper — AA for the 11-12px timestamps and "ფასი მოთხოვნით"
+     that use it. The prettier #93876f measured 3.14 and failed. */
+  --faint: #786c54;
   --sand: #e6dcc8; /* hairlines */
   --sand-strong: #d3c6ab;
   --moss: #2e6b4f;

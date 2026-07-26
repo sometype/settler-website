@@ -30,7 +30,7 @@ function Stat({
       >
         {value}
       </span>
-      <span className="text-[11px] font-medium leading-tight text-cream/50 sm:mt-1.5 sm:text-sm">
+      <span className="text-[11px] font-medium leading-tight text-cream/60 sm:mt-1.5 sm:text-sm">
         {label}
       </span>
     </div>
