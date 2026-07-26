@@ -12,7 +12,7 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
  */
 // Kept as one literal (not a joined array) so supabase-js can infer row types.
 const LISTING_COLUMNS =
-  "id, deal_type, district, district_code, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, phone, has_phone";
+  "id, deal_type, district, district_code, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone";
 
 /** Client-safe image columns: enough to build the /img path, nothing more. */
 const IMAGE_COLUMNS = "listing_id, position, is_main";
@@ -264,20 +264,40 @@ export function formatPrice(
 export interface FeedStats {
   total: number;
   addedToday: number;
+  /** Share of live listings re-checked within CHECK_WINDOW_H, 0-100. */
+  checkedPct: number;
 }
+
+/** Hours behind which we claim listings are re-checked. 99.8% of live
+ *  listings sit inside 6h and the worst case measured is 6.0h, so this is
+ *  a claim the data actually supports. Widen it, never narrow it, without
+ *  re-measuring. */
+export const CHECK_WINDOW_H = 6;
 
 // Live trust numbers for the hero — proof the catalog is fresh + curated.
 export async function fetchStats(): Promise<FeedStats> {
   const supabase = getSupabase();
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [{ count: total }, { count: addedToday }] = await Promise.all([
-    supabase.from("listings_public").select("*", { count: "exact", head: true }),
-    supabase
-      .from("listings_public")
-      .select("*", { count: "exact", head: true })
-      .gte("first_seen_at", dayAgo),
-  ]);
+  const checkCutoff = new Date(
+    Date.now() - CHECK_WINDOW_H * 60 * 60 * 1000
+  ).toISOString();
 
-  return { total: total ?? 0, addedToday: addedToday ?? 0 };
+  const [{ count: total }, { count: addedToday }, { count: checked }] =
+    await Promise.all([
+      supabase.from("listings_public").select("*", { count: "exact", head: true }),
+      supabase
+        .from("listings_public")
+        .select("*", { count: "exact", head: true })
+        .gte("first_seen_at", dayAgo),
+      supabase
+        .from("listings_public")
+        .select("*", { count: "exact", head: true })
+        .gte("last_checked_at", checkCutoff),
+    ]);
+
+  const t = total ?? 0;
+  // Floor, never round: 99.8% must not render as "100%".
+  const checkedPct = t > 0 ? Math.floor(((checked ?? 0) / t) * 100) : 0;
+  return { total: t, addedToday: addedToday ?? 0, checkedPct };
 }

@@ -63,6 +63,13 @@ export interface Listing {
   views: number | null;
   image_status: "pending" | "ready" | "failed";
   first_seen_at: string;
+  /**
+   * When the monitor (or a scraper re-observing it) last confirmed this
+   * listing still exists at the source. Measured 2026-07-26: median 3.6h,
+   * worst 6.0h, zero never-checked. Means "last seen to be real" rather
+   * than "independently re-verified" — do not over-promise in UI copy.
+   */
+  last_checked_at: string | null;
   last_seen_at: string;
   /** Seller phone when available (public by product design). */
   phone: string | null;

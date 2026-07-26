@@ -1,4 +1,4 @@
-import { fetchStats } from "@/lib/listings";
+import { fetchStats, CHECK_WINDOW_H } from "@/lib/listings";
 
 function Stat({
   value,
@@ -24,7 +24,7 @@ function Stat({
 }
 
 export async function Hero() {
-  let stats = { total: 0, addedToday: 0 };
+  let stats = { total: 0, addedToday: 0, checkedPct: 0 };
   try {
     stats = await fetchStats();
   } catch {
@@ -53,6 +53,16 @@ export async function Hero() {
         <div className="mt-9 flex flex-wrap gap-8 sm:gap-12">
           <Stat value={stats.total.toLocaleString("ka-GE")} label="ნამდვილი განცხადება" />
           <Stat value={`+${stats.addedToday.toLocaleString("ka-GE")}`} label="დღეს დამატებული" accent />
+          {/* The differentiator no incumbent shows: we re-visit listings, so a
+              sold flat does not sit here for weeks. Rendered only when the
+              number is genuinely high — a low percentage would advertise a
+              broken monitor rather than build trust. */}
+          {stats.checkedPct >= 90 && (
+            <Stat
+              value={`${stats.checkedPct}%`}
+              label={`შემოწმებული ${CHECK_WINDOW_H} საათში`}
+            />
+          )}
         </div>
       </div>
     </section>
