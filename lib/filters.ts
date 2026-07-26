@@ -48,6 +48,23 @@ export function parseFilters(params: SearchParams): FeedFilters {
   };
 }
 
+/**
+ * Filters that NARROW the catalogue, ignoring the deal tab.
+ *
+ * Rent/sale is a mode switch rather than a filter — each mode has its own
+ * arrivals worth surfacing — so the "just added" strip keys off this instead of
+ * `hasActiveFilters`, which counts a sale tab as an active filter.
+ */
+export function hasNarrowingFilters(f: FeedFilters): boolean {
+  return Boolean(
+    f.district ||
+      f.minPrice !== undefined ||
+      f.maxPrice !== undefined ||
+      f.rooms ||
+      (f.amenities && f.amenities.length > 0)
+  );
+}
+
 export function hasActiveFilters(f: FeedFilters): boolean {
   return Boolean(
     f.district ||

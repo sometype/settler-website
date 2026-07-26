@@ -120,6 +120,79 @@ export async function fetchFeed(filters: FeedFilters): Promise<FeedResult> {
   };
 }
 
+export interface JustAddedResult {
+  listings: Listing[];
+  mainImages: Map<number, ListingImage>;
+}
+
+/**
+ * How far back "ახლახან დაემატა" reaches, per deal type.
+ *
+ * Rent: 12h. Measured against 4 days of intake (2026-07-26): a 6h window
+ * bottoms out at 5 live rent listings around 03:00 UTC — too thin for the
+ * rail — while 12h never drops below 42. Unbounded is worse in the other
+ * direction: a 5-day-old listing under a "just added" heading is a lie.
+ * ⚠️ One night of buckets is not eternal law — re-check before treating this
+ * as settled (see HANDOFF 2026-07-26).
+ *
+ * Sale: 48h. Sale intake is roughly half of rent and the sale funnel is
+ * consideration, not urgency, so a wider window is honest there.
+ */
+const JUST_ADDED_WINDOW_H: Record<"rent" | "sale", number> = { rent: 12, sale: 48 };
+
+/**
+ * Below this many cards the rail hides entirely — a two-card "rail" reads as
+ * a dead marketplace, which is worse than no rail. Never pad with old stock.
+ */
+export const JUST_ADDED_MIN_CARDS = 4;
+
+/** The newest arrivals inside the freshness window, for the strip above the feed. */
+export async function fetchJustAdded(
+  dealType: FeedFilters["dealType"],
+  limit = 8
+): Promise<JustAddedResult> {
+  const supabase = getSupabase();
+
+  const windowH = JUST_ADDED_WINDOW_H[dealType === "sale" ? "sale" : "rent"];
+  const cutoff = new Date(Date.now() - windowH * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
+    .from("listings_public")
+    .select(LISTING_COLUMNS)
+    .gte("first_seen_at", cutoff)
+    .order("first_seen_at", { ascending: false })
+    .limit(limit);
+  // Same reason parseFilters defaults to rent: a $94,000 sale next to a $533
+  // rent reads as broken, and the feed below the strip is deal-scoped too.
+  if (dealType) query = query.eq("deal_type", dealType);
+
+  const { data, error } = await query;
+
+  // The strip is decoration over the feed — never let it break the page.
+  if (error || !data) return { listings: [], mainImages: new Map() };
+
+  const listings = data as Listing[];
+  const mainImages = new Map<number, ListingImage>();
+  if (listings.length > 0) {
+    const { data: images } = await supabase
+      .from("listing_images")
+      .select(IMAGE_COLUMNS)
+      .in(
+        "listing_id",
+        listings.map((l) => l.id)
+      )
+      .order("position", { ascending: true });
+    for (const img of (images ?? []) as ListingImage[]) {
+      const current = mainImages.get(img.listing_id);
+      if (!current || (img.is_main && !current.is_main)) {
+        mainImages.set(img.listing_id, img);
+      }
+    }
+  }
+
+  return { listings, mainImages };
+}
+
 export async function fetchListing(
   id: number
 ): Promise<{ listing: Listing | null; images: ListingImage[] }> {
@@ -146,8 +219,14 @@ export async function fetchListing(
   };
 }
 
+/**
+ * 12h, matching JUST_ADDED_WINDOW_H.rent — the badge and the "just added"
+ * rail must agree on what "new" means. The card's TimeAgo carries the exact
+ * age; the badge is only the glanceable version of the same claim, so at 24h
+ * it was spending the freshness signal twice with two different definitions.
+ */
 export function isNew(firstSeenAt: string): boolean {
-  return Date.now() - new Date(firstSeenAt).getTime() < 24 * 60 * 60 * 1000;
+  return Date.now() - new Date(firstSeenAt).getTime() < 12 * 60 * 60 * 1000;
 }
 
 /**

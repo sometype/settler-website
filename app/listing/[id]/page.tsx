@@ -41,14 +41,27 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
   );
 }
 
+/**
+ * Which homepage rail sent the visitor here. Whitelisted so a crafted URL
+ * can't write arbitrary strings into site_events; "feed" is implicit (no
+ * param) and absent from the set on purpose.
+ */
+const RAIL_SOURCES = new Set(["new", "hot", "value"]);
+
 export default async function ListingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ src?: string | string[] }>;
 }) {
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
+
+  const { src } = await searchParams;
+  const srcValue = Array.isArray(src) ? src[0] : src;
+  const rail = srcValue && RAIL_SOURCES.has(srcValue) ? srcValue : null;
 
   let data;
   try {
@@ -115,6 +128,7 @@ export default async function ListingPage({
           district_code: listing.district_code,
           rooms: listing.rooms,
           has_phone: listing.has_phone,
+          rail,
         }}
       />
 

@@ -1,10 +1,16 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { fetchFeed } from "@/lib/listings";
-import { parseFilters, hasActiveFilters, type SearchParams } from "@/lib/filters";
+import {
+  parseFilters,
+  hasActiveFilters,
+  hasNarrowingFilters,
+  type SearchParams,
+} from "@/lib/filters";
 import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
 import { ListingCard } from "@/components/ListingCard";
+import { JustAddedRail } from "@/components/JustAddedRail";
 import { Pagination } from "@/components/Pagination";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
@@ -117,6 +123,11 @@ export default async function HomePage({
     .map((k) => `${k}=${params[k] ?? ""}`)
     .join("&");
 
+  // The strip is a browse aid for someone with no stated intent. Once a filter
+  // is on, unfiltered arrivals would contradict the list right below them.
+  const homeFilters = parseFilters(params);
+  const showJustAdded = !hasNarrowingFilters(homeFilters);
+
   return (
     <>
       <Suspense fallback={<div className="h-72 bg-stone-950 sm:h-96" />}>
@@ -124,6 +135,11 @@ export default async function HomePage({
       </Suspense>
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
         <FilterBar key={filterKey} />
+        {showJustAdded && (
+          <Suspense fallback={<div className="h-56" />}>
+            <JustAddedRail dealType={homeFilters.dealType} />
+          </Suspense>
+        )}
         <Suspense key={JSON.stringify(params)} fallback={<FeedSkeleton />}>
           <Feed searchParams={params} />
         </Suspense>

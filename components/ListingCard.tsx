@@ -3,7 +3,9 @@ import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { isNew, formatPrice } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
+import { relativeTimeKa } from "@/lib/time";
 import { ListingImage } from "./ListingImage";
+import { TimeAgo } from "./TimeAgo";
 import { DealBadge, NewBadge } from "./Badges";
 
 export function ListingCard({
@@ -48,9 +50,20 @@ export function ListingCard({
             .filter(Boolean)
             .join(" · ")}
         </p>
-        {district && (
-          <p className="truncate text-sm font-medium text-stone-800">{district}</p>
-        )}
+        <div className="flex items-baseline justify-between gap-2">
+          {district ? (
+            <p className="truncate text-sm font-medium text-stone-800">{district}</p>
+          ) : (
+            <span />
+          )}
+          {/* Exact age, not just "new": a flat posted 10 minutes ago and one
+              posted yesterday are different propositions to a caller. */}
+          <TimeAgo
+            iso={listing.first_seen_at}
+            initialLabel={relativeTimeKa(listing.first_seen_at)}
+            className="shrink-0 text-xs text-stone-400"
+          />
+        </div>
       </div>
     </Link>
   );

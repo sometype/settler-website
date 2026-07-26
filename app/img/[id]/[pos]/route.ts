@@ -26,44 +26,40 @@ const UPSTREAM_HOSTS = new Set([
 // lookup to a one-time cost.
 const CACHE_CONTROL = "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400";
 
+/**
+ * Young-image bridge (temporary until image_worker uploads to R2 itself).
+ *
+ * `stored_path` is written the moment a photo lands on VPS *disk*, but the
+ * object only reaches R2 on settler-r2sync's next sweep — so for a new
+ * listing's first minutes the 308 below points at a 404. That window is
+ * exactly the "just added" rail, i.e. the product's front door.
+ *
+ * While an image row is younger than the sync interval plus a buffer, serve
+ * it through the upstream proxy instead of redirecting. Age comes from the
+ * row's own `created_at` (measured ~2s after listing insert), so late-added
+ * photos on an old listing bridge correctly too. After the window it is
+ * ALWAYS the R2 redirect — if the sync breaks for hours, that is an ops
+ * problem for the heartbeat (r2sync staleness check, see HANDOFF §8 #6d),
+ * not something this route should paper over per-request.
+ */
+const R2_SYNC_INTERVAL_MIN = 15; // must match settler-r2sync.timer on the VPS
+const BRIDGE_BUFFER_MIN = 10;
+const BRIDGE_WINDOW_MS = (R2_SYNC_INTERVAL_MIN + BRIDGE_BUFFER_MIN) * 60 * 1000;
+
+// Bridge responses must expire fast: with the year-long TTL above, the edge
+// would pin the proxied bytes forever and the image would never cut over to
+// R2 after the sync runs.
+const BRIDGE_CACHE_CONTROL = "public, max-age=60, s-maxage=60";
+
 function notFound(): Response {
   return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
 }
 
-export async function GET(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string; pos: string }> }
-) {
-  const { id, pos } = await ctx.params;
-  const listingId = Number(id);
-  const position = Number(pos);
-  if (
-    !Number.isInteger(listingId) ||
-    listingId <= 0 ||
-    !Number.isInteger(position) ||
-    position < 0
-  ) {
-    return notFound();
-  }
-
-  const supabase = getSupabase();
-  const { data, error } = await supabase
-    .from("listing_images")
-    .select("source_url, stored_path")
-    .eq("listing_id", listingId)
-    .eq("position", position)
-    .maybeSingle();
-  if (error || !data) return notFound();
-
-  const base = process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
-  if (data.stored_path && base) {
-    return Response.redirect(`${base.replace(/\/$/, "")}/${data.stored_path}`, 308);
-  }
-
-  if (!data.source_url) return notFound();
+/** Shared by the legacy no-stored-path branch and the young-image bridge. */
+async function proxyUpstream(sourceUrl: string, cacheControl: string): Promise<Response> {
   let upstream: URL;
   try {
-    upstream = new URL(data.source_url);
+    upstream = new URL(sourceUrl);
   } catch {
     return notFound();
   }
@@ -90,8 +86,48 @@ export async function GET(
     status: 200,
     headers: {
       "Content-Type": type,
-      "Cache-Control": CACHE_CONTROL,
+      "Cache-Control": cacheControl,
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string; pos: string }> }
+) {
+  const { id, pos } = await ctx.params;
+  const listingId = Number(id);
+  const position = Number(pos);
+  if (
+    !Number.isInteger(listingId) ||
+    listingId <= 0 ||
+    !Number.isInteger(position) ||
+    position < 0
+  ) {
+    return notFound();
+  }
+
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("listing_images")
+    .select("source_url, stored_path, created_at")
+    .eq("listing_id", listingId)
+    .eq("position", position)
+    .maybeSingle();
+  if (error || !data) return notFound();
+
+  const base = process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
+  if (data.stored_path && base) {
+    const ageMs = Date.now() - new Date(data.created_at).getTime();
+    // NaN age (malformed timestamp) falls through to the redirect — the
+    // bridge is an exception for provably-young rows, never the default.
+    if (ageMs < BRIDGE_WINDOW_MS && data.source_url) {
+      return proxyUpstream(data.source_url, BRIDGE_CACHE_CONTROL);
+    }
+    return Response.redirect(`${base.replace(/\/$/, "")}/${data.stored_path}`, 308);
+  }
+
+  if (!data.source_url) return notFound();
+  return proxyUpstream(data.source_url, CACHE_CONTROL);
 }
