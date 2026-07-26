@@ -4,8 +4,8 @@ import { useState } from "react";
 
 function Placeholder({ label }: { label?: string }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-stone-100">
-      <div className="flex flex-col items-center gap-1 text-stone-400">
+    <div className="flex h-full w-full items-center justify-center bg-sand/50">
+      <div className="flex flex-col items-center gap-1 text-faint">
         <svg
           className="h-8 w-8"
           fill="none"

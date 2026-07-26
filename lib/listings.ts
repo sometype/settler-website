@@ -399,6 +399,8 @@ export interface FeedStats {
   addedToday: number;
   /** Share of live listings re-checked within CHECK_WINDOW_H, 0-100. */
   checkedPct: number;
+  /** Minutes since the newest listing arrived — the river, as one number. */
+  newestMinutes: number | null;
 }
 
 /** Hours behind which we claim listings are re-checked. 99.8% of live
@@ -416,7 +418,7 @@ export async function fetchStats(): Promise<FeedStats> {
     Date.now() - CHECK_WINDOW_H * 60 * 60 * 1000
   ).toISOString();
 
-  const [{ count: total }, { count: addedToday }, { count: checked }] =
+  const [{ count: total }, { count: addedToday }, { count: checked }, newest] =
     await Promise.all([
       supabase.from("listings_public").select("*", { count: "exact", head: true }),
       supabase
@@ -427,10 +429,21 @@ export async function fetchStats(): Promise<FeedStats> {
         .from("listings_public")
         .select("*", { count: "exact", head: true })
         .gte("last_checked_at", checkCutoff),
+      supabase
+        .from("listings_public")
+        .select("first_seen_at")
+        .order("first_seen_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   const t = total ?? 0;
-  // Floor, never round: 99.8% must not render as "100%".
-  const checkedPct = t > 0 ? Math.floor(((checked ?? 0) / t) * 100) : 0;
-  return { total: t, addedToday: addedToday ?? 0, checkedPct };
+  // Floor, never round, and cap at 99: "100%" reads as a fake marketing number
+  // even in the moments it is literally true. Understating is the safe error.
+  const checkedPct = t > 0 ? Math.min(99, Math.floor(((checked ?? 0) / t) * 100)) : 0;
+  const newestIso = (newest.data as { first_seen_at: string } | null)?.first_seen_at;
+  const newestMinutes = newestIso
+    ? Math.max(0, Math.floor((Date.now() - new Date(newestIso).getTime()) / 60000))
+    : null;
+  return { total: t, addedToday: addedToday ?? 0, checkedPct, newestMinutes };
 }

@@ -62,15 +62,15 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
     }
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
     return (
-      <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
+      <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
         <FeedBeacon empty meta={{ ...meta, reason: "page_out_of_range", total: result.total }} />
-        <h2 className="text-lg font-semibold text-stone-800">ასეთი გვერდი არ არსებობს</h2>
-        <p className="mt-2 text-sm text-stone-500">
+        <h2 className="text-lg font-semibold text-ink">ასეთი გვერდი არ არსებობს</h2>
+        <p className="mt-2 text-sm text-mink">
           სულ {result.pageCount.toLocaleString("ka-GE")} გვერდია.
         </p>
         <Link
           href={backHref}
-          className="mt-4 inline-block text-sm font-semibold text-emerald-700 underline underline-offset-2"
+          className="mt-4 inline-block text-sm font-semibold text-moss-deep underline underline-offset-2"
         >
           პირველ გვერდზე დაბრუნება
         </Link>
@@ -80,12 +80,12 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
 
   if (result.listings.length === 0) {
     return (
-      <div className="rounded-2xl bg-white p-10 text-center ring-1 ring-stone-200">
+      <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
         <FeedBeacon empty meta={{ ...meta, total: 0 }} />
-        <h2 className="text-lg font-semibold text-stone-800">
+        <h2 className="text-lg font-semibold text-ink">
           {hasActiveFilters(filters) ? "ფილტრს არაფერი ემთხვევა" : "ჯერ არ არის განცხადებები"}
         </h2>
-        <p className="mt-2 text-sm text-stone-500">
+        <p className="mt-2 text-sm text-mink">
           {hasActiveFilters(filters)
             ? "სცადე ფასის დიაპაზონის გაფართოება ან ფილტრების გასუფთავება."
             : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე."}
@@ -97,7 +97,7 @@ async function Feed({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <FeedBeacon empty={false} meta={{ ...meta, total: result.total }} />
-      <p className="mb-3 text-sm text-stone-500">
+      <p className="mb-3 text-sm text-mink">
         {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
       </p>
@@ -132,7 +132,7 @@ export default async function HomePage({
 
   return (
     <>
-      <Suspense fallback={<div className="h-72 bg-stone-950 sm:h-96" />}>
+      <Suspense fallback={<div className="h-72 bg-pine sm:h-96" />}>
         <Hero />
       </Suspense>
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">

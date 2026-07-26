@@ -1,14 +1,58 @@
 @import "tailwindcss";
 
+/*
+ * "Tbilisi editorial" — the design system in one place.
+ *
+ * Ground is warm paper, not gray; text is warm ink, not black. Two accent
+ * families with fixed meanings, never decoration:
+ *   moss (botanical green)  = action, live, fresh  — call buttons, live dots
+ *   clay (old-town brick)   = heat, attention      — hot rail, accent words
+ * Display type is Noto SERIF Georgian: Georgian serif is striking and almost
+ * unused on the local web, which is exactly the point. Body stays sans.
+ *
+ * The palette is deliberately warm because the inventory is owner-shot photos
+ * of ordinary flats — warm neutrals flatter them; clinical white and dark
+ * themes both make them look worse.
+ */
+
 :root {
-  --background: #fafaf9;
-  --foreground: #1c1917;
+  --paper: #f6f1e7;
+  --card: #fffdf8;
+  --ink: #211b13;
+  --mink: #5f5546; /* muted ink — 5.9:1 on paper */
+  --faint: #93876f;
+  --sand: #e6dcc8; /* hairlines */
+  --sand-strong: #d3c6ab;
+  --moss: #2e6b4f;
+  --moss-deep: #245741;
+  --moss-bright: #4b9b74; /* on dark grounds */
+  --clay: #c05b3b;
+  --clay-deep: #9e4322; /* text-safe on paper */
+  --clay-soft: #e2906c; /* on dark grounds */
+  --pine: #16241e; /* hero / footer deep green-ink */
+  --pine-soft: #1f342c;
+  --cream: #f3ecdb; /* text on pine */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-mink: var(--mink);
+  --color-faint: var(--faint);
+  --color-sand: var(--sand);
+  --color-sand-strong: var(--sand-strong);
+  --color-moss: var(--moss);
+  --color-moss-deep: var(--moss-deep);
+  --color-moss-bright: var(--moss-bright);
+  --color-clay: var(--clay);
+  --color-clay-deep: var(--clay-deep);
+  --color-clay-soft: var(--clay-soft);
+  --color-pine: var(--pine);
+  --color-pine-soft: var(--pine-soft);
+  --color-cream: var(--cream);
   --font-sans: var(--font-georgian);
+  --font-display: var(--font-georgian-serif);
 }
 
 /* Reserve scrollbar space so gallery image swaps cannot show/hide the vertical
@@ -18,8 +62,16 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--paper);
+  /* Barely-there grain so the paper reads as material, not as a flat fill.
+     Inline SVG noise — self-contained, no request, invisible as a pattern. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
+  color: var(--ink);
   font-family: var(--font-georgian), "Noto Sans Georgian", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
+}
+
+::selection {
+  background: var(--clay);
+  color: var(--cream);
 }

@@ -25,7 +25,7 @@ export function Gallery({
 
   if (images.length === 0) {
     return (
-      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl ring-1 ring-stone-200">
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl ring-1 ring-sand">
         <ListingImage
           src={null}
           alt={alt}
@@ -41,7 +41,7 @@ export function Gallery({
 
   return (
     <div className="space-y-2">
-      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-stone-100 ring-1 ring-stone-200">
+      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-sand/50 ring-1 ring-sand">
         {/* Blur plate — fills letterbox; scale is clipped by overflow-hidden. */}
         {src && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -62,7 +62,7 @@ export function Gallery({
           className="absolute inset-0 h-full w-full object-contain"
         />
         {images.length > 1 && (
-          <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-stone-950/70 px-2.5 py-1 text-xs font-medium text-white">
+          <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-pine/80 px-2.5 py-1 text-xs font-medium text-white">
             {active + 1} / {images.length}
           </span>
         )}
@@ -76,7 +76,7 @@ export function Gallery({
               onClick={() => setActive(i)}
               aria-label={`ფოტო ${i + 1}`}
               className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg ring-2 transition ${
-                i === active ? "ring-emerald-600" : "ring-transparent hover:ring-stone-300"
+                i === active ? "ring-moss" : "ring-transparent hover:ring-sand-strong"
               }`}
             >
               <ListingImage

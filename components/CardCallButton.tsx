@@ -60,7 +60,7 @@ export function CardCallButton({
       type="button"
       onClick={call}
       aria-label="დარეკე პატრონს"
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 disabled:opacity-60"
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-moss px-3 py-2 text-sm font-semibold text-white transition hover:bg-moss-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss-deep disabled:opacity-60"
       disabled={busy}
     >
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">

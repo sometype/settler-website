@@ -49,11 +49,11 @@ export function PhoneBlock({
   const show = Boolean(hasPhone && number);
 
   return (
-    <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-      <h2 className="text-sm font-semibold text-stone-900">დაუკავშირდი პატრონს</h2>
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+      <h2 className="text-sm font-semibold text-ink">დაუკავშირდი პატრონს</h2>
       {show && number ? (
         <div className="mt-3 space-y-3">
-          <p className="text-lg font-semibold tracking-wide text-stone-900">
+          <p className="text-lg font-semibold tracking-wide text-ink">
             {displayPhone(number)}
           </p>
           <a
@@ -64,7 +64,7 @@ export function PhoneBlock({
                 meta: { surface: "phone_block" },
               })
             }
-            className="flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            className="flex w-full items-center justify-center rounded-lg bg-moss px-4 py-3 text-sm font-semibold text-white transition hover:bg-moss-deep"
           >
             დარეკვა
           </a>
@@ -78,14 +78,14 @@ export function PhoneBlock({
                 meta: { surface: "phone_block" },
               })
             }
-            className="flex w-full items-center justify-center rounded-lg bg-stone-100 px-4 py-2.5 text-sm font-semibold text-stone-800 transition hover:bg-stone-200"
+            className="flex w-full items-center justify-center rounded-lg bg-sand/50 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-sand"
           >
             WhatsApp
           </a>
         </div>
       ) : (
-        <p className="mt-2 text-sm text-stone-500">
-          <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-stone-300 align-middle" />
+        <p className="mt-2 text-sm text-mink">
+          <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-sand-strong align-middle" />
           ნომერი მალე დაემატება — შემოგვიარე მოგვიანებით.
         </p>
       )}

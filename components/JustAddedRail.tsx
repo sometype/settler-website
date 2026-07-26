@@ -29,15 +29,15 @@ export async function JustAddedRail({
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2
           id="just-added-heading"
-          className="flex items-center gap-2 text-base font-bold text-stone-900"
+          className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-ink"
         >
           <span
-            className="h-2 w-2 shrink-0 rounded-full bg-emerald-500"
+            className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-moss"
             aria-hidden="true"
           />
           ახლახან დაემატა
         </h2>
-        <p className="text-xs text-stone-500">პირველი დარეკავს — პირველი ნახავს</p>
+        <p className="text-xs text-mink">პირველი დარეკავს — პირველი ნახავს</p>
       </div>
 
       {/* Horizontal scroller: the strip is a glance, the feed below is the list. */}
@@ -54,7 +54,7 @@ export async function JustAddedRail({
                 // ?src=new → listing_open lands with meta.rail="new", so each
                 // rail's cost of screen space can be judged by the calls it earns.
                 href={`/listing/${listing.id}?src=new`}
-                className="group block overflow-hidden rounded-xl bg-white ring-1 ring-stone-200 transition hover:ring-stone-300 focus-visible:outline-2 focus-visible:outline-emerald-600"
+                className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
               >
                 <div className="aspect-[4/3] overflow-hidden">
                   <ListingImage
@@ -66,11 +66,11 @@ export async function JustAddedRail({
                 <div className="space-y-1 p-3">
                   <div className="flex items-baseline justify-between gap-2">
                     {price ? (
-                      <p className="truncate text-sm font-black text-stone-900">
+                      <p className="truncate font-display text-sm font-bold text-ink">
                         {price.replace(" / თვეში", "")}
                       </p>
                     ) : (
-                      <p className="truncate text-sm font-semibold text-stone-400">
+                      <p className="truncate text-sm font-semibold text-faint">
                         შეთანხმებით
                       </p>
                     )}
@@ -78,11 +78,11 @@ export async function JustAddedRail({
                       iso={listing.first_seen_at}
                       initialLabel={relativeTimeKa(listing.first_seen_at, now)}
                       className={`shrink-0 text-[11px] font-semibold ${
-                        fresh ? "text-emerald-600" : "text-stone-400"
+                        fresh ? "text-moss" : "text-faint"
                       }`}
                     />
                   </div>
-                  <p className="truncate text-xs text-stone-600">
+                  <p className="truncate text-xs text-mink">
                     {[
                       district,
                       listing.rooms ? `${listing.rooms} ოთახი` : null,

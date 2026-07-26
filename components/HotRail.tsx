@@ -34,12 +34,12 @@ export async function HotRail({
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <h2
           id="hot-heading"
-          className="flex items-center gap-2 text-lg font-black tracking-tight text-stone-900"
+          className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-ink"
         >
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+          <span className="inline-block h-2 w-2 rounded-full bg-clay" />
           სხვები უყურებენ
         </h2>
-        <p className="text-xs text-stone-500">ახლა ყველაზე ხშირად ნახული</p>
+        <p className="text-xs text-mink">ახლა ყველაზე ხშირად ნახული</p>
       </div>
 
       <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
@@ -55,11 +55,11 @@ export async function HotRail({
                 // cost in screen space can be judged against the calls it earns,
                 // separately from the just-added rail.
                 href={`/listing/${listing.id}?src=hot`}
-                className="group block overflow-hidden rounded-xl bg-white ring-1 ring-stone-200 transition hover:ring-stone-300 focus-visible:outline-2 focus-visible:outline-emerald-600"
+                className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
               >
                 {/* contain + blur for the same reason as the feed card: owners
                     upload panoramas and screenshots that object-cover destroys. */}
-                <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
+                <div className="relative aspect-[4/3] overflow-hidden bg-sand/50">
                   {image && (
                     // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
                     <img
@@ -80,15 +80,15 @@ export async function HotRail({
                 </div>
                 <div className="space-y-1 p-3">
                   {price ? (
-                    <p className="truncate text-sm font-black text-stone-900">
+                    <p className="truncate font-display text-sm font-bold text-ink">
                       {price.replace(" / თვეში", "")}
                     </p>
                   ) : (
-                    <p className="truncate text-sm font-semibold text-stone-400">
+                    <p className="truncate text-sm font-semibold text-faint">
                       შეთანხმებით
                     </p>
                   )}
-                  <p className="truncate text-xs text-stone-600">
+                  <p className="truncate text-xs text-mink">
                     {[
                       district,
                       listing.rooms ? `${listing.rooms} ოთახი` : null,

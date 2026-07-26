@@ -34,9 +34,9 @@ export const dynamic = "force-dynamic";
 function Fact({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
   return (
-    <div className="flex justify-between gap-4 border-b border-stone-100 py-2 text-sm last:border-b-0">
-      <dt className="shrink-0 text-stone-500">{label}</dt>
-      <dd className="text-right font-medium text-stone-800">{value}</dd>
+    <div className="flex justify-between gap-4 border-b border-sand/70 py-2 text-sm last:border-b-0">
+      <dt className="shrink-0 text-mink">{label}</dt>
+      <dd className="text-right font-medium text-ink">{value}</dd>
     </div>
   );
 }
@@ -134,7 +134,7 @@ export default async function ListingPage({
 
       <Link
         href="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-stone-500 transition hover:text-stone-800"
+        className="inline-flex items-center gap-1 text-sm font-medium text-mink transition hover:text-ink"
       >
         ← მთავარ გვერდზე
       </Link>
@@ -154,12 +154,12 @@ export default async function ListingPage({
               <DealBadge dealType={deal} />
             </div>
             {price ? (
-              <p className="text-3xl font-black text-emerald-700">{price}</p>
+              <p className="font-display text-3xl font-bold text-moss-deep">{price}</p>
             ) : (
-              <p className="text-2xl font-semibold text-stone-400">ფასი მოთხოვნით</p>
+              <p className="text-2xl font-semibold text-faint">ფასი მოთხოვნით</p>
             )}
-            <h1 className="text-2xl font-black text-stone-900">{title}</h1>
-            <p className="text-sm text-stone-600">
+            <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
+            <p className="text-sm text-mink">
               {[
                 listing.rooms ? `${listing.rooms} ოთახი` : null,
                 listing.area ? `${listing.area} მ²` : null,
@@ -183,20 +183,20 @@ export default async function ListingPage({
           {(textClean || ageLabel) && (
             <div className="flex flex-wrap gap-1.5">
               {textClean && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200">
+                <span className="rounded-full bg-moss/10 px-2.5 py-1 text-xs font-medium text-moss-deep ring-1 ring-inset ring-moss/25">
                   ტექსტი შემოწმებული
                 </span>
               )}
               {ageLabel && (
-                <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-700">
+                <span className="rounded-full bg-sand/50 px-2.5 py-1 text-xs font-medium text-mink">
                   {ageLabel}
                 </span>
               )}
             </div>
           )}
 
-          <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200 lg:hidden">
-            <h2 className="text-sm font-semibold text-stone-900">დეტალები</h2>
+          <div className="rounded-2xl bg-card p-4 ring-1 ring-sand lg:hidden">
+            <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
               <Fact label="ოთახები" value={listing.rooms} />
@@ -212,12 +212,12 @@ export default async function ListingPage({
           </div>
 
           {amenities.length > 0 && (
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-              <h2 className="text-sm font-semibold text-stone-900">კეთილმოწყობა</h2>
+            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+              <h2 className="text-sm font-semibold text-ink">კეთილმოწყობა</h2>
               <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
                 {amenities.map((a) => (
-                  <li key={a.key} className="flex items-center gap-2 text-sm text-stone-700">
-                    <AmenityIcon name={a.key} className="h-4.5 w-4.5 shrink-0 text-emerald-700" />
+                  <li key={a.key} className="flex items-center gap-2 text-sm text-mink">
+                    <AmenityIcon name={a.key} className="h-4.5 w-4.5 shrink-0 text-moss-deep" />
                     {a.ka}
                   </li>
                 ))}
@@ -226,28 +226,28 @@ export default async function ListingPage({
           )}
 
           {terms.length > 0 && (
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-              <h2 className="text-sm font-semibold text-stone-900">პირობები</h2>
+            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+              <h2 className="text-sm font-semibold text-ink">პირობები</h2>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {terms.map((t) => (
                   <li
                     key={t}
-                    className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700"
+                    className="rounded-full bg-sand/50 px-3 py-1 text-xs font-medium text-mink"
                   >
                     {t}
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs text-stone-400">
+              <p className="mt-2 text-xs text-faint">
                 ამოკითხულია განცხადების ტექსტიდან — გადაამოწმეთ მესაკუთრესთან.
               </p>
             </section>
           )}
 
           {description && (
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-              <h2 className="text-sm font-semibold text-stone-900">აღწერა</h2>
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-stone-700">
+            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+              <h2 className="text-sm font-semibold text-ink">აღწერა</h2>
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-mink">
                 {description}
               </p>
             </section>
@@ -260,8 +260,8 @@ export default async function ListingPage({
             phone={listing.phone}
             listingId={listing.id}
           />
-          <div className="rounded-2xl bg-white p-4 ring-1 ring-stone-200">
-            <h2 className="text-sm font-semibold text-stone-900">დეტალები</h2>
+          <div className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+            <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
               <Fact label="ოთახები" value={listing.rooms} />

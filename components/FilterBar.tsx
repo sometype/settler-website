@@ -67,8 +67,8 @@ export function FilterBar() {
   const chip = (active: boolean) =>
     `rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition ${
       active
-        ? "bg-stone-900 text-white ring-stone-900"
-        : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
+        ? "bg-ink text-white ring-ink"
+        : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
     }`;
 
   // Hidden on phones unless toggled or already filtering; always shown from sm up.
@@ -78,7 +78,7 @@ export function FilterBar() {
 
   return (
     <form
-      className="rounded-2xl bg-white p-4 ring-1 ring-stone-200"
+      className="rounded-2xl bg-card p-4 ring-1 ring-sand"
       onSubmit={(e) => {
         e.preventDefault();
         apply({});
@@ -97,8 +97,8 @@ export function FilterBar() {
             onClick={() => apply({ deal: value })}
             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
               deal === value
-                ? "bg-stone-900 text-white ring-stone-900"
-                : "bg-white text-stone-600 ring-stone-300 hover:ring-stone-400"
+                ? "bg-ink text-white ring-ink"
+                : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
             }`}
           >
             {label}
@@ -108,7 +108,7 @@ export function FilterBar() {
           type="button"
           onClick={() => setOpenOnMobile((v) => !v)}
           aria-expanded={openOnMobile}
-          className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-stone-600 ring-1 ring-inset ring-stone-300 transition hover:ring-stone-400 sm:hidden"
+          className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-mink ring-1 ring-inset ring-sand-strong transition hover:ring-sand-strong sm:hidden"
         >
           ფილტრი
           <svg
@@ -124,7 +124,7 @@ export function FilterBar() {
       <div className={openFilters}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
         <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-          <span className="text-xs font-medium text-stone-500">უბანი</span>
+          <span className="text-xs font-medium text-mink">უბანი</span>
           <select
             value={district}
             onChange={(e) => {
@@ -133,7 +133,7 @@ export function FilterBar() {
               setDistrict(e.target.value);
               apply({ district: e.target.value });
             }}
-            className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            className="rounded-lg border border-sand-strong bg-card px-3 py-2 text-sm text-ink focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
           >
             <option value="">ყველა უბანი</option>
             {DISTRICTS.map((d) => (
@@ -144,7 +144,7 @@ export function FilterBar() {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">მინ. $</span>
+          <span className="text-xs font-medium text-mink">მინ. $</span>
           <input
             type="number"
             inputMode="numeric"
@@ -152,11 +152,11 @@ export function FilterBar() {
             value={min}
             onChange={(e) => setMin(e.target.value)}
             placeholder="0"
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            className="rounded-lg border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-stone-500">მაქს. $</span>
+          <span className="text-xs font-medium text-mink">მაქს. $</span>
           <input
             type="number"
             inputMode="numeric"
@@ -164,13 +164,13 @@ export function FilterBar() {
             value={max}
             onChange={(e) => setMax(e.target.value)}
             placeholder="ნებისმიერი"
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+            className="rounded-lg border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
           />
         </label>
         <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
             type="submit"
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+            className="rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white transition hover:bg-moss-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
           >
             ძებნა
           </button>
@@ -183,7 +183,7 @@ export function FilterBar() {
                 setMax("");
                 startTransition(() => router.push("/?deal=rent"));
               }}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-stone-500 transition hover:text-stone-800"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"
             >
               გასუფთავება
             </button>
@@ -191,7 +191,7 @@ export function FilterBar() {
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 text-xs font-medium text-stone-500">ოთახები:</span>
+        <span className="mr-1 text-xs font-medium text-mink">ოთახები:</span>
         <button type="button" onClick={() => apply({ rooms: "" })} className={chip(rooms === "")}>
           ნებისმიერი
         </button>

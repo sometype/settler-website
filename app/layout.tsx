@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Georgian } from "next/font/google";
+import { Noto_Sans_Georgian, Noto_Serif_Georgian } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
@@ -8,6 +8,16 @@ import "./globals.css";
 const georgian = Noto_Sans_Georgian({
   subsets: ["georgian", "latin"],
   variable: "--font-georgian",
+  display: "swap",
+});
+
+// Display face for headlines, prices and the wordmark. Georgian serif is
+// almost unused on the local web — it is the cheapest possible way to not look
+// like every other classifieds site. Weights limited to what we actually set.
+const georgianSerif = Noto_Serif_Georgian({
+  subsets: ["georgian", "latin"],
+  variable: "--font-georgian-serif",
+  weight: ["600", "700", "800"],
   display: "swap",
 });
 
@@ -31,25 +41,30 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ka" className={`${georgian.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-stone-50 font-sans text-stone-900">
-        <header className="sticky top-0 z-20 border-b border-stone-200 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3.5">
-            <Link href="/" className="flex items-baseline gap-2">
-              <span className="text-2xl font-black tracking-tight text-stone-900">
+    <html
+      lang="ka"
+      className={`${georgian.variable} ${georgianSerif.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col bg-paper font-sans text-ink">
+        <header className="sticky top-0 z-20 border-b border-sand bg-paper/90 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-3">
+            <Link href="/" className="flex items-baseline gap-2.5">
+              <span className="font-display text-[22px] font-extrabold tracking-tight text-ink">
                 მე პატრონი
               </span>
-              <span className="hidden text-sm font-medium text-emerald-700 sm:inline">
+              <span className="hidden text-[13px] font-medium text-clay-deep sm:inline">
                 ბინები პირდაპირ პატრონებისგან
               </span>
             </Link>
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-stone-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-stone-500">
-            <p className="font-black text-stone-800">მე პატრონი</p>
-            <p className="mt-1">
+        {/* Pine bookend: the page opens and closes in the same deep green, so
+            the paper middle reads as a deliberate spread, not a default. */}
+        <footer className="bg-pine">
+          <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-cream/70">
+            <p className="font-display text-lg font-bold text-cream">მე პატრონი</p>
+            <p className="mt-1.5 max-w-md">
               ნამდვილი, ახალი განცხადებები თბილისში — პირდაპირ პატრონებისგან, აგენტების გარეშე.
             </p>
           </div>
