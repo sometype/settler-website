@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatPrice, type DistrictRailData } from "@/lib/listings";
 import { resolveImageUrl } from "@/lib/images";
 import { districtLabel } from "@/lib/districts";
+import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { relativeTimeKa } from "@/lib/time";
 import type { FeedFilters } from "@/lib/types";
 import { ListingImage } from "./ListingImage";
@@ -81,7 +82,7 @@ export function DistrictRail({
                   )}
                   <ListingImage
                     src={image ? resolveImageUrl(image) : null}
-                    alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${label}`}
+                    alt={roomsAltKa(listing.rooms, label)}
                     className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
@@ -102,7 +103,7 @@ export function DistrictRail({
                   </div>
                   <p className="truncate text-xs text-mink">
                     {[
-                      listing.rooms ? `${listing.rooms} ოთახი` : null,
+                      roomsLabelKa(listing.rooms),
                       listing.area ? `${listing.area} მ²` : null,
                     ]
                       .filter(Boolean)

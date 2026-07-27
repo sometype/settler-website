@@ -3,6 +3,7 @@ import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { isNew, formatPrice } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
+import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { relativeTimeKa } from "@/lib/time";
 import { ListingImage } from "./ListingImage";
 import { TimeAgo } from "./TimeAgo";
@@ -53,7 +54,7 @@ export function ListingCard({
         )}
         <ListingImage
           src={src}
-          alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${district ?? "თბილისი"}`}
+          alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
           className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
         />
         <div className="absolute left-2 top-2 z-10 flex flex-wrap gap-1.5">
@@ -69,7 +70,7 @@ export function ListingCard({
         )}
         <p className="text-sm text-mink">
           {[
-            listing.rooms ? `${listing.rooms} ოთახი` : null,
+            roomsLabelKa(listing.rooms),
             listing.area ? `${listing.area} მ²` : null,
             listing.floor ? `სართ. ${listing.floor}` : null,
           ]

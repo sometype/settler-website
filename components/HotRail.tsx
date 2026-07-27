@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatPrice, HOT_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
 import { resolveImageUrl } from "@/lib/images";
 import { districtLabel } from "@/lib/districts";
+import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { ListingImage } from "./ListingImage";
 
 /**
@@ -73,7 +74,7 @@ export function HotRail({
                   )}
                   <ListingImage
                     src={image ? resolveImageUrl(image) : null}
-                    alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${district ?? "თბილისი"}`}
+                    alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
                     className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
@@ -90,7 +91,7 @@ export function HotRail({
                   <p className="truncate text-xs text-mink">
                     {[
                       district,
-                      listing.rooms ? `${listing.rooms} ოთახი` : null,
+                      roomsLabelKa(listing.rooms),
                       listing.area ? `${listing.area} მ²` : null,
                     ]
                       .filter(Boolean)

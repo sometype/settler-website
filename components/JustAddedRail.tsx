@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatPrice, JUST_ADDED_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
 import { resolveImageUrl } from "@/lib/images";
 import { districtLabel } from "@/lib/districts";
+import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { relativeTimeKa, isVeryFresh } from "@/lib/time";
 import { ListingImage } from "./ListingImage";
 import { TimeAgo } from "./TimeAgo";
@@ -55,11 +56,27 @@ export function JustAddedRail({
                 href={`/listing/${listing.id}?src=new`}
                 className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
               >
-                <div className="aspect-[4/3] overflow-hidden">
+                {/* contain + blur, matching every other card surface. This rail
+                    was the last one still using object-cover, which crops
+                    panoramas and phone screenshots to a meaningless slice — on
+                    the most prominent strip on the page. */}
+                <div className="relative aspect-[4/3] overflow-hidden bg-sand/50">
+                  {image && (
+                    // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
+                    <img
+                      src={resolveImageUrl(image)}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      decoding="async"
+                      referrerPolicy="no-referrer"
+                      className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
+                    />
+                  )}
                   <ListingImage
                     src={image ? resolveImageUrl(image) : null}
-                    alt={`${listing.rooms ?? "?"}-ოთახიანი ბინა, ${district ?? "თბილისი"}`}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                    alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
+                    className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
                   />
                 </div>
                 <div className="space-y-1 p-3">
@@ -84,7 +101,7 @@ export function JustAddedRail({
                   <p className="truncate text-xs text-mink">
                     {[
                       district,
-                      listing.rooms ? `${listing.rooms} ოთახი` : null,
+                      roomsLabelKa(listing.rooms),
                       listing.area ? `${listing.area} მ²` : null,
                     ]
                       .filter(Boolean)

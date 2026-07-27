@@ -70,7 +70,11 @@ async function Feed({
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
     return (
       <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
-        <FeedBeacon empty meta={{ ...meta, reason: "page_out_of_range", total: result.total }} />
+        <FeedBeacon
+          empty
+          hasFilters={hasActiveFilters(filters)}
+          meta={{ ...meta, reason: "page_out_of_range", total: result.total }}
+        />
         <h2 className="text-lg font-semibold text-ink">ასეთი გვერდი არ არსებობს</h2>
         <p className="mt-2 text-sm text-mink">
           სულ {result.pageCount.toLocaleString("ka-GE")} გვერდია.
@@ -88,7 +92,7 @@ async function Feed({
   if (result.listings.length === 0) {
     return (
       <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
-        <FeedBeacon empty meta={{ ...meta, total: 0 }} />
+        <FeedBeacon empty hasFilters={hasActiveFilters(filters)} meta={{ ...meta, total: 0 }} />
         <h2 className="text-lg font-semibold text-ink">
           {hasActiveFilters(filters) ? "ფილტრს არაფერი ემთხვევა" : "ჯერ არ არის განცხადებები"}
         </h2>
@@ -103,7 +107,11 @@ async function Feed({
 
   return (
     <>
-      <FeedBeacon empty={false} meta={{ ...meta, total: result.total }} />
+      <FeedBeacon
+        empty={false}
+        hasFilters={hasActiveFilters(filters)}
+        meta={{ ...meta, total: result.total }}
+      />
       <p className="mb-3 text-sm text-mink">
         {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}

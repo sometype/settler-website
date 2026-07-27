@@ -66,3 +66,25 @@ function lookup(map: Record<string, string>, raw: string | null | undefined): st
 export const conditionLabel = (raw: string | null | undefined) => lookup(CONDITION, raw);
 export const statusLabel = (raw: string | null | undefined) => lookup(STATUS, raw);
 export const projectTypeLabel = (raw: string | null | undefined) => lookup(PROJECT_TYPE, raw);
+
+/**
+ * Rooms as Georgian display text. myhome's ROOM_TYPE map yields the literal
+ * string "studio" for room_type_id 8, which rendered as "studio-ოთახიანი ბინა"
+ * in card alt text and screen readers — English leaking into a Georgian-first
+ * page. Anything non-numeric falls through unchanged rather than being forced
+ * into the "N ოთახი" shape.
+ */
+export function roomsLabelKa(rooms: string | number | null | undefined): string | null {
+  if (rooms === null || rooms === undefined || rooms === "") return null;
+  const r = String(rooms).trim();
+  if (/^studio$/i.test(r)) return "სტუდიო";
+  if (/^\d+\+?$/.test(r)) return `${r} ოთახი`;
+  return r;
+}
+
+/** Same, for the "N-ოთახიანი ბინა" alt-text phrasing. */
+export function roomsAltKa(rooms: string | number | null | undefined, place: string): string {
+  const r = rooms === null || rooms === undefined ? null : String(rooms).trim();
+  if (r && /^studio$/i.test(r)) return `სტუდიო ბინა, ${place}`;
+  return `${r ?? "?"}-ოთახიანი ბინა, ${place}`;
+}

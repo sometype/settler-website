@@ -46,7 +46,11 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
  * can't write arbitrary strings into site_events; "feed" is implicit (no
  * param) and absent from the set on purpose.
  */
-const RAIL_SOURCES = new Set(["new", "hot", "value"]);
+// Every value a rail actually emits must be listed here or the open is
+// recorded with rail:null. "district" was missing for the rails' first
+// hours — the biggest homepage surface was invisible in analytics.
+// "value" is reserved for a rail that does not exist yet.
+const RAIL_SOURCES = new Set(["new", "hot", "district", "value"]);
 
 export default async function ListingPage({
   params,
