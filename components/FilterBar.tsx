@@ -52,6 +52,12 @@ export function FilterBar() {
       else next.delete(key);
     }
     next.delete("page"); // filter change resets pagination
+    // Same reasoning for `view`: it names a SURFACE (a channel opened
+    // full-screen), and narrowing the catalogue means you have left that
+    // surface. Without this it survives every filter interaction, so a visitor
+    // who filters from inside the channel and then clears would land back on a
+    // homepage with the rails silently missing and nothing to explain why.
+    next.delete("view");
     startTransition(() => {
       router.push(next.size ? `/?${next.toString()}` : "/");
     });
