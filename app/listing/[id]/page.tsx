@@ -148,8 +148,17 @@ export default async function ListingPage({
         gallery → price/title → contact → trust → specs → amenities → description
         Desktop: contact sticks in the right column.
       */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
-        <div className="space-y-5">
+      {/* minmax(0,...) + min-w-0 are load-bearing, not cosmetic. A grid item
+          defaults to min-width:auto, so this column sized to its widest child
+          and measured 1448px inside a 375px viewport. The gallery frame is
+          `aspect-[16/10] w-full`, so that produced a 905px-tall gallery on a
+          phone and pushed the price to y=1145 and the call button to y=1358 —
+          past the fold on the page where calls actually happen.
+          It never LOOKED broken because body has overflow-x:hidden, which hides
+          the scrollbar while leaving the blown-out layout in place.
+          Measured before: scrollWidth 1464 at vw 375. After: 375. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
+        <div className="min-w-0 space-y-5">
           <Gallery images={images} alt={title} />
 
           <header className="space-y-2">
