@@ -153,7 +153,14 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
     if (isChannelView(filters)) {
       return (
         <div className="space-y-3">
-          <ChannelHeading id="channel-heading" label="ახლახან დაემატა" dot="moss" />
+          {/* NOT "ახლახან დაემატა" — that rail is a 12h window (48h for sale),
+              this view is the whole catalogue newest-first. Reusing the rail's
+              label here would put a freshness promise over 959 listings, which
+              is the same overclaim that keeps hot from having a "see all".
+              The honest fix is the label, not a cutoff: windowing the query
+              would re-hide inventory to satisfy a word, when reachability was
+              the entire bug. No moss dot either — moss means live/fresh. */}
+          <ChannelHeading id="channel-heading" label="ყველა განცხადება, ახლიდან" />
           <Feed searchParams={searchParams} />
         </div>
       );
