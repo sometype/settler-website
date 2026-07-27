@@ -5,10 +5,12 @@ import {
   parseFilters,
   hasActiveFilters,
   hasNarrowingFilters,
+  isChannelView,
   type SearchParams,
 } from "@/lib/filters";
 import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
+import { ChannelHeading } from "@/components/Channel";
 import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
 import { HotRail } from "@/components/HotRail";
@@ -139,9 +141,23 @@ async function Feed({
  */
 async function Rails({ searchParams }: { searchParams: SearchParams }) {
   const filters = parseFilters(searchParams);
-  const showRails = !hasNarrowingFilters(filters);
+  // Rails are hidden when a channel is open full-screen: the channel IS the
+  // rail, expanded. That also lifts excludeIds (the !showRails branch passes
+  // none), which is the whole point — those listings were reachable ONLY by
+  // swiping the rail sideways, on every page of the unfiltered homepage.
+  const showRails = !hasNarrowingFilters(filters) && !isChannelView(filters);
 
   if (!showRails) {
+    // A channel opened full-screen gets a heading and a way back; a plain
+    // filtered feed does not (the filter bar already says what is applied).
+    if (isChannelView(filters)) {
+      return (
+        <div className="space-y-3">
+          <ChannelHeading id="channel-heading" label="ახლახან დაემატა" dot="moss" />
+          <Feed searchParams={searchParams} />
+        </div>
+      );
+    }
     return <Feed searchParams={searchParams} />;
   }
 
@@ -156,7 +172,7 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="space-y-5">
       {plan && plan.justAdded.listings.length > 0 && (
-        <JustAddedRail data={plan.justAdded} />
+        <JustAddedRail data={plan.justAdded} dealType={filters.dealType} />
       )}
       {/* Below just-added on purpose: freshness is the product's claim, and
           attention is the second-order signal. */}

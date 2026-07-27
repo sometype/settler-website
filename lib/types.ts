@@ -96,5 +96,27 @@ export interface FeedFilters {
   dealType?: DealType;
   /** Selected amenity keys — every one must be present (AND). */
   amenities?: string[];
+  /**
+   * A channel opened full-screen ("see all"), NOT a filter.
+   *
+   * ⚠️ This is a MODE, like the rent/sale tab. It must never be added to
+   * `hasActiveFilters` — that predicate drives `filter_apply`, and counting a
+   * "see all" tap as a filter application would re-inflate the exact metric
+   * that spent weeks measuring page views instead of filtering. It DOES
+   * suppress the rails, because the channel and its own rail must not both
+   * render. See lib/filters.ts for the two predicates and why they differ.
+   */
+  view?: ChannelView;
   page: number;
 }
+
+/**
+ * Channels that can be opened as a full list. `intake` is just-added — the
+ * feed already sorts newest-first, so it needs no ranking of its own.
+ *
+ * `hot` is deliberately absent: it is ranked by rolling attention (sql/010
+ * listings_hot), and a "see all" under that heading which merely opened the
+ * newest feed would be a false claim — the same reason the rails return null
+ * rather than pad with stale stock. It arrives with a real sort, or not at all.
+ */
+export type ChannelView = "intake";

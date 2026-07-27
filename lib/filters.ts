@@ -37,6 +37,10 @@ export function parseFilters(params: SearchParams): FeedFilters {
   // District is a canonical code from the dropdown. Anything else (old
   // free-text URLs, typos) is ignored rather than silently matching nothing.
   const district = str(params.district);
+  // A channel opened full-screen. Named `view`, not folded into the filter
+  // params, precisely so nobody later "tidies" it into hasActiveFilters —
+  // see the note on FeedFilters.view and hasActiveFilters below.
+  const view = str(params.view);
   return {
     district: district && isKnownDistrictCode(district) ? district : undefined,
     minPrice,
@@ -44,8 +48,20 @@ export function parseFilters(params: SearchParams): FeedFilters {
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
     dealType,
     amenities: amenities.length > 0 ? amenities : undefined,
+    view: view === "intake" ? "intake" : undefined,
     page: Math.max(1, num(params.page) ?? 1),
   };
+}
+
+/**
+ * Is a channel open as a full list?
+ *
+ * Kept as its own predicate rather than a third branch inside the filter
+ * helpers, because it answers a different question: "which surface is this?",
+ * not "what has the visitor narrowed to?".
+ */
+export function isChannelView(f: FeedFilters): boolean {
+  return f.view !== undefined;
 }
 
 /**
@@ -65,6 +81,18 @@ export function hasNarrowingFilters(f: FeedFilters): boolean {
   );
 }
 
+/**
+ * Has the visitor actually narrowed the catalogue?
+ *
+ * ⚠️ THIS DRIVES `filter_apply` (via FeedBeacon). Adding anything here that is
+ * not a genuine narrowing action re-creates the bug that made every funnel
+ * number before 2026-07-27 meaningless: the beacon fired on every feed render,
+ * so "filter_apply" was really page views and the funnel compared two different
+ * things. `view` (a channel opened full-screen) is therefore deliberately
+ * ABSENT — it changes which surface you are on, not what you filtered to.
+ * If you add a param to this function, ask first whether a user would call it
+ * "I filtered".
+ */
 export function hasActiveFilters(f: FeedFilters): boolean {
   return Boolean(
     f.district ||
