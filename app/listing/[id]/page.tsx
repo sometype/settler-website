@@ -1,15 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchListing, formatPrice, isNew } from "@/lib/listings";
+import { fetchListing, formatPrice } from "@/lib/listings";
 import { stripHtml } from "@/lib/text";
 import { districtLabel } from "@/lib/districts";
-import { conditionLabel, statusLabel, projectTypeLabel } from "@/lib/labels";
+import {
+  conditionLabel,
+  statusLabel,
+  projectTypeLabel,
+  roomsLabelKa,
+  roomsAltKa,
+} from "@/lib/labels";
+import { ageBand, compactAgeKa } from "@/lib/time";
 import { presentAmenities } from "@/lib/amenities";
 import { Gallery } from "@/components/Gallery";
 import { PhoneBlock } from "@/components/PhoneBlock";
 import { StickyContactBar } from "@/components/StickyContactBar";
 import { ListingOpenBeacon } from "@/components/ListingOpenBeacon";
-import { DealBadge, NewBadge } from "@/components/Badges";
+import { DealBadge } from "@/components/Badges";
+import { AgeStamp } from "@/components/AgeStamp";
 import { AmenityIcon } from "@/components/AmenityIcon";
 import type { DescFacts } from "@/lib/types";
 
@@ -73,12 +81,12 @@ export default async function ListingPage({
   } catch (err) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-6">
-        <div className="rounded-2xl bg-red-50 p-8 text-center ring-1 ring-red-200">
-          <h1 className="text-lg font-semibold text-red-800">განცხადების ჩატვირთვა ვერ მოხერხდა</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm text-red-700">
+        <div className="rounded-lg border border-sand bg-card p-8 text-center">
+          <h1 className="text-lg font-semibold text-ink">განცხადების ჩატვირთვა ვერ მოხერხდა</h1>
+          <p className="mx-auto mt-2 max-w-md text-sm text-mink">
             {err instanceof Error ? err.message : "ბაზასთან კავშირის მოულოდნელი შეცდომა."}
           </p>
-          <Link href="/" className="mt-4 inline-block text-sm font-medium text-red-800 underline">
+          <Link href="/" className="mt-4 inline-block text-sm font-medium text-ink underline">
             მთავარ გვერდზე დაბრუნება
           </Link>
         </div>
@@ -94,11 +102,13 @@ export default async function ListingPage({
   const price = formatPrice(listing.price_usd, deal);
   const description = listing.description_ka?.trim() || stripHtml(listing.description);
   const district = districtLabel(listing.district_code, listing.district);
-  const title = [
-    listing.rooms ? `${listing.rooms}-ოთახიანი ბინა` : "ბინა",
-    district ?? "თბილისი",
-    dealLabel,
-  ].join(", ");
+  // roomsAltKa maps studio → სტუდიო; the old `${rooms}-ოთახიანი` left English
+  // "studio" in the H1 and every gallery alt on detail (card surfaces were fixed
+  // earlier; this string was the remaining leak).
+  const place = district ?? "თბილისი";
+  const title = listing.rooms
+    ? `${roomsAltKa(listing.rooms, place)}, ${dealLabel}`
+    : `ბინა, ${place}, ${dealLabel}`;
   const amenities = presentAmenities(listing.amenities);
   const terms = termsFromFacts(listing.desc_facts, deal === "rent");
   const balcony =
@@ -112,14 +122,9 @@ export default async function ListingPage({
   const canCall = Boolean(listing.has_phone && phone);
   // Trust chip only when the description worker actually cleaned this row.
   const textClean = listing.description_status === "clean";
-  const ageHours =
-    (Date.now() - new Date(listing.first_seen_at).getTime()) / (1000 * 60 * 60);
-  const ageLabel =
-    ageHours < 24
-      ? "დამატებულია დღეს"
-      : ageHours < 48
-        ? "დამატებულია გუშინ"
-        : null;
+  // Exact age via AgeStamp instead of "დღეს"/"გუშინ" buckets: the ramp is the
+  // product rule, and bucketing threw away the difference between 7 minutes and
+  // 20 hours. Also removes a Date.now() call during render (react-hooks/purity).
 
   return (
     <article
@@ -148,30 +153,68 @@ export default async function ListingPage({
         gallery → price/title → contact → trust → specs → amenities → description
         Desktop: contact sticks in the right column.
       */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-start">
-        <div className="space-y-5">
+      {/* minmax(0,...) + min-w-0 are load-bearing, not cosmetic. A grid item
+          defaults to min-width:auto, so this column sized to its widest child
+          and measured 1448px inside a 375px viewport. Because the gallery frame
+          is `aspect-[16/10] w-full`, that produced a 905px-tall gallery on a
+          phone, pushing price and call far below the fold — and body's
+          overflow-x:hidden hid the scrollbar so it never looked broken.
+          Measured on production before this fix: scrollWidth 1464 at vw 375. */}
+      {/* Single-column mobile is still a grid track with min-width:auto — the
+          1448px blowout happened at vw 375, not only at lg. minmax on lg +
+          min-w-0 on the column covers both. */}
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
+        <div className="min-w-0 space-y-5">
           <Gallery images={images} alt={title} />
 
           <header className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              {isNew(listing.first_seen_at) && <NewBadge />}
               <DealBadge dealType={deal} />
+              <AgeStamp
+                iso={listing.first_seen_at}
+                initialLabel={compactAgeKa(listing.first_seen_at)}
+                initialBand={ageBand(listing.first_seen_at)}
+                className="text-[12px]"
+              />
             </div>
+            {/* Price is ink, not moss. moss means "checked/alive" everywhere in
+                this system; a green price diluted the one signal that matters. */}
             {price ? (
-              <p className="font-display text-3xl font-bold text-moss-deep">{price}</p>
+              <p className="text-3xl font-bold text-ink">
+                {/* .num goes on the FIGURE only, never the parent — a child span
+                    inherits font-family, which is how "თვეში" ended up rendering
+                    through JetBrains Mono (no Georgian coverage). */}
+                <span className="num">{price.replace(" / თვეში", "")}</span>
+                {price.includes(" / თვეში") && (
+                  <span className="ml-1.5 text-base font-medium text-mink">/ თვეში</span>
+                )}
+              </p>
             ) : (
               <p className="text-2xl font-semibold text-faint">ფასი მოთხოვნით</p>
             )}
-            <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
+            <h1 className="text-2xl font-bold text-ink">{title}</h1>
             <p className="text-sm text-mink">
               {[
-                listing.rooms ? `${listing.rooms} ოთახი` : null,
-                listing.area ? `${listing.area} მ²` : null,
-                listing.floor ? `სართ. ${listing.floor}` : null,
+                roomsLabelKa(listing.rooms),
+                listing.area != null ? (
+                  <>
+                    <span className="num">{listing.area}</span> მ²
+                  </>
+                ) : null,
+                listing.floor ? (
+                  <>
+                    სართ. <span className="num">{listing.floor}</span>
+                  </>
+                ) : null,
                 district,
               ]
                 .filter(Boolean)
-                .join(" · ")}
+                .map((part, i) => (
+                  <span key={i}>
+                    {i > 0 && " · "}
+                    {part}
+                  </span>
+                ))}
             </p>
           </header>
 
@@ -184,27 +227,23 @@ export default async function ListingPage({
             />
           </div>
 
-          {(textClean || ageLabel) && (
+          {textClean && (
             <div className="flex flex-wrap gap-1.5">
-              {textClean && (
-                <span className="rounded-full bg-moss/10 px-2.5 py-1 text-xs font-medium text-moss-deep ring-1 ring-inset ring-moss/25">
-                  ტექსტი შემოწმებული
-                </span>
-              )}
-              {ageLabel && (
-                <span className="rounded-full bg-sand/50 px-2.5 py-1 text-xs font-medium text-mink">
-                  {ageLabel}
-                </span>
-              )}
+              <span className="rounded bg-moss/10 px-2 py-1 text-xs font-medium text-moss-deep">
+                ტექსტი შემოწმებული
+              </span>
             </div>
           )}
 
-          <div className="rounded-2xl bg-card p-4 ring-1 ring-sand lg:hidden">
+          <div className="rounded-lg border border-sand bg-card p-4 lg:hidden">
             <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
-              <Fact label="ოთახები" value={listing.rooms} />
-              <Fact label="ფართი" value={listing.area ? `${listing.area} მ²` : null} />
+              <Fact label="ოთახები" value={roomsLabelKa(listing.rooms)} />
+              <Fact
+                label="ფართი"
+                value={listing.area != null ? `${listing.area} მ²` : null}
+              />
               <Fact label="სართული" value={listing.floor} />
               <Fact label="სველი წერტილი" value={listing.bathrooms} />
               <Fact label="მდგომარეობა" value={conditionLabel(listing.condition)} />
@@ -216,12 +255,12 @@ export default async function ListingPage({
           </div>
 
           {amenities.length > 0 && (
-            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+            <section className="rounded-lg border border-sand bg-card p-4">
               <h2 className="text-sm font-semibold text-ink">კეთილმოწყობა</h2>
               <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
                 {amenities.map((a) => (
                   <li key={a.key} className="flex items-center gap-2 text-sm text-mink">
-                    <AmenityIcon name={a.key} className="h-4.5 w-4.5 shrink-0 text-moss-deep" />
+                    <AmenityIcon name={a.key} className="h-4.5 w-4.5 shrink-0 text-moss" />
                     {a.ka}
                   </li>
                 ))}
@@ -230,13 +269,13 @@ export default async function ListingPage({
           )}
 
           {terms.length > 0 && (
-            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+            <section className="rounded-lg border border-sand bg-card p-4">
               <h2 className="text-sm font-semibold text-ink">პირობები</h2>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {terms.map((t) => (
                   <li
                     key={t}
-                    className="rounded-full bg-sand/50 px-3 py-1 text-xs font-medium text-mink"
+                    className="rounded bg-paper px-2.5 py-1 text-xs font-medium text-mink"
                   >
                     {t}
                   </li>
@@ -249,7 +288,7 @@ export default async function ListingPage({
           )}
 
           {description && (
-            <section className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+            <section className="rounded-lg border border-sand bg-card p-4">
               <h2 className="text-sm font-semibold text-ink">აღწერა</h2>
               <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-mink">
                 {description}
@@ -264,12 +303,15 @@ export default async function ListingPage({
             phone={listing.phone}
             listingId={listing.id}
           />
-          <div className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+          <div className="rounded-lg border border-sand bg-card p-4">
             <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
-              <Fact label="ოთახები" value={listing.rooms} />
-              <Fact label="ფართი" value={listing.area ? `${listing.area} მ²` : null} />
+              <Fact label="ოთახები" value={roomsLabelKa(listing.rooms)} />
+              <Fact
+                label="ფართი"
+                value={listing.area != null ? `${listing.area} მ²` : null}
+              />
               <Fact label="სართული" value={listing.floor} />
               <Fact label="სველი წერტილი" value={listing.bathrooms} />
               <Fact label="მდგომარეობა" value={conditionLabel(listing.condition)} />

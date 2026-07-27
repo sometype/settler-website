@@ -49,11 +49,12 @@ export function PhoneBlock({
   const show = Boolean(hasPhone && number);
 
   return (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-sand">
+    <div className="rounded-lg border border-sand bg-card p-4">
       <h2 className="text-sm font-semibold text-ink">დაუკავშირდი პატრონს</h2>
       {show && number ? (
-        <div className="mt-3 space-y-3">
-          <p className="text-lg font-semibold tracking-wide text-ink">
+        <div className="mt-3 space-y-2.5">
+          {/* Phone digits are the figure; + and spaces stay with them in mono. */}
+          <p className="num text-lg font-semibold tracking-wide text-ink">
             {displayPhone(number)}
           </p>
           <a
@@ -64,7 +65,9 @@ export function PhoneBlock({
                 meta: { surface: "phone_block" },
               })
             }
-            className="flex w-full items-center justify-center rounded-lg bg-moss px-4 py-3 text-sm font-semibold text-white transition hover:bg-moss-deep"
+            // Ink fill = the one loud control (matches card call). Moss stays
+            // "checked/alive" only — a green call button diluted that meaning.
+            className="flex w-full items-center justify-center rounded bg-ink px-4 py-3 text-sm font-bold text-card transition hover:bg-pine"
           >
             დარეკვა
           </a>
@@ -78,7 +81,7 @@ export function PhoneBlock({
                 meta: { surface: "phone_block" },
               })
             }
-            className="flex w-full items-center justify-center rounded-lg bg-sand/50 px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-sand"
+            className="flex w-full items-center justify-center rounded border border-sand-strong bg-card px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-ink"
           >
             WhatsApp
           </a>

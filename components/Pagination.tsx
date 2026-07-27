@@ -25,9 +25,9 @@ export function Pagination({
   if (pageCount <= 1) return null;
 
   const linkClass =
-    "rounded-lg bg-card px-4 py-2 text-sm font-medium text-mink ring-1 ring-sand-strong transition hover:ring-sand-strong";
+    "rounded bg-card px-4 py-2 text-sm font-medium text-mink ring-1 ring-sand-strong transition hover:ring-sand-strong";
   const disabledClass =
-    "rounded-lg px-4 py-2 text-sm font-medium text-sand-strong ring-1 ring-sand";
+    "rounded px-4 py-2 text-sm font-medium text-sand-strong ring-1 ring-sand";
 
   return (
     <nav className="mt-8 flex items-center justify-center gap-3" aria-label="გვერდები">
@@ -39,7 +39,7 @@ export function Pagination({
         <span className={disabledClass}>← წინა</span>
       )}
       <span className="text-sm text-mink">
-        გვერდი {page} / {pageCount}
+        გვერდი <span className="num">{page}</span> / <span className="num">{pageCount}</span>
       </span>
       {page < pageCount ? (
         <Link href={pageHref(searchParams, page + 1)} className={linkClass}>

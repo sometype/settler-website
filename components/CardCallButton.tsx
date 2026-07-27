@@ -27,11 +27,9 @@ export function CardCallButton({
 
   if (!hasPhone) return null;
 
-  async function call(e: React.MouseEvent) {
-    // The card is wrapped in a <Link>; without this the tap navigates to the
-    // detail page instead of dialling.
-    e.preventDefault();
-    e.stopPropagation();
+  async function call() {
+    // Button sits OUTSIDE the card <Link> (see ListingCard) — no preventDefault
+    // needed. Still ignore double-taps while the phone lookup is in flight.
     if (busy) return;
     setBusy(true);
 
@@ -60,7 +58,10 @@ export function CardCallButton({
       type="button"
       onClick={call}
       aria-label="დარეკე პატრონს"
-      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-moss px-3 py-2 text-sm font-semibold text-white transition hover:bg-moss-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss-deep disabled:opacity-60"
+      // Full width, solid ink: the ONE loud control in the system. Everything
+      // else is hairlines and text, so the call needs no colour to win — and a
+      // neutral fill leaves moss free to mean "checked/alive" and nothing else.
+      className="flex w-full items-center justify-center gap-1.5 rounded bg-ink px-3 py-2 text-[13px] font-bold text-card transition hover:bg-pine focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-60"
       disabled={busy}
     >
       <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">

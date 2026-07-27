@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { formatPrice, type DistrictRailData } from "@/lib/listings";
-import { resolveImageUrl } from "@/lib/images";
+import type { DistrictRailData } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
-import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
-import { relativeTimeKa } from "@/lib/time";
 import type { FeedFilters } from "@/lib/types";
-import { ListingImage } from "./ListingImage";
+import { ChannelHeading, ChannelStrip, RailCard } from "./Channel";
 
 /**
  * One district's newest flats — "anything new in my area?" answered at a glance,
@@ -32,89 +29,44 @@ export function DistrictRail({
 
   return (
     <section aria-labelledby={`district-${data.code}-heading`}>
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2
-          id={`district-${data.code}-heading`}
-          className="flex items-baseline gap-2 font-display text-lg font-bold tracking-tight text-ink"
-        >
-          {label}
-          {data.new24h > 0 && (
-            <span className="text-sm font-semibold text-moss">+{data.new24h}</span>
-          )}
-        </h2>
-        {/* The escape hatch: the strip is 8 cards, the district has more. */}
+      <ChannelHeading
+        id={`district-${data.code}-heading`}
+        label={label}
+        href={href}
+        count={data.live.toLocaleString("ka-GE")}
+      >
+        {/* New-in-24h is the reason to look at this district at all, so it sits
+            before the total rather than after it. */}
+        {data.new24h > 0 && (
+          <span className="num shrink-0 text-[11px] font-bold text-moss">
+            +{data.new24h}
+          </span>
+        )}
+        <span className="shrink-0 text-[11px] text-sand-strong" aria-hidden="true">
+          /
+        </span>
+      </ChannelHeading>
+      <ChannelStrip>
+        {data.listings.map((listing) => (
+          <RailCard
+            key={listing.id}
+            listing={listing}
+            image={data.mainImages.get(listing.id) ?? null}
+            src="district"
+            // The channel heading already names the district; repeating it on
+            // every card in the strip is pure noise.
+            showDistrict={false}
+          />
+        ))}
+      </ChannelStrip>
+      <div className="mt-1.5">
         <Link
           href={href}
-          className="shrink-0 text-xs font-semibold text-clay-deep underline-offset-2 hover:underline"
+          className="text-[11.5px] font-semibold text-clay-deep underline-offset-2 hover:underline"
         >
           ყველა ({data.live.toLocaleString("ka-GE")}) →
         </Link>
       </div>
-
-      <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-        {data.listings.map((listing) => {
-          const image = data.mainImages.get(listing.id) ?? null;
-          const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
-
-          return (
-            <li key={listing.id} className="w-44 shrink-0 snap-start">
-              <Link
-                // ?src=district → listing_open carries meta.rail="district", so
-                // these strips are judged by the calls they earn, separately
-                // from new and hot.
-                href={`/listing/${listing.id}?src=district`}
-                className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
-              >
-                {/* contain + blur, same as every other card: owners upload
-                    panoramas and screenshots that object-cover destroys. */}
-                <div className="relative aspect-[4/3] overflow-hidden bg-sand/50">
-                  {image && (
-                    // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
-                    <img
-                      src={resolveImageUrl(image)}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
-                    />
-                  )}
-                  <ListingImage
-                    src={image ? resolveImageUrl(image) : null}
-                    alt={roomsAltKa(listing.rooms, label)}
-                    className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
-                  />
-                </div>
-                <div className="space-y-1 p-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    {price ? (
-                      <p className="truncate font-display text-sm font-bold text-ink">
-                        {price.replace(" / თვეში", "")}
-                      </p>
-                    ) : (
-                      <p className="truncate text-sm font-semibold text-faint">
-                        შეთანხმებით
-                      </p>
-                    )}
-                    <span className="shrink-0 text-[11px] text-faint">
-                      {relativeTimeKa(listing.first_seen_at)}
-                    </span>
-                  </div>
-                  <p className="truncate text-xs text-mink">
-                    {[
-                      roomsLabelKa(listing.rooms),
-                      listing.area ? `${listing.area} მ²` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }

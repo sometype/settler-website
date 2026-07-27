@@ -34,11 +34,11 @@ export function StickyContactBar({
 }) {
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-sand bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-sand bg-card/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
       role="region"
       aria-label="დაკავშირება"
     >
-      <p className="mb-2 text-center text-xs font-medium tracking-wide text-mink">
+      <p className="num mb-2 text-center text-xs font-medium tracking-wide text-mink">
         {displayPhone(phone)}
       </p>
       <div className="mx-auto flex max-w-lg gap-2">
@@ -50,7 +50,7 @@ export function StickyContactBar({
               meta: { surface: "sticky_bar" },
             })
           }
-          className="flex flex-1 items-center justify-center rounded-xl bg-moss py-3 text-sm font-semibold text-white"
+          className="flex flex-1 items-center justify-center rounded bg-ink py-3 text-sm font-bold text-card"
         >
           დარეკვა
         </a>
@@ -64,7 +64,7 @@ export function StickyContactBar({
               meta: { surface: "sticky_bar" },
             })
           }
-          className="flex flex-1 items-center justify-center rounded-xl bg-ink py-3 text-sm font-semibold text-white"
+          className="flex flex-1 items-center justify-center rounded border border-sand-strong bg-card py-3 text-sm font-semibold text-ink"
         >
           WhatsApp
         </a>

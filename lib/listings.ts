@@ -487,9 +487,9 @@ export async function fetchListing(
 
 /**
  * 12h, matching JUST_ADDED_WINDOW_H.rent — the badge and the "just added"
- * rail must agree on what "new" means. The card's TimeAgo carries the exact
- * age; the badge is only the glanceable version of the same claim, so at 24h
- * it was spending the freshness signal twice with two different definitions.
+ * rail must agree on what "new" means. The card's AgeStamp carries the exact
+ * age; a binary "new" badge was removed from cards for flattening 7min vs 20h.
+ * isNew remains for the listing detail page until that migrates to AgeStamp.
  */
 export function isNew(firstSeenAt: string): boolean {
   return Date.now() - new Date(firstSeenAt).getTime() < 12 * 60 * 60 * 1000;

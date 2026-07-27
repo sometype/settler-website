@@ -116,7 +116,9 @@ async function Feed({
         {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
       </p>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* minmax(0,1fr): same trap as the detail page — auto min-width lets a
+          card's nowrap facts line blow the column past the viewport. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
         {result.listings.map((listing) => (
           <ListingCard
             key={listing.id}
@@ -187,10 +189,12 @@ export default async function HomePage({
 
   return (
     <>
-      <Suspense fallback={<div className="h-72 bg-pine sm:h-96" />}>
+      {/* Instrument chrome is short; a 288–384px pine block was leftover from
+          the old magazine hero and flashed a dark void on every load. */}
+      <Suspense fallback={<div className="h-[7.5rem] border-b border-sand bg-card sm:h-40" />}>
         <Hero />
       </Suspense>
-      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pb-6 pt-0">
         <FilterBar key={filterKey} />
         {/* All rails are planned together (fetchRailPlan) rather than fetching
             independently, because they must not repeat each other's listings —

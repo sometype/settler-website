@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Georgian, Noto_Serif_Georgian } from "next/font/google";
+import { JetBrains_Mono, Noto_Sans_Georgian, Noto_Serif_Georgian } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
@@ -11,13 +11,23 @@ const georgian = Noto_Sans_Georgian({
   display: "swap",
 });
 
-// Display face for headlines, prices and the wordmark. Georgian serif is
-// almost unused on the local web — it is the cheapest possible way to not look
-// like every other classifieds site. Weights limited to what we actually set.
+// The wordmark ONLY. It used to be the display face for every heading, which is
+// most of why the site read as a magazine rather than as a live feed. Kept here
+// as a single cultural hook — Georgian serif is almost unused on the local web.
 const georgianSerif = Noto_Serif_Georgian({
   subsets: ["georgian", "latin"],
   variable: "--font-georgian-serif",
-  weight: ["600", "700", "800"],
+  weight: ["700"],
+  display: "swap",
+});
+
+// Numerals only (see the `.num` note in globals.css). Georgian text must never
+// route through this face — it has no Georgian coverage and would fall back
+// silently mid-string. Latin subset is therefore the correct and only subset.
+const monoNum = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono-num",
+  weight: ["500", "700"],
   display: "swap",
 });
 
@@ -43,27 +53,37 @@ export default function RootLayout({
   return (
     <html
       lang="ka"
-      className={`${georgian.variable} ${georgianSerif.variable} h-full antialiased`}
+      className={`${georgian.variable} ${georgianSerif.variable} ${monoNum.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper font-sans text-ink">
-        <header className="sticky top-0 z-20 border-b border-sand bg-paper/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-3">
+        {/* Chrome sits on a white panel against the cool page ground, separated
+            by a hairline — the whole system is panels and hairlines, not
+            shadows and rounded slabs. 44px tall on a phone; the fold budget
+            below it is measured and tight. */}
+        <header className="sticky top-0 z-20 border-b border-sand bg-card/95 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-2.5">
             <Link href="/" className="flex items-baseline gap-2.5">
-              <span className="font-display text-[22px] font-extrabold tracking-tight text-ink">
-                მე პატრონი
+              <span
+                className="text-[19px] font-bold tracking-tight text-ink"
+                style={{ fontFamily: "var(--font-serif-wordmark)" }}
+              >
+                მე <span className="text-clay">პატრონი</span>
               </span>
-              <span className="hidden text-[13px] font-medium text-clay-deep sm:inline">
+              <span className="hidden text-[13px] font-medium text-mink sm:inline">
                 ბინები პირდაპირ პატრონებისგან
               </span>
             </Link>
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        {/* Pine bookend: the page opens and closes in the same deep green, so
-            the paper middle reads as a deliberate spread, not a default. */}
-        <footer className="bg-pine">
-          <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-cream/70">
-            <p className="font-display text-lg font-bold text-cream">მე პატრონი</p>
+        <footer className="border-t border-sand bg-card">
+          <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-mink">
+            <p
+              className="text-base font-bold text-ink"
+              style={{ fontFamily: "var(--font-serif-wordmark)" }}
+            >
+              მე <span className="text-clay">პატრონი</span>
+            </p>
             <p className="mt-1.5 max-w-md">
               ნამდვილი, ახალი განცხადებები თბილისში — პირდაპირ პატრონებისგან, აგენტების გარეშე.
             </p>

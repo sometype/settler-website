@@ -38,6 +38,11 @@ export function trackEvent(
   }
 ): void {
   if (typeof window === "undefined") return;
+  // Local `next dev` uses the same NEXT_PUBLIC_SUPABASE_* as production.
+  // Without this, a single call-button test writes a real call_tap into
+  // site_events — and that table has almost no real call volume to dilute.
+  // Server route also no-ops in development as a second gate.
+  if (process.env.NODE_ENV === "development") return;
   const body = JSON.stringify({
     event_type: eventType,
     listing_id: opts?.listingId ?? null,

@@ -65,7 +65,7 @@ export function FilterBar() {
   }
 
   const chip = (active: boolean) =>
-    `rounded-full px-3 py-1 text-xs font-medium ring-1 ring-inset transition ${
+    `rounded px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition ${
       active
         ? "bg-ink text-white ring-ink"
         : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
@@ -78,7 +78,9 @@ export function FilterBar() {
 
   return (
     <form
-      className="rounded-2xl bg-card p-4 ring-1 ring-sand"
+      className="-mx-4 border-b border-sand bg-card px-4 py-2"  /* Full-bleed control strip.
+         A floating rounded card read as a form to fill in; the strip reads as
+         instrument chrome and gives ~20px back to the fold budget. */
       onSubmit={(e) => {
         e.preventDefault();
         apply({});
@@ -95,7 +97,7 @@ export function FilterBar() {
             key={value}
             type="button"
             onClick={() => apply({ deal: value })}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
+            className={`rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
               deal === value
                 ? "bg-ink text-white ring-ink"
                 : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
@@ -108,7 +110,7 @@ export function FilterBar() {
           type="button"
           onClick={() => setOpenOnMobile((v) => !v)}
           aria-expanded={openOnMobile}
-          className="ml-auto inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-mink ring-1 ring-inset ring-sand-strong transition hover:ring-sand-strong sm:hidden"
+          className="ml-auto inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-semibold text-mink ring-1 ring-inset ring-sand-strong transition hover:ring-sand-strong sm:hidden"
         >
           ფილტრი
           <svg
@@ -133,7 +135,7 @@ export function FilterBar() {
               setDistrict(e.target.value);
               apply({ district: e.target.value });
             }}
-            className="rounded-lg border border-sand-strong bg-card px-3 py-2 text-sm text-ink focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
+            className="rounded border border-sand-strong bg-card px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           >
             <option value="">ყველა უბანი</option>
             {DISTRICTS.map((d) => (
@@ -152,7 +154,7 @@ export function FilterBar() {
             value={min}
             onChange={(e) => setMin(e.target.value)}
             placeholder="0"
-            className="rounded-lg border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
+            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -164,13 +166,13 @@ export function FilterBar() {
             value={max}
             onChange={(e) => setMax(e.target.value)}
             placeholder="ნებისმიერი"
-            className="rounded-lg border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-moss focus:outline-none focus:ring-1 focus:ring-moss"
+            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
         </label>
         <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
             type="submit"
-            className="rounded-lg bg-moss px-4 py-2 text-sm font-semibold text-white transition hover:bg-moss-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-moss"
+            className="rounded bg-ink px-4 py-2 text-sm font-semibold text-card transition hover:bg-pine focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             ძებნა
           </button>
