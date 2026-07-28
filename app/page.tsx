@@ -5,10 +5,12 @@ import {
   parseFilters,
   hasActiveFilters,
   hasNarrowingFilters,
+  isChannelView,
   type SearchParams,
 } from "@/lib/filters";
 import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
+import { ChannelHeading } from "@/components/Channel";
 import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
 import { HotRail } from "@/components/HotRail";
@@ -116,7 +118,9 @@ async function Feed({
         {result.total.toLocaleString("ka-GE")} განცხადება
         {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
       </p>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* minmax(0,1fr): same trap as the detail page — auto min-width lets a
+          card's nowrap facts line blow the column past the viewport. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
         {result.listings.map((listing) => (
           <ListingCard
             key={listing.id}
@@ -137,9 +141,30 @@ async function Feed({
  */
 async function Rails({ searchParams }: { searchParams: SearchParams }) {
   const filters = parseFilters(searchParams);
-  const showRails = !hasNarrowingFilters(filters);
+  // Rails are hidden when a channel is open full-screen: the channel IS the
+  // rail, expanded. That also lifts excludeIds (the !showRails branch passes
+  // none), which is the whole point — those listings were reachable ONLY by
+  // swiping the rail sideways, on every page of the unfiltered homepage.
+  const showRails = !hasNarrowingFilters(filters) && !isChannelView(filters);
 
   if (!showRails) {
+    // A channel opened full-screen gets a heading and a way back; a plain
+    // filtered feed does not (the filter bar already says what is applied).
+    if (isChannelView(filters)) {
+      return (
+        <div className="space-y-3">
+          {/* NOT "ახლახან დაემატა" — that rail is a 12h window (48h for sale),
+              this view is the whole catalogue newest-first. Reusing the rail's
+              label here would put a freshness promise over 959 listings, which
+              is the same overclaim that keeps hot from having a "see all".
+              The honest fix is the label, not a cutoff: windowing the query
+              would re-hide inventory to satisfy a word, when reachability was
+              the entire bug. No moss dot either — moss means live/fresh. */}
+          <ChannelHeading id="channel-heading" label="ყველა განცხადება, ახლიდან" />
+          <Feed searchParams={searchParams} />
+        </div>
+      );
+    }
     return <Feed searchParams={searchParams} />;
   }
 
@@ -154,7 +179,7 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
   return (
     <div className="space-y-5">
       {plan && plan.justAdded.listings.length > 0 && (
-        <JustAddedRail data={plan.justAdded} />
+        <JustAddedRail data={plan.justAdded} dealType={filters.dealType} />
       )}
       {/* Below just-added on purpose: freshness is the product's claim, and
           attention is the second-order signal. */}
@@ -187,10 +212,12 @@ export default async function HomePage({
 
   return (
     <>
-      <Suspense fallback={<div className="h-72 bg-pine sm:h-96" />}>
+      {/* Instrument chrome is short; a 288–384px pine block was leftover from
+          the old magazine hero and flashed a dark void on every load. */}
+      <Suspense fallback={<div className="h-[7.5rem] border-b border-sand bg-card sm:h-40" />}>
         <Hero />
       </Suspense>
-      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 py-6">
+      <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pb-6 pt-0">
         <FilterBar key={filterKey} />
         {/* All rails are planned together (fetchRailPlan) rather than fetching
             independently, because they must not repeat each other's listings —

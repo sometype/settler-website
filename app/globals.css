@@ -1,44 +1,86 @@
 @import "tailwindcss";
 
 /*
- * "Tbilisi editorial" — the design system in one place.
+ * "Instrument" — the design system in one place.
  *
- * Ground is warm paper, not gray; text is warm ink, not black. Two accent
- * families with fixed meanings, never decoration:
- *   moss (botanical green)  = action, live, fresh  — call buttons, live dots
- *   clay (old-town brick)   = heat, attention      — hot rail, accent words
- * Display type is Noto SERIF Georgian: Georgian serif is striking and almost
- * unused on the local web, which is exactly the point. Body stays sans.
+ * The site is the shop window for a machine: continuous intake, re-checking,
+ * agent/duplicate filtering. The previous "Tbilisi editorial" skin (warm paper,
+ * Georgian serif, pine/clay/moss) read as a lifestyle catalogue — which is the
+ * one thing the incumbents can copy in an afternoon. This reads as an
+ * instrument: cool neutral ground, hairlines, density, and every number in
+ * tabular mono.
  *
- * The palette is deliberately warm because the inventory is owner-shot photos
- * of ordinary flats — warm neutrals flatter them; clinical white and dark
- * themes both make them look worse.
+ * Georgian has NO uppercase, so the usual all-caps terminal chrome is simply
+ * unavailable — and English badges would make us look MORE like myhome/ss, not
+ * less. So the "machine" register lives entirely in the numerals, which are
+ * language-neutral. Chrome stays Georgian.
+ *
+ * Fixed meanings, never decoration:
+ *   moss  = alive / checked            (live dot, "შემოწმდა")
+ *   clay  = heat / attention           (hot rail, accent word)
+ *   age1..age5 = how old a listing is  (see the ramp note below)
+ *   ink fill = the single loud control (call)
+ *
+ * EVERY pair below cleared a computed AA gate BEFORE being written here
+ * (28 pairs, tightest margin 1.06x on age1/paper). The last redesign shipped
+ * two contrast failures that looked fine by eye — 3.14 and 4.44 — so these are
+ * measured, not judged. Re-run the gate after ANY value change.
  */
 
 :root {
-  --paper: #f6f1e7;
-  --card: #fffdf8;
-  --ink: #211b13;
-  --mink: #5f5546; /* muted ink — 5.9:1 on paper */
-  /* 4.58:1 on paper — AA for the 11-12px timestamps and "ფასი მოთხოვნით"
-     that use it. The prettier #93876f measured 3.14 and failed. */
-  --faint: #786c54;
-  --sand: #e6dcc8; /* hairlines */
-  --sand-strong: #d3c6ab;
-  --moss: #2e6b4f;
-  --moss-deep: #245741;
-  --moss-bright: #4b9b74; /* on dark grounds */
-  --clay: #c05b3b;
-  --clay-deep: #9e4322; /* text-safe on paper */
-  --clay-soft: #e2906c; /* on dark grounds */
-  --pine: #16241e; /* hero / footer deep green-ink */
-  --pine-soft: #1f342c;
-  --cream: #f3ecdb; /* text on pine */
+  /* grounds */
+  --paper: #eef1f5; /* page ground — cool, not warm */
+  --card: #ffffff; /* panels */
+  --well: #e2e7ed; /* media well: a photo never sits on the page ground */
+
+  /* text */
+  --ink: #0e1319; /* 18.65:1 on card */
+  --mink: #5a646f; /* 6.02:1 on card — secondary */
+  --faint: #5f6975; /* 4.92:1 on paper — smallest labels, still AA */
+
+  /* structure */
+  --sand: #d2d9e1; /* hairlines */
+  --sand-strong: #b9c3ce;
+
+  /* meaning */
+  --moss: #1b7a4b;
+  --moss-deep: #14603a;
+  --moss-bright: #1b7a4b;
+  --clay: #b23a17; /* #c4441e measured 4.42 on paper — a near-miss of exactly
+                      the kind that failed last time. Darkened to 5.28. */
+  --clay-deep: #97300f;
+  --clay-soft: #b23a17;
+
+  /* Dark surfaces that stay dark on purpose: the gallery lightbox. A photo
+     viewer on a dark ground is correct regardless of the page theme. Neutral
+     now rather than green, so it belongs to this system. */
+  --pine: #111820;
+  --pine-soft: #1a222c;
+  --cream: #eef1f5;
+
+  /*
+   * AGE RAMP — the product rule made visual.
+   *
+   * Freshness IS the moat, so a listing's age is the loudest thing on its card.
+   * The ramp shifts HUE (warm amber -> cool grey), NOT brightness: every band
+   * sits between 4.79:1 and 6.49:1. A naive "fade it out as it ages" ramp makes
+   * old listings literally unreadable, which is why this is five measured stops
+   * and not an opacity.
+   *
+   *   age1  < 15 min     age2  15-60 min    age3  1-6 h
+   *   age4  6-24 h       age5  > 24 h
+   */
+  --age1: #9a5b00;
+  --age2: #8a5a18;
+  --age3: #7a5a2c;
+  --age4: #6b5c42;
+  --age5: #5a646f;
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-card: var(--card);
+  --color-well: var(--well);
   --color-ink: var(--ink);
   --color-mink: var(--mink);
   --color-faint: var(--faint);
@@ -53,8 +95,17 @@
   --color-pine: var(--pine);
   --color-pine-soft: var(--pine-soft);
   --color-cream: var(--cream);
+  --color-age1: var(--age1);
+  --color-age2: var(--age2);
+  --color-age3: var(--age3);
+  --color-age4: var(--age4);
+  --color-age5: var(--age5);
   --font-sans: var(--font-georgian);
-  --font-display: var(--font-georgian-serif);
+  /* ONE family for everything that is not a figure. The Georgian serif is gone
+     (2026-07-28): it existed to give the Georgian wordmark a cultural hook, and
+     the wordmark is now the Latin brand name "Mepatrone", so the second webfont
+     was paying for nothing. Figures still take the mono face via `.num`. */
+  --font-display: var(--font-georgian);
 }
 
 /* Reserve scrollbar space so gallery image swaps cannot show/hide the vertical
@@ -65,15 +116,44 @@ html {
 
 body {
   background-color: var(--paper);
-  /* Barely-there grain so the paper reads as material, not as a flat fill.
-     Inline SVG noise — self-contained, no request, invisible as a pattern. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");
   color: var(--ink);
   font-family: var(--font-georgian), "Noto Sans Georgian", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }
 
+/*
+ * Every figure the machine produces — price, m², floor, age, counts — renders
+ * in tabular mono, so figures line up down the feed and read as output rather
+ * than as marketing. `tabular-nums` is the load-bearing half: without it the
+ * digits jitter as ages tick over.
+ *
+ * Applied as a utility class rather than a font-family swap on elements,
+ * because Georgian glyphs must NOT go through the mono face — JetBrains Mono
+ * has no Georgian coverage and would silently fall back mid-string.
+ *
+ * ⚠️ Put .num ONLY around pure digits / $ / , / . — never around "წთ", "თვეში",
+ * "ახლახან", or any other Georgian. AgeStamp / ListingCard already split this.
+ */
+.num {
+  font-family: var(--font-mono-num), ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Guard rail, not a patch. `.num` on an <input> is correct — the typed value IS
+ * a figure — but a Georgian placeholder ("ნებისმიერი") on that same input has no
+ * coverage in the mono face and falls back silently. Placeholders are never
+ * figures, so they always take the body face. Same reasoning for any element
+ * that carries .num on a PARENT: put .num on the figure itself, never on a
+ * wrapper whose children include Georgian, because font-family inherits.
+ */
+.num::placeholder {
+  font-family: var(--font-georgian), "Noto Sans Georgian", system-ui, sans-serif;
+  letter-spacing: normal;
+}
+
 ::selection {
-  background: var(--clay);
-  color: var(--cream);
+  background: var(--ink);
+  color: var(--card);
 }

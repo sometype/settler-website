@@ -18,6 +18,33 @@ type Body = {
 };
 
 export async function POST(req: Request) {
+  // Local next dev shares production Supabase keys via NEXT_PUBLIC_*, so a
+  // stray localhost click would land in real site_events — especially bad for
+  // call_tap, which is sparse and high-signal (the whole table's history once
+  // held a single one).
+  //
+  // Override: SITE_EVENTS_FORCE=1 records even in development.
+  // ⚠️ The client ALSO no-ops in development (lib/events.ts), so this override
+  // only takes effect for requests made directly to this route, not from the
+  // browser. Kept server-side deliberately: this is the last line of defence
+  // and must not depend on what the client chose to send.
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.SITE_EVENTS_FORCE !== "1"
+  ) {
+    return NextResponse.json({ ok: true, skipped: "development" });
+  }
+
+  // ⚠️ NODE_ENV is "production" on Vercel PREVIEW deployments, so the check
+  // above does nothing there. Previews are exactly where the redesign gets
+  // hand-tested on a real phone — and the most valuable thing to test is
+  // tapping "დარეკე", which would write a fake conversion into the one metric
+  // this work exists to move. VERCEL_ENV distinguishes them properly.
+  //
+  // Tagged rather than dropped: you still want proof the preview worked, and
+  // meta.env keeps preview traffic separable in every query afterwards.
+  const isPreview = process.env.VERCEL_ENV === "preview";
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -51,6 +78,9 @@ export async function POST(req: Request) {
   if (JSON.stringify(meta).length > 2048) {
     return NextResponse.json({ ok: false, error: "meta_too_big" }, { status: 400 });
   }
+  // Stamped AFTER the size check so a caller cannot use it to dodge the cap,
+  // and last so a client-supplied `env` can never overwrite the real one.
+  const taggedMeta = isPreview ? { ...meta, env: "preview" } : meta;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -67,7 +97,7 @@ export async function POST(req: Request) {
     listing_id: listingId,
     session_id: sessionId,
     path,
-    meta,
+    meta: taggedMeta,
   });
 
   if (error) {

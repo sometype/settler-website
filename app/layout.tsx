@@ -1,33 +1,43 @@
 import type { Metadata } from "next";
-import { Noto_Sans_Georgian, Noto_Serif_Georgian } from "next/font/google";
+import { Google_Sans, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
-// Georgian-first: this font self-hosts the Georgian glyphs (the old Geist font
-// was Latin-only, so Georgian text fell back to an ugly system font).
-const georgian = Noto_Sans_Georgian({
+// Georgian-first, and it must SELF-HOST the Georgian glyphs — the original Geist
+// face was Latin-only, so every Georgian string fell back to a system font.
+//
+// Google Sans replaces Noto Sans Georgian (2026-07-28). Only three faces on
+// Google Fonts carry the `georgian` subset at all — this one, Noto Sans
+// Georgian and Noto Serif Georgian — so the choice is narrow by nature. This is
+// the one with a true variable weight axis and a matching italic, which is what
+// lets the wordmark, the UI and the body text come off a single family instead
+// of three.
+//
+// ⚠️ Whatever replaces it MUST list "georgian" in its subsets. A Latin-only
+// face greps identically to a working one and fails silently on every listing.
+const georgian = Google_Sans({
   subsets: ["georgian", "latin"],
   variable: "--font-georgian",
   display: "swap",
 });
 
-// Display face for headlines, prices and the wordmark. Georgian serif is
-// almost unused on the local web — it is the cheapest possible way to not look
-// like every other classifieds site. Weights limited to what we actually set.
-const georgianSerif = Noto_Serif_Georgian({
-  subsets: ["georgian", "latin"],
-  variable: "--font-georgian-serif",
-  weight: ["600", "700", "800"],
+// Numerals only (see the `.num` note in globals.css). Georgian text must never
+// route through this face — it has no Georgian coverage and would fall back
+// silently mid-string. Latin subset is therefore the correct and only subset.
+const monoNum = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono-num",
+  weight: ["500", "700"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mepatrone.com"),
-  title: "მე პატრონი — ბინები პირდაპირ პატრონებისგან",
+  title: "Mepatrone — ბინები პირდაპირ პატრონებისგან",
   description:
     "ბინები ქირავდება და იყიდება თბილისში — პირდაპირ პატრონებისგან. აგენტების, სპამის და ძველი განცხადებების გარეშე.",
   openGraph: {
-    title: "მე პატრონი — ბინები პირდაპირ პატრონებისგან",
+    title: "Mepatrone — ბინები პირდაპირ პატრონებისგან",
     description:
       "აგენტების, სპამის და ძველი განცხადებების გარეშე — მხოლოდ ნამდვილი, ახალი განცხადებები.",
     locale: "ka_GE",
@@ -43,27 +53,36 @@ export default function RootLayout({
   return (
     <html
       lang="ka"
-      className={`${georgian.variable} ${georgianSerif.variable} h-full antialiased`}
+      className={`${georgian.variable} ${monoNum.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-paper font-sans text-ink">
-        <header className="sticky top-0 z-20 border-b border-sand bg-paper/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-3">
+        {/* Chrome sits on a white panel against the cool page ground, separated
+            by a hairline — the whole system is panels and hairlines, not
+            shadows and rounded slabs. 44px tall on a phone; the fold budget
+            below it is measured and tight. */}
+        <header className="sticky top-0 z-20 border-b border-sand bg-card/95 backdrop-blur">
+          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-2.5">
             <Link href="/" className="flex items-baseline gap-2.5">
-              <span className="font-display text-[22px] font-extrabold tracking-tight text-ink">
-                მე პატრონი
+              {/* ONE Latin token — "Mepatrone" is the brand name, not a phrase.
+                  It used to render as the Georgian "მე პატრონი", two words in a
+                  Georgian serif. The two-tone split survives INSIDE the word so
+                  the identity carries over; there is no space, because a space
+                  would read as two words again. */}
+              <span className="text-[19px] font-bold tracking-tight text-ink">
+                Me<span className="text-clay">patrone</span>
               </span>
-              <span className="hidden text-[13px] font-medium text-clay-deep sm:inline">
+              <span className="hidden text-[13px] font-medium text-mink sm:inline">
                 ბინები პირდაპირ პატრონებისგან
               </span>
             </Link>
           </div>
         </header>
         <main className="flex-1">{children}</main>
-        {/* Pine bookend: the page opens and closes in the same deep green, so
-            the paper middle reads as a deliberate spread, not a default. */}
-        <footer className="bg-pine">
-          <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-cream/70">
-            <p className="font-display text-lg font-bold text-cream">მე პატრონი</p>
+        <footer className="border-t border-sand bg-card">
+          <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-mink">
+            <p className="text-base font-bold text-ink">
+              Me<span className="text-clay">patrone</span>
+            </p>
             <p className="mt-1.5 max-w-md">
               ნამდვილი, ახალი განცხადებები თბილისში — პირდაპირ პატრონებისგან, აგენტების გარეშე.
             </p>

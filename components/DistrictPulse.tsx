@@ -40,10 +40,10 @@ export async function DistrictPulse({
           <li key={d.code} className="shrink-0 snap-start">
             <Link
               href={`/?deal=${deal}&district=${d.code}`}
-              className="inline-flex items-baseline gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-medium text-mink ring-1 ring-inset ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
+              className="inline-flex items-baseline gap-1.5 rounded bg-card px-2.5 py-1 text-xs font-medium text-mink ring-1 ring-inset ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-ink"
             >
               {districtLabel(d.code, null) ?? d.code}
-              <span className="font-bold text-moss">+{d.new24h}</span>
+              <span className="num font-bold text-moss">+{d.new24h}</span>
             </Link>
           </li>
         ))}

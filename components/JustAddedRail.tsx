@@ -1,118 +1,62 @@
 import Link from "next/link";
-import { formatPrice, JUST_ADDED_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
-import { resolveImageUrl } from "@/lib/images";
-import { districtLabel } from "@/lib/districts";
-import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
-import { relativeTimeKa, isVeryFresh } from "@/lib/time";
-import { ListingImage } from "./ListingImage";
-import { TimeAgo } from "./TimeAgo";
+import { JUST_ADDED_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
+import { ChannelHeading, ChannelStrip, RailCard } from "./Channel";
 
 /**
  * The freshness edge, made visible. myhome and ss both bury new owner listings
  * under paid VIP ads; we see them within minutes. That is the one claim the
  * incumbents cannot make, so it gets the position directly above the feed.
+ *
+ * Card markup lives in Channel.tsx now. It used to be inlined here, in HotRail
+ * and in DistrictRail — three copies, which is exactly how this rail ended up
+ * being the last surface still cropping photos with object-cover after the fix
+ * landed in the other two.
  */
 export function JustAddedRail({
   data,
+  dealType,
 }: {
   data: JustAddedResult;
+  dealType?: string;
 }) {
   const { listings, mainImages } = data;
+  // "See all" is a MODE (view=intake), not a filter — see lib/filters.ts.
+  // Without it these 8 listings were reachable only by swiping sideways: the
+  // feed excludes every id the rails show, on every page of the unfiltered
+  // homepage. The freshest inventory was the hardest thing on the site to
+  // browse, which is the exact opposite of the product's claim.
+  const seeAll = `/?view=intake${dealType === "sale" ? "&deal=sale" : ""}`;
   // Too few genuinely-fresh cards → no rail. Padding with older stock would
   // put stale listings under a heading that promises the opposite.
   if (listings.length < JUST_ADDED_MIN_CARDS) return null;
 
-  const now = Date.now();
-
   return (
     <section aria-labelledby="just-added-heading">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2
-          id="just-added-heading"
-          className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-ink"
-        >
-          <span
-            className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-moss"
-            aria-hidden="true"
+      <ChannelHeading
+        id="just-added-heading"
+        label="ახლახან დაემატა"
+        dot="moss"
+        href={seeAll}
+        count={listings.length}
+      />
+      <ChannelStrip>
+        {listings.map((listing) => (
+          <RailCard
+            key={listing.id}
+            listing={listing}
+            image={mainImages.get(listing.id) ?? null}
+            src="new"
           />
-          ახლახან დაემატა
-        </h2>
-        <p className="text-xs text-mink">პირველი დარეკავს — პირველი ნახავს</p>
+        ))}
+      </ChannelStrip>
+      <div className="mt-1.5">
+        <Link
+          href={seeAll}
+          className="text-[11.5px] font-semibold text-clay-deep underline-offset-2 hover:underline"
+        >
+          ყველა →
+        </Link>
       </div>
-
-      {/* Horizontal scroller: the strip is a glance, the feed below is the list. */}
-      <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-        {listings.map((listing) => {
-          const image = mainImages.get(listing.id) ?? null;
-          const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
-          const district = districtLabel(listing.district_code, listing.district);
-          const fresh = isVeryFresh(listing.first_seen_at, now);
-
-          return (
-            <li key={listing.id} className="w-44 shrink-0 snap-start">
-              <Link
-                // ?src=new → listing_open lands with meta.rail="new", so each
-                // rail's cost of screen space can be judged by the calls it earns.
-                href={`/listing/${listing.id}?src=new`}
-                className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
-              >
-                {/* contain + blur, matching every other card surface. This rail
-                    was the last one still using object-cover, which crops
-                    panoramas and phone screenshots to a meaningless slice — on
-                    the most prominent strip on the page. */}
-                <div className="relative aspect-[4/3] overflow-hidden bg-sand/50">
-                  {image && (
-                    // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
-                    <img
-                      src={resolveImageUrl(image)}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
-                    />
-                  )}
-                  <ListingImage
-                    src={image ? resolveImageUrl(image) : null}
-                    alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
-                    className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
-                  />
-                </div>
-                <div className="space-y-1 p-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    {price ? (
-                      <p className="truncate font-display text-sm font-bold text-ink">
-                        {price.replace(" / თვეში", "")}
-                      </p>
-                    ) : (
-                      <p className="truncate text-sm font-semibold text-faint">
-                        შეთანხმებით
-                      </p>
-                    )}
-                    <TimeAgo
-                      iso={listing.first_seen_at}
-                      initialLabel={relativeTimeKa(listing.first_seen_at, now)}
-                      className={`shrink-0 text-[11px] font-semibold ${
-                        fresh ? "text-moss" : "text-faint"
-                      }`}
-                    />
-                  </div>
-                  <p className="truncate text-xs text-mink">
-                    {[
-                      district,
-                      roomsLabelKa(listing.rooms),
-                      listing.area ? `${listing.area} მ²` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }

@@ -23,9 +23,17 @@ export function Gallery({
 }) {
   const [active, setActive] = useState(0);
 
+  // Mid-neutral well (never page void). Aspect only — do NOT max-h band-aid.
+  // A 905px-tall gallery on phones was the GRID column blowing out to ~1448px
+  // (min-width:auto); once the column is minmax(0,1fr)+min-w-0, 4/3 ≈ 257px
+  // at 343 content width. Capping height hid the symptom without fixing layout.
+  const frame =
+    "relative w-full min-w-0 overflow-hidden rounded-lg border border-sand bg-well " +
+    "aspect-[4/3] sm:aspect-[16/10]";
+
   if (images.length === 0) {
     return (
-      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl ring-1 ring-sand">
+      <div className={frame}>
         <ListingImage
           src={null}
           alt={alt}
@@ -41,7 +49,7 @@ export function Gallery({
 
   return (
     <div className="space-y-2">
-      <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl bg-sand/50 ring-1 ring-sand">
+      <div className={frame}>
         {/* Blur plate — fills letterbox; scale is clipped by overflow-hidden. */}
         {src && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -62,8 +70,10 @@ export function Gallery({
           className="absolute inset-0 h-full w-full object-contain"
         />
         {images.length > 1 && (
-          <span className="pointer-events-none absolute bottom-2 right-2 rounded-full bg-pine/80 px-2.5 py-1 text-xs font-medium text-white">
-            {active + 1} / {images.length}
+          <span className="pointer-events-none absolute bottom-2 right-2 rounded bg-pine/80 px-2 py-0.5 text-[11px] font-medium text-cream">
+            <span className="num">{active + 1}</span>
+            {" / "}
+            <span className="num">{images.length}</span>
           </span>
         )}
       </div>
@@ -75,8 +85,10 @@ export function Gallery({
               type="button"
               onClick={() => setActive(i)}
               aria-label={`ფოტო ${i + 1}`}
-              className={`h-16 w-24 shrink-0 overflow-hidden rounded-lg ring-2 transition ${
-                i === active ? "ring-moss" : "ring-transparent hover:ring-sand-strong"
+              className={`h-14 w-20 shrink-0 overflow-hidden rounded border transition sm:h-16 sm:w-24 ${
+                i === active
+                  ? "border-ink ring-1 ring-ink"
+                  : "border-sand hover:border-sand-strong"
               }`}
             >
               <ListingImage

@@ -1,49 +1,61 @@
 import { fetchStats, CHECK_WINDOW_H, type FeedStats } from "@/lib/listings";
 
 /**
- * Compact on phones, generous on desktop.
+ * Status strip + one claim. NOT a marketing hero.
  *
- * Measured on production before the fold work: hero 594px against an 812px
- * viewport, first apartment at y=1230 — a phone user scrolled 1.5 screens of
- * marketing copy before seeing a single flat. That budget still holds: nothing
- * here may grow the mobile hero past ~300px.
+ * The old version was a deep-pine brand panel: badge, 27px serif headline,
+ * desktop paragraph, and four stat columns. It measured 594px on production at
+ * 375x812 and pushed the first apartment to y=1230 — 1.5 screens of chrome
+ * before a single flat. It was cut to ~260px in the fold work; this rebuild
+ * takes it further by changing what it IS.
  *
- * Visual language: deep pine ground, cream serif display, one clay accent word,
- * moss for anything alive. The two soft glows are the only decoration — warm
- * light on dark green, no imagery to compete with the listing photos below.
+ * The strip carries the product's only honest health check: how long ago the
+ * machine last found something. If intake dies, that number visibly rots on its
+ * own — no "9/9 workers up" service grid, which would be an ops surface on a
+ * consumer page AND would leak pipeline topology to a competitor (see the
+ * no-provenance rule).
+ *
+ * ⚠️ Any change here must re-measure the mobile fold. The budget is the
+ * constraint everything else lives inside.
  */
-function Stat({
-  value,
-  label,
-  accent = false,
-}: {
-  value: string;
-  label: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="flex items-baseline gap-1.5 sm:flex-col sm:items-start sm:gap-0">
-      <span
-        className={`font-display text-xl font-bold leading-none sm:text-4xl ${
-          accent ? "text-moss-bright" : "text-cream"
-        }`}
-      >
-        {value}
-      </span>
-      <span className="text-[11px] font-medium leading-tight text-cream/60 sm:mt-1.5 sm:text-sm">
-        {label}
-      </span>
-    </div>
-  );
+
+/** "N წთ" / "N სთ" — the newest listing's age, as proof of life. */
+function newestLabel(minutes: number | null): { value: string; unit: string } | null {
+  if (minutes === null) return null;
+  if (minutes < 1) return { value: "<1", unit: "წთ" };
+  if (minutes < 60) return { value: String(minutes), unit: "წთ" };
+  return { value: String(Math.floor(minutes / 60)), unit: "სთ" };
 }
 
-/** "N წთ წინ" / "N სთ წინ" — the newest listing's age, as proof of life. */
-function newestLabel(minutes: number | null): string | null {
-  if (minutes === null) return null;
-  if (minutes < 1) return "ახლახან";
-  if (minutes < 60) return `${minutes} წთ წინ`;
-  const h = Math.floor(minutes / 60);
-  return `${h} სთ წინ`;
+/**
+ * One reading on the strip. The figure is mono/tabular, the caption is Georgian
+ * sans — that split IS the instrument register, since Georgian has no uppercase
+ * to build terminal chrome out of.
+ */
+function Reading({
+  label,
+  value,
+  unit,
+  tone = "ink",
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  tone?: "ink" | "moss";
+}) {
+  return (
+    <span className="flex shrink-0 items-baseline gap-1.5">
+      <span className="text-mink">{label}</span>
+      {/* .num on the figure only — unit is Georgian ("წთ"/"სთ"/"%") and must
+          stay on the sans face (JetBrains Mono has no Georgian glyphs). */}
+      <span
+        className={`text-[13px] font-bold ${tone === "moss" ? "text-moss" : "text-ink"}`}
+      >
+        <span className="num">{value}</span>
+        {unit && <span className="ml-0.5 text-[11px] font-medium">{unit}</span>}
+      </span>
+    </span>
+  );
 }
 
 export async function Hero() {
@@ -56,65 +68,59 @@ export async function Hero() {
   try {
     stats = await fetchStats();
   } catch {
-    // hero still renders without live numbers if the DB hiccups
+    // strip still renders without live numbers if the DB hiccups
   }
 
   const newest = newestLabel(stats.newestMinutes);
 
   return (
-    <section className="relative overflow-hidden bg-pine">
-      {/* Warm light on deep green — clay from the upper right, moss from the
-          lower left. Pure decoration, so both are aria-hidden and cheap. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-clay/25 blur-3xl sm:h-96 sm:w-96"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-moss-bright/20 blur-3xl sm:h-80 sm:w-80"
-      />
-
-      <div className="relative mx-auto max-w-6xl px-4 py-6 sm:py-20">
-        <p className="mb-2.5 inline-flex items-center gap-2 rounded-full bg-cream/5 px-3 py-1 text-[11px] font-semibold text-cream/80 ring-1 ring-inset ring-cream/15 sm:mb-4 sm:text-xs">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss-bright opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-moss-bright" />
+    <section className="border-b border-sand bg-card">
+      {/* Status strip. Horizontally scrollable rather than wrapping, so a long
+          Georgian label can never push the strip into a second row and eat the
+          fold budget. */}
+      <div className="border-b border-sand/70">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-x-auto px-4 py-2 text-[11.5px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss opacity-60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-moss" />
           </span>
-          ცოცხალი განახლება
-          {/* The river as one number: when the newest listing is minutes old,
-              say so right here. Stronger than any adjective, and always true. */}
-          {newest && <span className="text-cream/60">· ბოლო დამატება {newest}</span>}
-        </p>
-
-        <h1 className="max-w-3xl font-display text-[27px] font-bold leading-[1.14] tracking-tight text-cream sm:text-6xl sm:leading-[1.08]">
-          ბინა პირდაპირ <span className="text-clay-soft">პატრონისგან</span>.
-          <br className="hidden sm:block" /> აგენტების გარეშე.
-        </h1>
-
-        {/* Desktop only. On a phone this paragraph cost ~110px to restate what
-            the headline already says, and it sat between the visitor and the
-            flats. */}
-        <p className="mt-5 hidden max-w-xl text-base text-cream/70 sm:block sm:text-lg">
-          დაიღალე სპამით, ყალბი და ძველი განცხადებებით? აქ მხოლოდ ნამდვილი, ახალი ბინებია —
-          გაფილტრული აგენტებისა და დუბლიკატებისგან.
-        </p>
-
-        {/* Live counts only — never hardcoded trust numbers.
-            One wrapped inline row on phones, the original column set on desktop. */}
-        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1.5 sm:mt-9 sm:gap-8 md:gap-12">
-          <Stat value={stats.total.toLocaleString("ka-GE")} label="ნამდვილი განცხადება" />
-          <Stat value={`+${stats.addedToday.toLocaleString("ka-GE")}`} label="დღეს დამატებული" accent />
-          {/* The differentiator no incumbent shows: we re-visit listings, so a
-              sold flat does not sit here for weeks. Rendered only when the
-              number is genuinely high — a low percentage would advertise a
-              broken monitor rather than build trust. */}
-          {stats.checkedPct >= 90 && (
-            <Stat
-              value={`${stats.checkedPct}%`}
-              label={`შემოწმებული ${CHECK_WINDOW_H} საათში`}
-            />
+          {newest && (
+            <Reading label="ბოლო დამატება" value={newest.value} unit={newest.unit} tone="moss" />
           )}
+          {/* Only when genuinely high — a low number would advertise a broken
+              monitor rather than build trust. Floored and capped at 99 upstream:
+              "100%" reads as a fake marketing number even when it is true. */}
+          {stats.checkedPct >= 90 && (
+            <>
+              <span className="shrink-0 text-sand-strong" aria-hidden="true">
+                ·
+              </span>
+              <Reading
+                label={`შემოწმებული ${CHECK_WINDOW_H}სთ-ში`}
+                value={String(stats.checkedPct)}
+                unit="%"
+              />
+            </>
+          )}
+          <span className="shrink-0 text-sand-strong" aria-hidden="true">
+            ·
+          </span>
+          <Reading label="დღეს" value={`+${stats.addedToday.toLocaleString("ka-GE")}`} />
+          <span className="shrink-0 text-sand-strong" aria-hidden="true">
+            ·
+          </span>
+          <Reading label="სულ" value={stats.total.toLocaleString("ka-GE")} />
         </div>
+      </div>
+
+      {/* The claim. One line on a phone, two on desktop. No supporting
+          paragraph: on a phone it cost ~110px to restate the headline while
+          standing between the visitor and the flats. */}
+      <div className="mx-auto max-w-6xl px-4 py-3.5 sm:py-10">
+        <h1 className="max-w-3xl text-[21px] font-bold leading-[1.2] tracking-tight text-ink sm:text-5xl sm:leading-[1.08]">
+          ბინა პირდაპირ <span className="text-clay">პატრონისგან</span>.{" "}
+          <span className="text-mink">აგენტების გარეშე.</span>
+        </h1>
       </div>
     </section>
   );

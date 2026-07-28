@@ -1,9 +1,5 @@
-import Link from "next/link";
-import { formatPrice, HOT_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
-import { resolveImageUrl } from "@/lib/images";
-import { districtLabel } from "@/lib/districts";
-import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
-import { ListingImage } from "./ListingImage";
+import { HOT_MIN_CARDS, type JustAddedResult } from "@/lib/listings";
+import { ChannelHeading, ChannelStrip, RailCard } from "./Channel";
 
 /**
  * "Others are looking at this" — competition, not freshness.
@@ -17,11 +13,7 @@ import { ListingImage } from "./ListingImage";
  * people opened a page; we do not know whether the flat is good, and a heading
  * that implied otherwise would be a claim we cannot support.
  */
-export function HotRail({
-  data,
-}: {
-  data: JustAddedResult;
-}) {
+export function HotRail({ data }: { data: JustAddedResult }) {
   const { listings, mainImages } = data;
 
   // Too few genuinely-hot cards → no rail at all. Padding with lukewarm stock
@@ -31,78 +23,22 @@ export function HotRail({
 
   return (
     <section aria-labelledby="hot-heading">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2
-          id="hot-heading"
-          className="flex items-center gap-2 font-display text-lg font-bold tracking-tight text-ink"
-        >
-          <span className="inline-block h-2 w-2 rounded-full bg-clay" />
-          სხვები უყურებენ
-        </h2>
-        <p className="text-xs text-mink">ახლა ყველაზე ხშირად ნახული</p>
-      </div>
-
-      <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2">
-        {listings.map((listing) => {
-          const image = mainImages.get(listing.id) ?? null;
-          const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
-          const district = districtLabel(listing.district_code, listing.district);
-
-          return (
-            <li key={listing.id} className="w-44 shrink-0 snap-start">
-              <Link
-                // ?src=hot → listing_open carries meta.rail="hot", so this rail's
-                // cost in screen space can be judged against the calls it earns,
-                // separately from the just-added rail.
-                href={`/listing/${listing.id}?src=hot`}
-                className="group block overflow-hidden rounded-xl bg-card ring-1 ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-moss"
-              >
-                {/* contain + blur for the same reason as the feed card: owners
-                    upload panoramas and screenshots that object-cover destroys. */}
-                <div className="relative aspect-[4/3] overflow-hidden bg-sand/50">
-                  {image && (
-                    // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
-                    <img
-                      src={resolveImageUrl(image)}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      decoding="async"
-                      referrerPolicy="no-referrer"
-                      className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-2xl"
-                    />
-                  )}
-                  <ListingImage
-                    src={image ? resolveImageUrl(image) : null}
-                    alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
-                    className="absolute inset-0 h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
-                  />
-                </div>
-                <div className="space-y-1 p-3">
-                  {price ? (
-                    <p className="truncate font-display text-sm font-bold text-ink">
-                      {price.replace(" / თვეში", "")}
-                    </p>
-                  ) : (
-                    <p className="truncate text-sm font-semibold text-faint">
-                      შეთანხმებით
-                    </p>
-                  )}
-                  <p className="truncate text-xs text-mink">
-                    {[
-                      district,
-                      roomsLabelKa(listing.rooms),
-                      listing.area ? `${listing.area} მ²` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <ChannelHeading
+        id="hot-heading"
+        label="სხვები უყურებენ"
+        dot="clay"
+        count={listings.length}
+      />
+      <ChannelStrip>
+        {listings.map((listing) => (
+          <RailCard
+            key={listing.id}
+            listing={listing}
+            image={mainImages.get(listing.id) ?? null}
+            src="hot"
+          />
+        ))}
+      </ChannelStrip>
     </section>
   );
 }
