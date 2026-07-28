@@ -84,6 +84,17 @@ export interface ListingImage {
   listing_id: number;
   position: number;
   is_main: boolean;
+  /**
+   * Score-aware cover order within the listing, lowest first. Present only when
+   * reading through `listing_images_served` (sql/011); absent means the legacy
+   * is_main/position rule applies.
+   *
+   * ⚠️ Deliberately a bare integer. The classes behind it — `platform_mark`,
+   * `third_party_logo` — name the site a photo was collected from, and shipping
+   * those strings to the browser would leak provenance the whole /img design
+   * exists to hide. The rank leaks nothing: it is just an order.
+   */
+  serve_rank?: number;
 }
 
 export interface FeedFilters {

@@ -1,3 +1,5 @@
+import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
+import { indexMainImages, orderForGallery } from "./images";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
 
@@ -14,8 +16,40 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
 const LISTING_COLUMNS =
   "id, deal_type, district, district_code, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone";
 
-/** Client-safe image columns: enough to build the /img path, nothing more. */
-const IMAGE_COLUMNS = "listing_id, position, is_main";
+/**
+ * Client-safe image columns: enough to build the /img path, nothing more.
+ * Widens to include `serve_rank` when cover selection is enabled — see
+ * lib/coverSelect.ts. Read once at module load, like every other env-derived
+ * constant here; changing the flag needs a redeploy either way.
+ */
+const IMAGE_COLUMNS = imageColumns();
+
+/**
+ * Covers for a batch of listings — ONE query, ONE pick rule, for every surface.
+ *
+ * This replaces four near-identical inlined blocks (feed, just-added, hot,
+ * district rails). They were identical by accident rather than by construction,
+ * which is how this codebase previously shipped a fix to two of three rails.
+ *
+ * Images are decoration on a card: a failure here returns an empty map and the
+ * card renders its placeholder, never an error page.
+ */
+async function fetchMainImages(
+  listingIds: number[],
+  surface: string
+): Promise<Map<number, ListingImage>> {
+  if (listingIds.length === 0) return new Map();
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from(imageSource())
+    .select(IMAGE_COLUMNS)
+    .in("listing_id", listingIds)
+    .order("position", { ascending: true });
+  if (error || !data) return new Map();
+  // Double cast: the column list is chosen at runtime by the flag, so
+  // supabase-js cannot infer a row shape from a literal any more.
+  return indexMainImages(applyCoverMode(data as unknown as ListingImage[], surface));
+}
 
 export interface FeedResult {
   listings: Listing[];
@@ -106,24 +140,10 @@ export async function fetchFeed(
   const listings = (data ?? []) as Listing[];
   const total = count ?? 0;
 
-  const mainImages = new Map<number, ListingImage>();
-  if (listings.length > 0) {
-    const ids = listings.map((l) => l.id);
-    const { data: images, error: imgError } = await supabase
-      .from("listing_images")
-      .select(IMAGE_COLUMNS)
-      .in("listing_id", ids)
-      .order("position", { ascending: true });
-    // Images are non-critical on the feed; cards fall back to placeholders.
-    if (!imgError && images) {
-      for (const img of images as ListingImage[]) {
-        const current = mainImages.get(img.listing_id);
-        if (!current || (img.is_main && !current.is_main)) {
-          mainImages.set(img.listing_id, img);
-        }
-      }
-    }
-  }
+  const mainImages = await fetchMainImages(
+    listings.map((l) => l.id),
+    "feed"
+  );
 
   return {
     listings,
@@ -186,23 +206,10 @@ export async function fetchJustAdded(
   if (error || !data) return { listings: [], mainImages: new Map() };
 
   const listings = data as Listing[];
-  const mainImages = new Map<number, ListingImage>();
-  if (listings.length > 0) {
-    const { data: images } = await supabase
-      .from("listing_images")
-      .select(IMAGE_COLUMNS)
-      .in(
-        "listing_id",
-        listings.map((l) => l.id)
-      )
-      .order("position", { ascending: true });
-    for (const img of (images ?? []) as ListingImage[]) {
-      const current = mainImages.get(img.listing_id);
-      if (!current || (img.is_main && !current.is_main)) {
-        mainImages.set(img.listing_id, img);
-      }
-    }
-  }
+  const mainImages = await fetchMainImages(
+    listings.map((l) => l.id),
+    "just-added"
+  );
 
   return { listings, mainImages };
 }
@@ -263,23 +270,10 @@ export async function fetchHot(
     (a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999)
   );
 
-  const mainImages = new Map<number, ListingImage>();
-  if (listings.length > 0) {
-    const { data: images } = await supabase
-      .from("listing_images")
-      .select(IMAGE_COLUMNS)
-      .in(
-        "listing_id",
-        listings.map((l) => l.id)
-      )
-      .order("position", { ascending: true });
-    for (const img of (images ?? []) as ListingImage[]) {
-      const current = mainImages.get(img.listing_id);
-      if (!current || (img.is_main && !current.is_main)) {
-        mainImages.set(img.listing_id, img);
-      }
-    }
-  }
+  const mainImages = await fetchMainImages(
+    listings.map((l) => l.id),
+    "hot"
+  );
 
   return { listings, mainImages };
 }
@@ -426,21 +420,10 @@ export async function fetchRailPlan(
   const rails = fetched.filter((r): r is NonNullable<typeof r> => r !== null);
 
   // One image query for every district rail rather than one per rail.
-  const allIds = rails.flatMap((r) => r.listings.map((l) => l.id));
-  const imagesById = new Map<number, ListingImage>();
-  if (allIds.length > 0) {
-    const { data: images } = await supabase
-      .from("listing_images")
-      .select(IMAGE_COLUMNS)
-      .in("listing_id", allIds)
-      .order("position", { ascending: true });
-    for (const img of (images ?? []) as ListingImage[]) {
-      const current = imagesById.get(img.listing_id);
-      if (!current || (img.is_main && !current.is_main)) {
-        imagesById.set(img.listing_id, img);
-      }
-    }
-  }
+  const imagesById = await fetchMainImages(
+    rails.flatMap((r) => r.listings.map((l) => l.id)),
+    "district"
+  );
 
   const districts: DistrictRailData[] = rails.map((r) => ({
     code: r.code,
@@ -473,7 +456,7 @@ export async function fetchListing(
   if (!data) return { listing: null, images: [] };
 
   const { data: images, error: imgError } = await supabase
-    .from("listing_images")
+    .from(imageSource())
     .select(IMAGE_COLUMNS)
     .eq("listing_id", id)
     .order("position", { ascending: true });
@@ -481,7 +464,13 @@ export async function fetchListing(
 
   return {
     listing: data as Listing,
-    images: (images ?? []) as ListingImage[],
+    // Ordered, not just position-sorted: the gallery's first photo IS the
+    // cover, so if the card promised a clean photo the detail page has to open
+    // on the same one. Under the flag's legacy path this is identical to the
+    // position order the query already returned.
+    images: orderForGallery(
+      applyCoverMode((images ?? []) as unknown as ListingImage[], "detail")
+    ),
   };
 }
 
