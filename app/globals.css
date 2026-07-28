@@ -101,11 +101,11 @@
   --color-age4: var(--age4);
   --color-age5: var(--age5);
   --font-sans: var(--font-georgian);
-  /* No separate display face any more. The serif survives only in the wordmark,
-     which opts in explicitly — a display serif on every heading is what made
-     the old skin read as a magazine. */
+  /* ONE family for everything that is not a figure. The Georgian serif is gone
+     (2026-07-28): it existed to give the Georgian wordmark a cultural hook, and
+     the wordmark is now the Latin brand name "Mepatrone", so the second webfont
+     was paying for nothing. Figures still take the mono face via `.num`. */
   --font-display: var(--font-georgian);
-  --font-serif-wordmark: var(--font-georgian-serif);
 }
 
 /* Reserve scrollbar space so gallery image swaps cannot show/hide the vertical
