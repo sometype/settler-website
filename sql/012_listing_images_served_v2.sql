@@ -16,6 +16,9 @@
 --   3. the CANDIDATE is a real room or view — never a floor plan, map,
 --      document or non-property image
 --   4. the CANDIDATE is not a downgrade: strength >= the original's
+--   5. and not a downgrade in SUBJECT either — a hero room is never traded for
+--      a bathroom, corridor or window view. Added after the first v2 audit:
+--      both of its 2 losses in 40 tied on strength and fell on subject.
 --
 -- Everything else — no v2 grades yet, ungraded photos, every photo defective,
 -- a subtle mark, only weak alternatives — falls through to the legacy order.
@@ -39,7 +42,8 @@ WITH graded AS (
            q.graphic_defect,
            q.defect_prominence,
            q.cover_subject,
-           cover_strength_rank(q.cover_strength) AS strength
+           cover_strength_rank(q.cover_strength) AS strength,
+           cover_subject_rank(q.cover_subject) AS subject_rank
       FROM listing_images li
       LEFT JOIN image_quality q ON q.image_id = li.id
 ),
@@ -47,7 +51,7 @@ WITH graded AS (
 -- 2026-07-28, is_main is always position 0, so in practice this IS position 0.
 original AS (
     SELECT DISTINCT ON (listing_id)
-           listing_id, position, defect_prominence, strength
+           listing_id, position, defect_prominence, strength, subject_rank
       FROM graded
      ORDER BY listing_id, is_main DESC, position
 ),
@@ -59,6 +63,7 @@ candidate AS (
        AND g.graphic_defect = 'none'                        -- 2
        AND g.cover_subject IN ('hero_room', 'secondary_space_or_view')  -- 3
        AND g.strength >= o.strength                         -- 4 (NULL ⇒ false)
+       AND g.subject_rank >= o.subject_rank                 -- 5
        AND g.position <> o.position
      -- Best available, earliest as the tie-break: reaching deeper into a
      -- gallery costs nothing extra once the photo has already qualified.
