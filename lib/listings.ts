@@ -69,7 +69,6 @@ interface Filterable {
   lte(column: string, value: number): Filterable;
   in(column: string, values: string[]): Filterable;
   eq(column: string, value: string): Filterable;
-  contains(column: string, value: Record<string, boolean>): Filterable;
 }
 
 function applyFilters<T>(query: T, filters: FeedFilters): T {
@@ -79,15 +78,18 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
     // matter which language the source spelled the district in.
     q = q.eq("district_code", filters.district);
   }
-  for (const key of filters.amenities ?? []) {
-    // jsonb containment — each selected amenity must be present (AND).
-    q = q.contains("amenities", { [key]: true });
-  }
   if (filters.minPrice !== undefined) {
     q = q.gte("price_usd", filters.minPrice);
   }
   if (filters.maxPrice !== undefined) {
     q = q.lte("price_usd", filters.maxPrice);
+  }
+  // Same shape as price, on a column that is populated on 99.4% of live rows.
+  if (filters.minArea !== undefined) {
+    q = q.gte("area", filters.minArea);
+  }
+  if (filters.maxArea !== undefined) {
+    q = q.lte("area", filters.maxArea);
   }
   if (filters.rooms) {
     q = filters.rooms === "5+" ? q.in("rooms", FIVE_PLUS_ROOMS) : q.eq("rooms", filters.rooms);
@@ -276,7 +278,7 @@ async function hydrateRankedHot(rankedIds: number[], limit: number): Promise<Lis
  *            ranked page and the exact pool total come back in ONE query via
  *            count+range, then one hydrate. Two round trips, and the slice is
  *            bounded by the page size instead of the whole pool.
- *   filtered — district/price/rooms/amenities present. The total has to reflect
+ *   filtered — district/price/area/rooms present. The total has to reflect
  *            the filter, and only listings_public knows about it, so the ranked
  *            ids are materialised and filtered before slicing. Slower, and rare:
  *            applying a filter normally navigates out of the channel.

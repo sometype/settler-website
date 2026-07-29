@@ -1,6 +1,5 @@
 import type { FeedFilters } from "./types";
 import { isKnownDistrictCode } from "./districts";
-import { isFilterAmenity } from "./amenities";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -28,12 +27,17 @@ export function parseFilters(params: SearchParams): FeedFilters {
   if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
     [minPrice, maxPrice] = [maxPrice, minPrice];
   }
-  // Amenity chips arrive as ?amen=furniture,elevator — unknown keys dropped,
-  // so a crafted URL can't smuggle arbitrary strings into the query.
-  const amenities = (str(params.amen) ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(isFilterAmenity);
+  let minArea = num(params.mina);
+  let maxArea = num(params.maxa);
+  // Same swap as price: a reversed range would silently return nothing.
+  if (minArea !== undefined && maxArea !== undefined && minArea > maxArea) {
+    [minArea, maxArea] = [maxArea, minArea];
+  }
+  // ⚠️ `?amen=` is deliberately NOT parsed any more (amenity chips removed
+  // 2026-07-29 — see lib/amenities.ts for the measurement). Old bookmarks and
+  // ad links carrying it now show unfiltered results, which is the right
+  // failure: the alternative is a redirect for a parameter nothing produces.
+  // FilterBar strips it on the next interaction.
   // District is a canonical code from the dropdown. Anything else (old
   // free-text URLs, typos) is ignored rather than silently matching nothing.
   const district = str(params.district);
@@ -47,7 +51,8 @@ export function parseFilters(params: SearchParams): FeedFilters {
     maxPrice,
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
     dealType,
-    amenities: amenities.length > 0 ? amenities : undefined,
+    minArea,
+    maxArea,
     view: view === "intake" || view === "hot" ? view : undefined,
     page: Math.max(1, num(params.page) ?? 1),
   };
@@ -76,8 +81,9 @@ export function hasNarrowingFilters(f: FeedFilters): boolean {
     f.district ||
       f.minPrice !== undefined ||
       f.maxPrice !== undefined ||
-      f.rooms ||
-      (f.amenities && f.amenities.length > 0)
+      f.minArea !== undefined ||
+      f.maxArea !== undefined ||
+      f.rooms
   );
 }
 
@@ -98,8 +104,9 @@ export function hasActiveFilters(f: FeedFilters): boolean {
     f.district ||
       f.minPrice !== undefined ||
       f.maxPrice !== undefined ||
+      f.minArea !== undefined ||
+      f.maxArea !== undefined ||
       f.rooms ||
-      (f.amenities && f.amenities.length > 0) ||
       (f.dealType && f.dealType !== "rent")
   );
 }

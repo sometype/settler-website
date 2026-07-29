@@ -105,8 +105,19 @@ export interface FeedFilters {
   rooms?: string;
   /** Default on the feed is rent so sale prices don't mix unlabeled. */
   dealType?: DealType;
-  /** Selected amenity keys — every one must be present (AND). */
-  amenities?: string[];
+  /**
+   * Floor area in m², inclusive. Replaced the amenity chips 2026-07-29:
+   * measured over 24h, amenity filters were used in 6.8% of filter
+   * applications but appeared in 48% of all dead-end searches — the biggest
+   * single source of "no results" on the site. `area` is populated on 99.4% of
+   * live listings, so this narrows without stranding people.
+   *
+   * ⚠️ A listing with `area IS NULL` disappears once either bound is set —
+   * that is plain SQL, and it matches what `min`/`max` already do to a listing
+   * with no price. Do not invent a zero.
+   */
+  minArea?: number;
+  maxArea?: number;
   /**
    * A channel opened full-screen ("see all"), NOT a filter.
    *

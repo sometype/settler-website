@@ -3,8 +3,6 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { DISTRICTS } from "@/lib/districts";
-import { FILTER_AMENITIES } from "@/lib/amenities";
-import { AmenityIcon } from "./AmenityIcon";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
@@ -16,10 +14,11 @@ export function FilterBar() {
   const [district, setDistrict] = useState(params.get("district") ?? "");
   const [min, setMin] = useState(params.get("min") ?? "");
   const [max, setMax] = useState(params.get("max") ?? "");
+  const [minArea, setMinArea] = useState(params.get("mina") ?? "");
+  const [maxArea, setMaxArea] = useState(params.get("maxa") ?? "");
   const rooms = params.get("rooms") ?? "";
   // Default rent when param missing (matches parseFilters).
   const deal = params.get("deal") ?? "rent";
-  const selectedAmenities = (params.get("amen") ?? "").split(",").filter(Boolean);
 
   // Phones only: everything except the rent/sale toggle collapses behind a
   // button. Measured before this change — hero 260px + filter bar 471px meant
@@ -30,12 +29,17 @@ export function FilterBar() {
   // can see and clear what is narrowing their results.
   const [openOnMobile, setOpenOnMobile] = useState(false);
 
+  // ⚠️ Reads the URL, not local state: this decides whether the mobile panel
+  // opens for someone arriving on a bookmarked filtered link. Legacy `amen` is
+  // deliberately absent — it no longer narrows anything, so it must not light
+  // the panel up either.
   const hasFilters = Boolean(
     params.get("district") ||
       params.get("min") ||
       params.get("max") ||
+      params.get("mina") ||
+      params.get("maxa") ||
       rooms ||
-      selectedAmenities.length > 0 ||
       (params.get("deal") && params.get("deal") !== "rent")
   );
 
@@ -45,6 +49,8 @@ export function FilterBar() {
       district: district.trim(),
       min: min.trim(),
       max: max.trim(),
+      mina: minArea.trim(),
+      maxa: maxArea.trim(),
       ...overrides,
     };
     for (const [key, value] of Object.entries(values)) {
@@ -52,6 +58,10 @@ export function FilterBar() {
       else next.delete(key);
     }
     next.delete("page"); // filter change resets pagination
+    // Sweep the retired amenity param out of any URL that still carries it, so
+    // a bookmarked ?amen= link stops propagating through pagination once the
+    // visitor touches a control. Nothing reads it any more (lib/filters.ts).
+    next.delete("amen");
     // Same reasoning for `view`: it names a SURFACE (a channel opened
     // full-screen), and narrowing the catalogue means you have left that
     // surface. Without this it survives every filter interaction, so a visitor
@@ -61,13 +71,6 @@ export function FilterBar() {
     startTransition(() => {
       router.push(next.size ? `/?${next.toString()}` : "/");
     });
-  }
-
-  function toggleAmenity(key: string) {
-    const set = new Set(selectedAmenities);
-    if (set.has(key)) set.delete(key);
-    else set.add(key);
-    apply({ amen: [...set].join(",") });
   }
 
   const chip = (active: boolean) =>
@@ -189,6 +192,8 @@ export function FilterBar() {
                 setDistrict("");
                 setMin("");
                 setMax("");
+                setMinArea("");
+                setMaxArea("");
                 startTransition(() => router.push("/?deal=rent"));
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"
@@ -197,6 +202,38 @@ export function FilterBar() {
             </button>
           )}
         </div>
+      </div>
+      {/* Area sits directly under price, ABOVE the room chips: both are typed
+          ranges committed by ძებნა, so separating them with chips would split
+          the one group a visitor fills in together. Its own row rather than
+          joining price in one line — four numeric boxes side by side is
+          unusable on a phone. Removing the eight amenity chips gave back more
+          height than this row costs. */}
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-sm">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-mink">მ²-დან</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={minArea}
+            onChange={(e) => setMinArea(e.target.value)}
+            placeholder="30"
+            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-mink">მ²-მდე</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            value={maxArea}
+            onChange={(e) => setMaxArea(e.target.value)}
+            placeholder="ნებისმიერი"
+            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
+          />
+        </label>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-xs font-medium text-mink">ოთახები:</span>
@@ -208,23 +245,6 @@ export function FilterBar() {
             {r}
           </button>
         ))}
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {FILTER_AMENITIES.map((a) => {
-          const active = selectedAmenities.includes(a.key);
-          return (
-            <button
-              key={a.key}
-              type="button"
-              onClick={() => toggleAmenity(a.key)}
-              aria-pressed={active}
-              className={`inline-flex items-center gap-1.5 ${chip(active)}`}
-            >
-              <AmenityIcon name={a.key} className="h-3.5 w-3.5" />
-              {a.ka}
-            </button>
-          );
-        })}
       </div>
       </div>
     </form>

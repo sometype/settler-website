@@ -29,7 +29,11 @@ function filterMeta(filters: ReturnType<typeof parseFilters>) {
     rooms: filters.rooms ?? null,
     min: filters.minPrice ?? null,
     max: filters.maxPrice ?? null,
-    amenities: filters.amenities ?? [],
+    // Schema break from 2026-07-29: events before it carry `amenities`, events
+    // after carry area bounds. Same kind of discontinuity as the hot/hot_all
+    // split — do not compare the two windows on these fields.
+    min_area: filters.minArea ?? null,
+    max_area: filters.maxArea ?? null,
     page: filters.page,
     has_filters: hasActiveFilters(filters),
   };
@@ -106,7 +110,7 @@ async function Feed({
       : emptyHot
         ? "აქ მხოლოდ ის ქირის განცხადებები ჩნდება, რომლებიც ცხელი რეიტინგის ზღვარს გადიან."
         : hasActiveFilters(filters)
-          ? "სცადე ფასის დიაპაზონის გაფართოება ან ფილტრების გასუფთავება."
+          ? "სცადე ფასის ან ფართის დიაპაზონის გაფართოება, ან ფილტრების გასუფთავება."
           : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე.";
     return (
       <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
@@ -222,7 +226,10 @@ export default async function HomePage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const filterKey = ["district", "min", "max"]
+  // Every control that keeps LOCAL state must appear here, or back/forward
+  // leaves a stale value in the box while the feed shows something else.
+  // Chips (rooms, deal) drive straight off the URL and need no key.
+  const filterKey = ["district", "min", "max", "mina", "maxa"]
     .map((k) => `${k}=${params[k] ?? ""}`)
     .join("&");
 

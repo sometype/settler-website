@@ -43,26 +43,21 @@ export const AMENITIES: Amenity[] = [
   { key: "fireplace", ka: "ბუხარი" },
 ];
 
-const BY_KEY = new Map(AMENITIES.map((a) => [a.key, a]));
-
-/**
- * The subset offered as feed filter chips — the ones a renter actually
- * searches by, not everything a listing can mention.
+/*
+ * ⚠️ AMENITIES ARE DISPLAY-ONLY. There is deliberately no filter subset here.
+ *
+ * Eight amenity chips used to sit on the feed. Removed 2026-07-29 on measured
+ * evidence: over 24h they appeared in 6.8% of filter applications but in 48% of
+ * every dead-end search — the single biggest source of "no results" on the
+ * site. The presence map's semantics are the reason. Absence means UNKNOWN, not
+ * "doesn't have", so ANDing several chips silently demands that every one of
+ * them was explicitly recorded, and the result set collapses.
+ *
+ * The data model, the listing-page section and `presentAmenities` all stay —
+ * showing what a flat has is useful; making people guess which combination the
+ * source happened to record is not. Bringing chips back needs a different data
+ * model (a tri-state, not a presence map), not just a new constant.
  */
-export const FILTER_AMENITIES: Amenity[] = [
-  "furniture",
-  "air_conditioning",
-  "heating",
-  "elevator",
-  "parking",
-  "washing_machine",
-  "pets_allowed",
-  "metro_nearby",
-].map((k) => BY_KEY.get(k)!);
-
-export function isFilterAmenity(key: string): boolean {
-  return FILTER_AMENITIES.some((a) => a.key === key);
-}
 
 /** Amenities present on a listing, in display order. */
 export function presentAmenities(map: AmenityMap | null | undefined): Amenity[] {
