@@ -48,7 +48,7 @@ export function parseFilters(params: SearchParams): FeedFilters {
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
     dealType,
     amenities: amenities.length > 0 ? amenities : undefined,
-    view: view === "intake" ? "intake" : undefined,
+    view: view === "intake" || view === "hot" ? view : undefined,
     page: Math.max(1, num(params.page) ?? 1),
   };
 }

@@ -121,13 +121,7 @@ export interface FeedFilters {
   page: number;
 }
 
-/**
- * Channels that can be opened as a full list. `intake` is just-added — the
- * feed already sorts newest-first, so it needs no ranking of its own.
- *
- * `hot` is deliberately absent: it is ranked by rolling attention (sql/010
- * listings_hot), and a "see all" under that heading which merely opened the
- * newest feed would be a false claim — the same reason the rails return null
- * rather than pad with stale stock. It arrives with a real sort, or not at all.
- */
-export type ChannelView = "intake";
+/** Channels that can be opened as a full list. Each channel must retain the
+ * ordering that earns its label: intake is newest-first; hot is rolling
+ * attention from sql/010. */
+export type ChannelView = "intake" | "hot";

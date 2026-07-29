@@ -1,4 +1,5 @@
 import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
+import { hasNarrowingFilters } from "./filters";
 import { indexMainImages, orderForGallery } from "./images";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
@@ -108,6 +109,8 @@ export async function fetchFeed(
    */
   excludeIds: number[] = []
 ): Promise<FeedResult> {
+  if (filters.view === "hot") return fetchHotFeed(filters);
+
   const supabase = getSupabase();
 
   let base = applyFilters(
@@ -217,10 +220,144 @@ export async function fetchJustAdded(
 /** Minimum cards before the hot rail renders — same discipline as just-added:
  *  a rail padded with lukewarm listings lies about what it is showing. */
 export const HOT_MIN_CARDS = 4;
+export const HOT_RAIL_SIZE = 8;
 /** Only the top of each (source × age band) cohort, and only cohorts big enough
  *  for a percentile to mean anything. */
 const HOT_MIN_PCT = 90;
 const HOT_MIN_BAND_N = 8;
+
+export interface HotResult extends JustAddedResult {
+  /** Public listings that currently clear the hot thresholds. */
+  total: number;
+}
+
+interface HotPage {
+  listings: Listing[];
+  total: number;
+}
+
+/**
+ * Extra ranked rows pulled beyond the page size on the cheap path.
+ *
+ * `listings_hot` and `listings_public` apply the same visibility predicate
+ * (active, published, not a dedupe alias, not flagged_agent), so a ranked row
+ * is essentially always fetchable — measured 2026-07-29: 0 of 47 ranked rows
+ * were missing from listings_public. `listings_public` additionally requires
+ * `removed_at IS NULL`, so a listing removed between the two queries is the one
+ * way a slot can vanish. The overscan absorbs that instead of leaving a hole.
+ */
+const HOT_OVERSCAN = 6;
+
+/** Ranked ids → full rows, rank order restored, capped at `limit`. */
+async function hydrateRankedHot(rankedIds: number[], limit: number): Promise<Listing[]> {
+  if (rankedIds.length === 0) return [];
+  const { data, error } = await getSupabase()
+    .from("listings_public")
+    .select(LISTING_COLUMNS)
+    .in("id", rankedIds)
+    .eq("deal_type", "rent");
+  if (error) throw new Error(`Failed to load hot listings: ${error.message}`);
+
+  // `.in()` does not preserve input order; restore the rolling-attention rank.
+  const rank = new Map(rankedIds.map((id, index) => [id, index]));
+  return ((data ?? []) as Listing[])
+    .sort((a, b) => (rank.get(a.id) ?? rankedIds.length) - (rank.get(b.id) ?? rankedIds.length))
+    .slice(0, limit);
+}
+
+/**
+ * Load one page without losing the ranking from listings_hot.
+ *
+ * TWO PATHS, because the homepage rail and a filtered channel URL want
+ * different things and paying the filtered price on every homepage render cost
+ * a measured ~1s.
+ *
+ *   cheap  — no narrowing filters (the rail, and a plain /?view=hot). The
+ *            ranked page and the exact pool total come back in ONE query via
+ *            count+range, then one hydrate. Two round trips, and the slice is
+ *            bounded by the page size instead of the whole pool.
+ *   filtered — district/price/rooms/amenities present. The total has to reflect
+ *            the filter, and only listings_public knows about it, so the ranked
+ *            ids are materialised and filtered before slicing. Slower, and rare:
+ *            applying a filter normally navigates out of the channel.
+ *
+ * Both paths share the same thresholds and the same ordering, so "what hot
+ * means" cannot drift between the rail and the channel.
+ */
+async function fetchHotPage(
+  filters: FeedFilters,
+  page: number,
+  pageSize: number
+): Promise<HotPage> {
+  if (filters.dealType === "sale") return { listings: [], total: 0 };
+
+  const supabase = getSupabase();
+  const from = (page - 1) * pageSize;
+
+  // Hot is rent-only even when a crafted URL says deal=all.
+  const hotFilters: FeedFilters = { ...filters, dealType: "rent" };
+
+  const rankedQuery = () =>
+    supabase
+      .from("listings_hot")
+      .select("listing_id", { count: "exact" })
+      .eq("deal_type", "rent")
+      .gte("pct_in_band", HOT_MIN_PCT)
+      .gte("band_n", HOT_MIN_BAND_N)
+      .order("pct_in_band", { ascending: false })
+      .order("hot_vph", { ascending: false })
+      // Tie-break so the ranked sequence is STABLE across pages. Without it two
+      // listings on the same pct/vph can swap between the page-1 and page-2
+      // queries, which shows one listing twice and hides another entirely.
+      .order("listing_id", { ascending: true });
+
+  if (!hasNarrowingFilters(hotFilters)) {
+    const { data, count, error } = await rankedQuery().range(
+      from,
+      from + pageSize + HOT_OVERSCAN - 1
+    );
+    if (error) throw new Error(`Failed to load hot ranking: ${error.message}`);
+
+    const rankedIds = (data as { listing_id: number }[] | null)?.map((r) => r.listing_id) ?? [];
+    // The count is exact for the pool: listings_hot already carries the same
+    // visibility predicate the site serves from.
+    const total = count ?? rankedIds.length;
+    if (rankedIds.length === 0) return { listings: [], total };
+    return { listings: await hydrateRankedHot(rankedIds, pageSize), total };
+  }
+
+  // Filtered path: the whole ranked set, narrowed, then sliced.
+  const { data, error } = await rankedQuery();
+  if (error) throw new Error(`Failed to load hot ranking: ${error.message}`);
+  const rankedIds = (data as { listing_id: number }[] | null)?.map((r) => r.listing_id) ?? [];
+  if (rankedIds.length === 0) return { listings: [], total: 0 };
+
+  const { data: visibleRows, error: visibleError } = await applyFilters(
+    supabase.from("listings_public").select("id").in("id", rankedIds),
+    hotFilters
+  );
+  if (visibleError) throw new Error(`Failed to filter hot listings: ${visibleError.message}`);
+
+  const visibleIds = new Set((visibleRows as { id: number }[] | null)?.map((r) => r.id) ?? []);
+  const eligibleIds = rankedIds.filter((id) => visibleIds.has(id));
+  const pageIds = eligibleIds.slice(from, from + pageSize);
+  return { listings: await hydrateRankedHot(pageIds, pageSize), total: eligibleIds.length };
+}
+
+export async function fetchHotFeed(filters: FeedFilters): Promise<FeedResult> {
+  const { listings, total } = await fetchHotPage(filters, filters.page, PAGE_SIZE);
+  const mainImages = await fetchMainImages(
+    listings.map((listing) => listing.id),
+    "hot"
+  );
+  return {
+    listings,
+    mainImages,
+    total,
+    page: filters.page,
+    pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+  };
+}
 
 /**
  * "People are looking at this" — a rolling 12h peak from view_samples, ranked
@@ -231,51 +368,27 @@ const HOT_MIN_BAND_N = 8;
  */
 export async function fetchHot(
   dealType: FeedFilters["dealType"],
-  limit = 8
-): Promise<JustAddedResult> {
-  const supabase = getSupabase();
-
+  limit = HOT_RAIL_SIZE
+): Promise<HotResult> {
   // Sale is intentionally excluded until the "sales die faster than rentals"
   // anomaly (median 18h vs 39h) is explained — its velocity is not trusted.
-  if (dealType === "sale") return { listings: [], mainImages: new Map() };
+  if (dealType === "sale") return { listings: [], mainImages: new Map(), total: 0 };
 
-  const { data: hot, error: hotErr } = await supabase
-    .from("listings_hot")
-    .select("listing_id, pct_in_band, hot_vph")
-    .eq("deal_type", "rent")
-    .gte("pct_in_band", HOT_MIN_PCT)
-    .gte("band_n", HOT_MIN_BAND_N)
-    .order("pct_in_band", { ascending: false })
-    .order("hot_vph", { ascending: false })
-    .limit(limit * 2);
-
-  if (hotErr || !hot || hot.length === 0) return { listings: [], mainImages: new Map() };
-
-  const ids = (hot as { listing_id: number }[]).map((h) => h.listing_id);
-
-  // Re-fetch through listings_public rather than trusting the ranking view for
-  // visibility: that view is the single boundary deciding what anon may see.
-  const { data, error } = await supabase
-    .from("listings_public")
-    .select(LISTING_COLUMNS)
-    .in("id", ids)
-    .eq("deal_type", "rent")
-    .limit(limit);
-
-  if (error || !data) return { listings: [], mainImages: new Map() };
-
-  // Preserve the heat order the ranking gave us; .in() returns arbitrary order.
-  const rank = new Map(ids.map((id, i) => [id, i]));
-  const listings = (data as Listing[]).sort(
-    (a, b) => (rank.get(a.id) ?? 999) - (rank.get(b.id) ?? 999)
-  );
-
-  const mainImages = await fetchMainImages(
-    listings.map((l) => l.id),
-    "hot"
-  );
-
-  return { listings, mainImages };
+  try {
+    const { listings, total } = await fetchHotPage(
+      { dealType: "rent", page: 1 },
+      1,
+      limit
+    );
+    const mainImages = await fetchMainImages(
+      listings.map((listing) => listing.id),
+      "hot"
+    );
+    return { listings, mainImages, total };
+  } catch {
+    // The strip is decoration over the feed — never let it break the page.
+    return { listings: [], mainImages: new Map(), total: 0 };
+  }
 }
 
 export interface DistrictPulse {
@@ -357,7 +470,7 @@ export interface DistrictRailData {
 
 export interface RailPlan {
   justAdded: JustAddedResult;
-  hot: JustAddedResult;
+  hot: HotResult;
   districts: DistrictRailData[];
   /** Everything rendered above the feed, so the feed can skip it. */
   shownIds: number[];
@@ -386,7 +499,7 @@ export async function fetchRailPlan(
 
   const [justAdded, hot, pulse] = await Promise.all([
     fetchJustAdded(dealType, 8),
-    fetchHot(dealType, 8),
+    fetchHot(dealType, HOT_RAIL_SIZE),
     fetchDistrictPulse(dealType, 40),
   ]);
 

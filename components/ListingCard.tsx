@@ -21,17 +21,30 @@ import { CardCallButton } from "./CardCallButton";
 export function ListingCard({
   listing,
   mainImage,
+  src,
 }: {
   listing: Listing;
   mainImage: ListingImageRow | null;
+  /**
+   * Channel attribution → `meta.rail` in site_events.
+   *
+   * ⚠️ `hot_all` is the FULL-PAGE channel, deliberately distinct from the
+   * rail's `hot`. Collapsing them would make the first question about this
+   * feature — "does anyone actually tap ყველა?" — unanswerable, because both
+   * surfaces would land in the same bucket.
+   * Any value added here must also be added to RAIL_SOURCES in
+   * app/listing/[id]/page.tsx, or the beacon records rail:null and the taps
+   * are silently lost.
+   */
+  src?: "hot_all";
 }) {
-  const src = mainImage ? resolveImageUrl(mainImage) : null;
+  const imageSrc = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
   const district = districtLabel(listing.district_code, listing.district);
   const checkedLabel = listing.last_checked_at
     ? relativeTimeKa(listing.last_checked_at)
     : null;
-  const href = `/listing/${listing.id}`;
+  const href = `/listing/${listing.id}${src ? `?src=${src}` : ""}`;
 
   return (
     <article className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card transition duration-150 hover:border-sand-strong">
@@ -41,10 +54,10 @@ export function ListingCard({
       >
         {/* Media well: fixed mid-neutral, contain+blur — never page void. */}
         <div className="relative aspect-[4/3] overflow-hidden bg-well">
-          {src && (
+          {imageSrc && (
             // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
             <img
-              src={src}
+              src={imageSrc}
               alt=""
               aria-hidden="true"
               loading="lazy"
@@ -54,7 +67,7 @@ export function ListingCard({
             />
           )}
           <ListingImage
-            src={src}
+            src={imageSrc}
             alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
             className="absolute inset-0 h-full w-full object-contain"
           />

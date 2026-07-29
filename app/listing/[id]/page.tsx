@@ -58,7 +58,10 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
 // recorded with rail:null. "district" was missing for the rails' first
 // hours — the biggest homepage surface was invisible in analytics.
 // "value" is reserved for a rail that does not exist yet.
-const RAIL_SOURCES = new Set(["new", "hot", "district", "value"]);
+// `hot` is the homepage strip; `hot_all` is the full-screen ყველა channel.
+// They are separate on purpose — see the note on ListingCard's `src` prop.
+// A value missing from this set records rail:null and the taps vanish.
+const RAIL_SOURCES = new Set(["new", "hot", "hot_all", "district", "value"]);
 
 export default async function ListingPage({
   params,

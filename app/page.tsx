@@ -92,17 +92,35 @@ async function Feed({
   }
 
   if (result.listings.length === 0) {
+    const emptyHot = filters.view === "hot";
+    const hotSale = filters.view === "hot" && filters.dealType === "sale";
+    const title = hotSale
+      ? "ეს არხი ჯერ მხოლოდ ქირისთვისაა"
+      : emptyHot
+        ? "ახლა საკმარისი აქტივობა არ არის"
+        : hasActiveFilters(filters)
+          ? "ფილტრს არაფერი ემთხვევა"
+          : "ჯერ არ არის განცხადებები";
+    const detail = hotSale
+      ? "გაყიდვის განცხადებებისთვის სანდო ცხელი რეიტინგი ჯერ არ გვაქვს."
+      : emptyHot
+        ? "აქ მხოლოდ ის ქირის განცხადებები ჩნდება, რომლებიც ცხელი რეიტინგის ზღვარს გადიან."
+        : hasActiveFilters(filters)
+          ? "სცადე ფასის დიაპაზონის გაფართოება ან ფილტრების გასუფთავება."
+          : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე.";
     return (
       <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
         <FeedBeacon empty hasFilters={hasActiveFilters(filters)} meta={{ ...meta, total: 0 }} />
-        <h2 className="text-lg font-semibold text-ink">
-          {hasActiveFilters(filters) ? "ფილტრს არაფერი ემთხვევა" : "ჯერ არ არის განცხადებები"}
-        </h2>
-        <p className="mt-2 text-sm text-mink">
-          {hasActiveFilters(filters)
-            ? "სცადე ფასის დიაპაზონის გაფართოება ან ფილტრების გასუფთავება."
-            : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე."}
-        </p>
+        <h2 className="text-lg font-semibold text-ink">{title}</h2>
+        <p className="mt-2 text-sm text-mink">{detail}</p>
+        {hotSale && (
+          <Link
+            href="/?view=hot"
+            className="mt-4 inline-block text-sm font-semibold text-clay-deep underline underline-offset-2"
+          >
+            ქირის არხის ნახვა
+          </Link>
+        )}
       </div>
     );
   }
@@ -126,6 +144,7 @@ async function Feed({
             key={listing.id}
             listing={listing}
             mainImage={result.mainImages.get(listing.id) ?? null}
+            src={filters.view === "hot" ? "hot_all" : undefined}
           />
         ))}
       </div>
@@ -151,16 +170,17 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
     // A channel opened full-screen gets a heading and a way back; a plain
     // filtered feed does not (the filter bar already says what is applied).
     if (isChannelView(filters)) {
+      const isHot = filters.view === "hot";
       return (
         <div className="space-y-3">
-          {/* NOT "ახლახან დაემატა" — that rail is a 12h window (48h for sale),
-              this view is the whole catalogue newest-first. Reusing the rail's
-              label here would put a freshness promise over 959 listings, which
-              is the same overclaim that keeps hot from having a "see all".
-              The honest fix is the label, not a cutoff: windowing the query
-              would re-hide inventory to satisfy a word, when reachability was
-              the entire bug. No moss dot either — moss means live/fresh. */}
-          <ChannelHeading id="channel-heading" label="ყველა განცხადება, ახლიდან" />
+          {/* Intake honestly expands to the whole newest-first catalogue. Hot
+              keeps its threshold and rolling-attention order, so its heading
+              can keep the attention claim without relabelling a newest feed. */}
+          <ChannelHeading
+            id="channel-heading"
+            label={isHot ? "რასაც ახლა სხვები უყურებენ" : "ყველა განცხადება, ახლიდან"}
+            dot={isHot ? "clay" : undefined}
+          />
           <Feed searchParams={searchParams} />
         </div>
       );
