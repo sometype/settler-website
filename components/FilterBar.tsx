@@ -3,10 +3,12 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useTransition } from "react";
 import { DISTRICTS } from "@/lib/districts";
+import { FRAME_OPTIONS, isConditionCode } from "@/lib/labels";
+import type { ConditionCounts } from "@/lib/listings";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
-export function FilterBar() {
+export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | null }) {
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
@@ -19,6 +21,9 @@ export function FilterBar() {
   const rooms = params.get("rooms") ?? "";
   // Default rent when param missing (matches parseFilters).
   const deal = params.get("deal") ?? "rent";
+  // URL-driven like the room chips, so no local state and no filterKey entry.
+  const rawFrame = params.get("frame") ?? "";
+  const frame = deal === "sale" && isConditionCode(rawFrame) ? rawFrame : "";
 
   // Phones only: everything except the rent/sale toggle collapses behind a
   // button. Measured before this change — hero 260px + filter bar 471px meant
@@ -39,6 +44,7 @@ export function FilterBar() {
       params.get("max") ||
       params.get("mina") ||
       params.get("maxa") ||
+      frame ||
       rooms ||
       (params.get("deal") && params.get("deal") !== "rent")
   );
@@ -105,7 +111,9 @@ export function FilterBar() {
           <button
             key={value}
             type="button"
-            onClick={() => apply({ deal: value })}
+            // Leaving sale must drop `frame` in the SAME navigation, or a rent
+            // URL keeps a parameter with no chip to show or clear it.
+            onClick={() => apply({ deal: value, ...(value === "rent" ? { frame: "" } : {}) })}
             className={`rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
               deal === value
                 ? "bg-ink text-white ring-ink"
@@ -235,6 +243,36 @@ export function FilterBar() {
           />
         </label>
       </div>
+      {/* კარკასი — unfinished shells, SALE ONLY (149 of 151 such listings are
+          sale; rent had 2). Each chip carries its live sale-wide count, which
+          is also what lets a grade with no stock hide itself instead of
+          promising results it cannot deliver — the black grade sat at 12-19
+          and would otherwise look broken on a thin day. */}
+      {deal === "sale" && frameCounts && FRAME_OPTIONS.some((o) => frameCounts[o.code] > 0) && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-mink">კარკასი:</span>
+          {FRAME_OPTIONS.filter((o) => frameCounts[o.code] > 0).map((o) => {
+            const active = frame === o.code;
+            return (
+              <button
+                key={o.code}
+                type="button"
+                aria-pressed={active}
+                // Single-select: tapping the active chip clears it. The grades
+                // are mutually exclusive, so multi-select would buy nothing and
+                // cost list parsing, `.in()`, and an ambiguous combined label.
+                onClick={() => apply({ frame: active ? "" : o.code })}
+                className={`inline-flex items-center gap-1.5 ${chip(active)}`}
+              >
+                {o.ka}
+                <span className={`num text-[10px] ${active ? "text-white/70" : "text-faint"}`}>
+                  {frameCounts[o.code]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-xs font-medium text-mink">ოთახები:</span>
         <button type="button" onClick={() => apply({ rooms: "" })} className={chip(rooms === "")}>

@@ -1,3 +1,5 @@
+import type { ConditionCode } from "./labels";
+
 export type DealType = "rent" | "sale";
 
 /**
@@ -31,6 +33,13 @@ export interface Listing {
   district_code: string | null;
   rooms: string | null;
   price_usd: number | null;
+  /**
+   * Previous price when the current price is still a recorded drop
+   * (see listings.price_drop_*). Null when no honest old price.
+   */
+  price_drop_from_usd?: number | null;
+  /** When that drop was observed in our DB. */
+  price_dropped_at?: string | null;
   area: number | null;
   floor: string | null;
   bathrooms: string | null;
@@ -118,6 +127,15 @@ export interface FeedFilters {
    */
   minArea?: number;
   maxArea?: number;
+  /**
+   * კარკასი grade — an unfinished shell a buyer intends to finish themselves.
+   *
+   * ⚠️ SALE ONLY. Measured 2026-07-29: 149 of 151 frame listings are sale
+   * (rent had exactly 2 green). `parseFilters` refuses this unless the deal is
+   * sale, so a crafted `?frame=white` on rent cannot create an invisible filter
+   * that narrows results with no chip to explain it.
+   */
+  conditionCode?: ConditionCode;
   /**
    * A channel opened full-screen ("see all"), NOT a filter.
    *

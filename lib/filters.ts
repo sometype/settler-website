@@ -1,5 +1,6 @@
 import type { FeedFilters } from "./types";
 import { isKnownDistrictCode } from "./districts";
+import { isConditionCode } from "./labels";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,6 +39,12 @@ export function parseFilters(params: SearchParams): FeedFilters {
   // ad links carrying it now show unfiltered results, which is the right
   // failure: the alternative is a redirect for a parameter nothing produces.
   // FilterBar strips it on the next interaction.
+  // კარკასი grade. ⚠️ Gated on sale: 149 of 151 frame listings are sale, the
+  // chips only render there, and accepting it on rent would let `?frame=white`
+  // narrow the feed with no visible control to explain or clear it.
+  const frame = str(params.frame);
+  const conditionCode =
+    dealType === "sale" && frame && isConditionCode(frame) ? frame : undefined;
   // District is a canonical code from the dropdown. Anything else (old
   // free-text URLs, typos) is ignored rather than silently matching nothing.
   const district = str(params.district);
@@ -53,6 +60,7 @@ export function parseFilters(params: SearchParams): FeedFilters {
     dealType,
     minArea,
     maxArea,
+    conditionCode,
     view: view === "intake" || view === "hot" ? view : undefined,
     page: Math.max(1, num(params.page) ?? 1),
   };
@@ -83,6 +91,7 @@ export function hasNarrowingFilters(f: FeedFilters): boolean {
       f.maxPrice !== undefined ||
       f.minArea !== undefined ||
       f.maxArea !== undefined ||
+      f.conditionCode ||
       f.rooms
   );
 }
@@ -106,6 +115,7 @@ export function hasActiveFilters(f: FeedFilters): boolean {
       f.maxPrice !== undefined ||
       f.minArea !== undefined ||
       f.maxArea !== undefined ||
+      f.conditionCode ||
       f.rooms ||
       (f.dealType && f.dealType !== "rent")
   );

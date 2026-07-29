@@ -23,6 +23,39 @@ const CONDITION: Record<string, string> = {
   "სარემონტო": "სარემონტო",
 };
 
+/**
+ * კარკასი filter codes — the unfinished-shell grades a buyer can filter by.
+ *
+ * ⚠️ CO-LOCATED HERE ON PURPOSE, in the map that already knows these strings.
+ * The backend's `normalize_lib.condition_code()` writes `listings.condition_code`
+ * and is the ONLY other place raw frame spellings may live. Adding a third file
+ * (`lib/conditions.ts` was proposed) would mean three places encoding "these
+ * strings mean green" — the same defect that produced the five-copy cover pick
+ * and the three-copy rail, both of which shipped a fix to some copies and not
+ * others. Two places, never three.
+ *
+ * Labels are READ FROM `CONDITION` above rather than retyped, so the chip and
+ * the listing page can never disagree about what «მწვანე კარკასი» is called.
+ *
+ * ⚠️ `White Plus` is deliberately NOT a code (human decision 2026-07-29). It
+ * displays under its own name «თეთრი პლუსი», so filing it under the თეთრი chip
+ * would put listings behind a label their own page contradicts. Accepted cost:
+ * those listings are reachable by no chip at all.
+ */
+export const CONDITION_CODES = ["black", "white", "green"] as const;
+export type ConditionCode = (typeof CONDITION_CODES)[number];
+
+/** Chip order: worst-finished first, so the row reads as a progression. */
+export const FRAME_OPTIONS: { code: ConditionCode; ka: string }[] = [
+  { code: "black", ka: CONDITION["შავი კარკასი"] },
+  { code: "white", ka: CONDITION["თეთრი კარკასი"] },
+  { code: "green", ka: CONDITION["მწვანე კარკასი"] },
+];
+
+export function isConditionCode(v: string): v is ConditionCode {
+  return (CONDITION_CODES as readonly string[]).includes(v);
+}
+
 const STATUS: Record<string, string> = {
   "New building": "ახალი აშენებული",
   "ახალი აშენებული": "ახალი აშენებული",

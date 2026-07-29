@@ -61,7 +61,7 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
 // `hot` is the homepage strip; `hot_all` is the full-screen ყველა channel.
 // They are separate on purpose — see the note on ListingCard's `src` prop.
 // A value missing from this set records rail:null and the taps vanish.
-const RAIL_SOURCES = new Set(["new", "hot", "hot_all", "district", "value"]);
+const RAIL_SOURCES = new Set(["new", "hot", "hot_all", "district", "price_drop", "value"]);
 
 export default async function ListingPage({
   params,

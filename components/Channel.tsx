@@ -80,6 +80,8 @@ export function RailCard({
   image,
   src,
   showDistrict = true,
+  /** When set, age stamp uses drop time and price shows old (strike) + new. */
+  priceDrop,
 }: {
   listing: Listing;
   image: ListingImageRow | null;
@@ -88,10 +90,28 @@ export function RailCard({
    *  app/listing/[id]/page.tsx, or every open from this rail records rail:null. */
   src: string;
   showDistrict?: boolean;
+  priceDrop?: {
+    prevPriceUsd: number;
+    priceUsd: number;
+    dropAt: string;
+  };
 }) {
-  const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
+  const price = formatPrice(
+    priceDrop?.priceUsd ?? listing.price_usd,
+    listing.deal_type ?? "rent"
+  );
+  const prevPrice = priceDrop
+    ? formatPrice(priceDrop.prevPriceUsd, listing.deal_type ?? "rent")
+    : null;
+  const stampIso = priceDrop?.dropAt ?? listing.first_seen_at;
   const district = districtLabel(listing.district_code, listing.district);
   const url = image ? resolveImageUrl(image) : null;
+  const pricePlain = price ? price.replace(" / თვეში", "") : null;
+  const prevPlain = prevPrice ? prevPrice.replace(" / თვეში", "") : null;
+  const a11yPrice =
+    prevPlain && pricePlain
+      ? `ფასი იყო ${prevPlain}, ახლა ${pricePlain}`
+      : undefined;
 
   return (
     <li className="w-40 shrink-0 snap-start">
@@ -119,19 +139,29 @@ export function RailCard({
           />
           <div className="absolute left-1.5 top-1.5 z-10 rounded bg-card/90 px-1.5 py-0.5 backdrop-blur-[2px]">
             <AgeStamp
-              iso={listing.first_seen_at}
-              initialLabel={compactAgeKa(listing.first_seen_at)}
-              initialBand={ageBand(listing.first_seen_at)}
+              iso={stampIso}
+              initialLabel={compactAgeKa(stampIso)}
+              initialBand={ageBand(stampIso)}
               className="text-[10.5px]"
             />
           </div>
         </div>
         <div className="p-2">
-          {price ? (
-            <p className="num truncate text-[14px] font-bold leading-none text-ink">
-              {/* strip " / თვეში" so the mono face never sees Georgian glyphs */}
-              {price.replace(" / თვეში", "")}
-            </p>
+          {pricePlain ? (
+            <div>
+              {a11yPrice && <span className="sr-only">{a11yPrice}</span>}
+              <p
+                className="num leading-none"
+                aria-hidden={a11yPrice ? true : undefined}
+              >
+                {prevPlain && (
+                  <span className="mr-1 text-[11px] font-medium text-mink line-through">
+                    {prevPlain}
+                  </span>
+                )}
+                <span className="text-[14px] font-bold text-ink">{pricePlain}</span>
+              </p>
+            </div>
           ) : (
             <p className="truncate text-[13px] font-semibold leading-none text-faint">
               შეთანხმებით

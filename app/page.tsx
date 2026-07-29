@@ -1,6 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { fetchFeed, fetchRailPlan, type RailPlan } from "@/lib/listings";
+import {
+  fetchConditionCounts,
+  fetchFeed,
+  fetchRailPlan,
+  type RailPlan,
+} from "@/lib/listings";
 import {
   parseFilters,
   hasActiveFilters,
@@ -14,6 +19,7 @@ import { ChannelHeading } from "@/components/Channel";
 import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
 import { HotRail } from "@/components/HotRail";
+import { PriceDropRail } from "@/components/PriceDropRail";
 import { DistrictPulse } from "@/components/DistrictPulse";
 import { DistrictRail } from "@/components/DistrictRail";
 import { Pagination } from "@/components/Pagination";
@@ -32,6 +38,7 @@ function filterMeta(filters: ReturnType<typeof parseFilters>) {
     // Schema break from 2026-07-29: events before it carry `amenities`, events
     // after carry area bounds. Same kind of discontinuity as the hot/hot_all
     // split — do not compare the two windows on these fields.
+    condition_code: filters.conditionCode ?? null,
     min_area: filters.minArea ?? null,
     max_area: filters.maxArea ?? null,
     page: filters.page,
@@ -205,8 +212,11 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
       {plan && plan.justAdded.listings.length > 0 && (
         <JustAddedRail data={plan.justAdded} dealType={filters.dealType} />
       )}
-      {/* Below just-added on purpose: freshness is the product's claim, and
-          attention is the second-order signal. */}
+      {/* Second slot is deal-specific: sale → price drops (old+new), rent → hot.
+          Replaces an empty sale hot rail without adding a fourth strip. */}
+      {plan && plan.priceDrops.listings.length > 0 && (
+        <PriceDropRail data={plan.priceDrops} />
+      )}
       {plan && plan.hot.listings.length > 0 && <HotRail data={plan.hot} />}
       {/* District strips: the axis people actually hunt on. Count is one
           constant (DISTRICT_RAILS) — see lib/listings.ts. */}
@@ -236,6 +246,10 @@ export default async function HomePage({
   // The strip is a browse aid for someone with no stated intent. Once a filter
   // is on, unfiltered arrivals would contradict the list right below them.
   const homeFilters = parseFilters(params);
+  // Sale only, so the rent homepage — the common case — pays nothing for a
+  // control it never renders. ~250 short rows; null on failure hides the row.
+  const frameCounts =
+    homeFilters.dealType === "sale" ? await fetchConditionCounts() : null;
 
   return (
     <>
@@ -245,7 +259,7 @@ export default async function HomePage({
         <Hero />
       </Suspense>
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pb-6 pt-0">
-        <FilterBar key={filterKey} />
+        <FilterBar key={filterKey} frameCounts={frameCounts} />
         {/* All rails are planned together (fetchRailPlan) rather than fetching
             independently, because they must not repeat each other's listings —
             and the feed must not repeat any of them. */}

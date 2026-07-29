@@ -1,6 +1,7 @@
 import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
 import { hasNarrowingFilters } from "./filters";
 import { indexMainImages, orderForGallery } from "./images";
+import type { ConditionCode } from "./labels";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
 
@@ -15,7 +16,7 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
  */
 // Kept as one literal (not a joined array) so supabase-js can infer row types.
 const LISTING_COLUMNS =
-  "id, deal_type, district, district_code, rooms, price_usd, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone";
+  "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone";
 
 /**
  * Client-safe image columns: enough to build the /img path, nothing more.
@@ -91,6 +92,11 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
   if (filters.maxArea !== undefined) {
     q = q.lte("area", filters.maxArea);
   }
+  // One equality, not a set: the three კარკასი grades are mutually exclusive
+  // and the UI is single-select. parseFilters already refused this on rent.
+  if (filters.conditionCode) {
+    q = q.eq("condition_code", filters.conditionCode);
+  }
   if (filters.rooms) {
     q = filters.rooms === "5+" ? q.in("rooms", FIVE_PLUS_ROOMS) : q.eq("rooms", filters.rooms);
   }
@@ -157,6 +163,37 @@ export async function fetchFeed(
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
   };
+}
+
+export type ConditionCounts = Record<ConditionCode, number>;
+
+/**
+ * How many SALE listings carry each კარკასი grade, for the chip labels.
+ *
+ * ⚠️ Sale-wide, and deliberately NOT recomputed per district/price/area/rooms.
+ * Accepted trade (human decision 2026-07-29): filter to Vake and the მწვანე
+ * chip may still read 91 while returning 2. Per-combination counts would mean
+ * a fresh query on every filter change for a number nobody is promised.
+ *
+ * Reads the PUBLIC view so the counts match exactly what a visitor can open,
+ * and selects only the coded rows — ~250 short values, not the whole catalogue.
+ *
+ * Returns null on failure: the caller then hides the whole row rather than
+ * rendering invented zeros or breaking the feed over a decoration.
+ */
+export async function fetchConditionCounts(): Promise<ConditionCounts | null> {
+  const { data, error } = await getSupabase()
+    .from("listings_public")
+    .select("condition_code")
+    .eq("deal_type", "sale")
+    .not("condition_code", "is", null);
+  if (error || !data) return null;
+
+  const counts: ConditionCounts = { black: 0, white: 0, green: 0 };
+  for (const row of data as { condition_code: ConditionCode }[]) {
+    if (row.condition_code in counts) counts[row.condition_code] += 1;
+  }
+  return counts;
 }
 
 export interface JustAddedResult {
@@ -470,9 +507,91 @@ export interface DistrictRailData {
   mainImages: Map<number, ListingImage>;
 }
 
+/** Sale «ფასი დაეცა» strip — same min/size discipline as other rails. */
+export const PRICE_DROP_MIN_CARDS = 4;
+export const PRICE_DROP_RAIL_SIZE = 8;
+const PRICE_DROP_MIN_USD = 1000;
+const PRICE_DROP_MAX_USD = 50_000;
+const PRICE_DROP_MIN_PCT = 1;
+const PRICE_DROP_MAX_PCT = 25;
+const PRICE_DROP_SALE_PRICE_MIN = 5000;
+const PRICE_DROP_SALE_PRICE_MAX = 5_000_000;
+
+export interface PriceDropResult {
+  listings: Listing[];
+  mainImages: Map<number, ListingImage>;
+}
+
+function isSanePriceDrop(listing: Listing): boolean {
+  const prev = listing.price_drop_from_usd;
+  const cur = listing.price_usd;
+  if (prev == null || cur == null) return false;
+  if (prev <= cur) return false;
+  if (
+    prev < PRICE_DROP_SALE_PRICE_MIN ||
+    prev > PRICE_DROP_SALE_PRICE_MAX ||
+    cur < PRICE_DROP_SALE_PRICE_MIN ||
+    cur > PRICE_DROP_SALE_PRICE_MAX
+  ) {
+    return false;
+  }
+  const dropUsd = prev - cur;
+  if (dropUsd < PRICE_DROP_MIN_USD || dropUsd > PRICE_DROP_MAX_USD) return false;
+  const dropPct = (100 * dropUsd) / prev;
+  if (dropPct < PRICE_DROP_MIN_PCT || dropPct > PRICE_DROP_MAX_PCT) return false;
+  if (!listing.price_dropped_at) return false;
+  return true;
+}
+
+/**
+ * Live sale listings with a still-current price drop (old + new on the card).
+ * 48h primary window; widen to 7d if fewer than PRICE_DROP_MIN_CARDS after
+ * excludeIds. Hide (empty result) if still thin — caller must not render.
+ */
+export async function fetchPriceDrops(
+  excludeIds: number[] = [],
+  limit = PRICE_DROP_RAIL_SIZE
+): Promise<PriceDropResult> {
+  const supabase = getSupabase();
+  const exclude = new Set(excludeIds);
+  const day7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const day2 = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+  // Bounded 7d candidate set; filter sanity + window in memory so 48h→7d
+  // fallback does not need a second round trip.
+  const { data, error } = await supabase
+    .from("listings_public")
+    .select(LISTING_COLUMNS)
+    .eq("deal_type", "sale")
+    .not("price_drop_from_usd", "is", null)
+    .gte("price_dropped_at", day7)
+    .order("price_dropped_at", { ascending: false })
+    .limit(80);
+  if (error || !data) return { listings: [], mainImages: new Map() };
+
+  const eligible = (data as Listing[]).filter(
+    (l) => isSanePriceDrop(l) && !exclude.has(l.id)
+  );
+  const fresh = eligible.filter(
+    (l) => (l.price_dropped_at ?? "") >= day2
+  );
+  const pool = fresh.length >= PRICE_DROP_MIN_CARDS ? fresh : eligible;
+  const listings = pool.slice(0, limit);
+  if (listings.length < PRICE_DROP_MIN_CARDS) {
+    return { listings: [], mainImages: new Map() };
+  }
+
+  const mainImages = await fetchMainImages(
+    listings.map((l) => l.id),
+    "price_drop"
+  );
+  return { listings, mainImages };
+}
+
 export interface RailPlan {
   justAdded: JustAddedResult;
   hot: HotResult;
+  priceDrops: PriceDropResult;
   districts: DistrictRailData[];
   /** Everything rendered above the feed, so the feed can skip it. */
   shownIds: number[];
@@ -484,9 +603,8 @@ export interface RailPlan {
  *
  * DEDUPE IS THE POINT. A flat appearing in just-added AND hot AND its district
  * rail reads as padding — the exact disease this page already had. Priority is
- * new → hot → district, so each strip shows something the ones above it did not.
- * Verified safe before building: removing the 16 ids that new+hot occupy leaves
- * the top ten districts with 6-42 fresh listings each, so no rail starves.
+ * new → price-drop (sale) / hot (rent) → district, so each strip shows something
+ * the ones above it did not.
  *
  * NOT personalised to the visitor's last district. That needs a cookie to be
  * readable server-side, and this site deliberately ships no cookie banner —
@@ -498,19 +616,51 @@ export async function fetchRailPlan(
   railCount: number = DISTRICT_RAILS
 ): Promise<RailPlan> {
   const supabase = getSupabase();
+  const deal = dealType === "sale" ? "sale" : "rent";
 
-  const [justAdded, hot, pulse] = await Promise.all([
+  // Just-added first so price-drop can exclude those IDs (rendered-only).
+  const [justAddedCandidate, pulse] = await Promise.all([
     fetchJustAdded(dealType, 8),
-    fetchHot(dealType, HOT_RAIL_SIZE),
     fetchDistrictPulse(dealType, 40),
   ]);
 
+  // Components hide thin rails; the plan must make the same decision before
+  // dedupe or 1–3 invisible cards disappear from every downstream surface.
+  const emptyJustAdded: JustAddedResult = {
+    listings: [],
+    mainImages: new Map(),
+  };
+  const justAdded =
+    justAddedCandidate.listings.length >= JUST_ADDED_MIN_CARDS
+      ? justAddedCandidate
+      : emptyJustAdded;
+  const justIds = justAdded.listings.map((l) => l.id);
+
+  // Sale: price-drop second slot. Rent: hot second slot. Never both.
+  const emptyPriceDrops: PriceDropResult = {
+    listings: [],
+    mainImages: new Map(),
+  };
+  const emptyHot: HotResult = { listings: [], mainImages: new Map(), total: 0 };
+
+  const [hotCandidate, priceDrops] = await Promise.all([
+    deal === "rent"
+      ? fetchHot(dealType, HOT_RAIL_SIZE)
+      : Promise.resolve(emptyHot),
+    deal === "sale"
+      ? fetchPriceDrops(justIds, PRICE_DROP_RAIL_SIZE)
+      : Promise.resolve(emptyPriceDrops),
+  ]);
+  const hot =
+    hotCandidate.listings.length >= HOT_MIN_CARDS ? hotCandidate : emptyHot;
+
+  // Only IDs that will actually render (hot/price-drop may be empty if < min).
   const shown = new Set<number>([
-    ...justAdded.listings.map((l) => l.id),
+    ...justIds,
     ...hot.listings.map((l) => l.id),
+    ...priceDrops.listings.map((l) => l.id),
   ]);
 
-  const deal = dealType === "sale" ? "sale" : "rent";
   const candidates = pulse.slice(0, Math.max(0, railCount));
 
   const fetched = await Promise.all(
@@ -554,7 +704,7 @@ export async function fetchRailPlan(
 
   for (const d of districts) for (const l of d.listings) shown.add(l.id);
 
-  return { justAdded, hot, districts, shownIds: [...shown] };
+  return { justAdded, hot, priceDrops, districts, shownIds: [...shown] };
 }
 
 export async function fetchListing(
