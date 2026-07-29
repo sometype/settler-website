@@ -5,10 +5,9 @@ import {
 import { ChannelHeading, ChannelStrip, RailCard } from "./Channel";
 
 /**
- * Sale «ფასი დაეცა» — listings whose price went down, with old + new price.
- *
- * Sale homepage second slot (rent keeps HotRail). Not discovery recency
- * (just-added) and not source-view heat. Eligibility lives in fetchPriceDrops.
+ * Homepage second rail — replaces «სხვები უყურებენ».
+ * Sale listings whose price went down (old + new). Not discovery recency
+ * (just-added) and not source-view heat. Eligibility: fetchPriceDrops.
  */
 export function PriceDropRail({ data }: { data: PriceDropResult }) {
   const { listings, mainImages } = data;
@@ -18,7 +17,7 @@ export function PriceDropRail({ data }: { data: PriceDropResult }) {
     <section aria-labelledby="price-drop-heading">
       <ChannelHeading
         id="price-drop-heading"
-        label="ფასი დაეცა"
+        label="ფასი დააკლდა"
         dot="clay"
         count={listings.length}
       />

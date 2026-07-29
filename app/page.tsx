@@ -18,7 +18,6 @@ import { FilterBar } from "@/components/FilterBar";
 import { ChannelHeading } from "@/components/Channel";
 import { ListingCard } from "@/components/ListingCard";
 import { JustAddedRail } from "@/components/JustAddedRail";
-import { HotRail } from "@/components/HotRail";
 import { PriceDropRail } from "@/components/PriceDropRail";
 import { DistrictPulse } from "@/components/DistrictPulse";
 import { DistrictRail } from "@/components/DistrictRail";
@@ -212,12 +211,11 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
       {plan && plan.justAdded.listings.length > 0 && (
         <JustAddedRail data={plan.justAdded} dealType={filters.dealType} />
       )}
-      {/* Second slot is deal-specific: sale → price drops (old+new), rent → hot.
-          Replaces an empty sale hot rail without adding a fourth strip. */}
+      {/* Second rail: price drops only — replaces «სხვები უყურებენ» on the
+          homepage. Label «ფასი დააკლდა». Hot channel remains at /?view=hot. */}
       {plan && plan.priceDrops.listings.length > 0 && (
         <PriceDropRail data={plan.priceDrops} />
       )}
-      {plan && plan.hot.listings.length > 0 && <HotRail data={plan.hot} />}
       {/* District strips: the axis people actually hunt on. Count is one
           constant (DISTRICT_RAILS) — see lib/listings.ts. */}
       {plan?.districts.map((d) => (

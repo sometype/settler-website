@@ -603,8 +603,7 @@ export interface RailPlan {
  *
  * DEDUPE IS THE POINT. A flat appearing in just-added AND hot AND its district
  * rail reads as padding — the exact disease this page already had. Priority is
- * new → price-drop (sale) / hot (rent) → district, so each strip shows something
- * the ones above it did not.
+ * new → price-drop («ფასი დააკლდა», replaces hot) → district.
  *
  * NOT personalised to the visitor's last district. That needs a cookie to be
  * readable server-side, and this site deliberately ships no cookie banner —
@@ -636,28 +635,16 @@ export async function fetchRailPlan(
       : emptyJustAdded;
   const justIds = justAdded.listings.map((l) => l.id);
 
-  // Sale: price-drop second slot. Rent: hot second slot. Never both.
-  const emptyPriceDrops: PriceDropResult = {
-    listings: [],
-    mainImages: new Map(),
-  };
+  // Homepage second slot is ALWAYS sale price-drops («ფასი დააკლდა»), never
+  // the old hot rail. Hot remains only for /?view=hot. Sale inventory is
+  // intentional even when the feed tab is rent — same as a sale promo strip.
   const emptyHot: HotResult = { listings: [], mainImages: new Map(), total: 0 };
+  const priceDrops = await fetchPriceDrops(justIds, PRICE_DROP_RAIL_SIZE);
+  const hot = emptyHot;
 
-  const [hotCandidate, priceDrops] = await Promise.all([
-    deal === "rent"
-      ? fetchHot(dealType, HOT_RAIL_SIZE)
-      : Promise.resolve(emptyHot),
-    deal === "sale"
-      ? fetchPriceDrops(justIds, PRICE_DROP_RAIL_SIZE)
-      : Promise.resolve(emptyPriceDrops),
-  ]);
-  const hot =
-    hotCandidate.listings.length >= HOT_MIN_CARDS ? hotCandidate : emptyHot;
-
-  // Only IDs that will actually render (hot/price-drop may be empty if < min).
+  // Only IDs that will actually render (price-drop empty if < min cards).
   const shown = new Set<number>([
     ...justIds,
-    ...hot.listings.map((l) => l.id),
     ...priceDrops.listings.map((l) => l.id),
   ]);
 

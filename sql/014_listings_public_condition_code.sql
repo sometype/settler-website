@@ -1,4 +1,12 @@
--- 013 — expose `condition_code` on listings_public.
+-- 014 — expose `condition_code` on listings_public.
+--
+-- ⚠️ RENUMBERED 013 -> 014. Two migrations were authored as `013` in parallel
+-- (this one and 013_listings_public_price_drop.sql). Both are a full
+-- CREATE OR REPLACE of the SAME view, and the price-drop one does NOT select
+-- condition_code — so replaying them in filename order would have run it LAST
+-- and silently dropped this column, breaking the კარკასი filter with no error.
+-- This file is the authoritative definition: it contains BOTH price_drop_*
+-- and condition_code. Apply it after 013.
 --
 -- APPEND-ONLY. This is the live 009/price-drop view definition with ONE column
 -- added at the end; every visibility clause, the amenities merge, raw
