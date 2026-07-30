@@ -11,6 +11,7 @@ import {
   hasActiveFilters,
   hasNarrowingFilters,
   isChannelView,
+  isPriceSort,
   parseDistrictCodes,
   serializeDistricts,
   type SearchParams,
@@ -24,6 +25,7 @@ import { PriceDropRail } from "@/components/PriceDropRail";
 import { DistrictPulse } from "@/components/DistrictPulse";
 import { DistrictRail } from "@/components/DistrictRail";
 import { Pagination } from "@/components/Pagination";
+import { SortBar } from "@/components/SortBar";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
 
@@ -47,6 +49,8 @@ function filterMeta(filters: ReturnType<typeof parseFilters>) {
     condition_code: filters.conditionCode ?? null,
     min_area: filters.minArea ?? null,
     max_area: filters.maxArea ?? null,
+    // Sort is always present in meta; alone it does not fire filter_apply.
+    sort: filters.sort,
     page: filters.page,
     has_filters: hasActiveFilters(filters),
   };
@@ -146,6 +150,9 @@ async function Feed({
     );
   }
 
+  // Hot keeps rolling-attention order — price chips would lie. Hide SortBar.
+  const showSort = filters.view !== "hot" && filters.dealType !== undefined;
+
   return (
     <>
       <FeedBeacon
@@ -153,10 +160,13 @@ async function Feed({
         hasFilters={hasActiveFilters(filters)}
         meta={{ ...meta, total: result.total }}
       />
-      <p className="mb-3 text-sm text-mink">
-        {result.total.toLocaleString("ka-GE")} განცხადება
-        {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
-      </p>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-mink">
+          {result.total.toLocaleString("ka-GE")} განცხადება
+          {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
+        </p>
+        {showSort && <SortBar active={filters.sort} />}
+      </div>
       {/* minmax(0,1fr): same trap as the detail page — auto min-width lets a
           card's nowrap facts line blow the column past the viewport. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[repeat(2,minmax(0,1fr))] lg:grid-cols-[repeat(3,minmax(0,1fr))]">
@@ -187,11 +197,14 @@ async function Feed({
  */
 async function Rails({ searchParams }: { searchParams: SearchParams }) {
   const filters = parseFilters(searchParams);
-  // Rails are hidden when a channel is open full-screen: the channel IS the
-  // rail, expanded. That also lifts excludeIds (the !showRails branch passes
-  // none), which is the whole point — those listings were reachable ONLY by
-  // swiping the rail sideways, on every page of the unfiltered homepage.
-  const showRails = !hasNarrowingFilters(filters) && !isChannelView(filters);
+  // Rails are hidden when a channel is open full-screen, when the visitor has
+  // narrowed the catalogue, OR when they price-sort (Claude/GPT R1): rail
+  // excludeIds would remove candidates from a grid that claims full cheapest/
+  // dearest order. That also lifts excludeIds (no-rails branches pass none).
+  const showRails =
+    !hasNarrowingFilters(filters) &&
+    !isChannelView(filters) &&
+    !isPriceSort(filters);
 
   if (!showRails) {
     // A channel opened full-screen gets a heading and a way back; a plain

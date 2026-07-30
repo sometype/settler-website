@@ -155,6 +155,14 @@ export interface FeedFilters {
    * render. See lib/filters.ts for the two predicates and why they differ.
    */
   view?: ChannelView;
+  /**
+   * Feed ordering mode — NOT a filter. Must never enter hasActiveFilters /
+   * hasNarrowingFilters (would poison filter_apply). Price modes hide browse
+   * rails so the ordered grid is the full catalogue (Claude/GPT R1).
+   * Requires listings_public.price_sort (sql/015) so display-sane prices sort
+   * and garbage «ფასი მოთხოვნით» values null out (NULLS LAST).
+   */
+  sort: FeedSort;
   page: number;
 }
 
@@ -162,3 +170,6 @@ export interface FeedFilters {
  * ordering that earns its label: intake is newest-first; hot is rolling
  * attention from sql/010. */
 export type ChannelView = "intake" | "hot";
+
+/** Catalogue order. Default `new` = first_seen_at DESC. */
+export type FeedSort = "new" | "price_asc" | "price_desc";

@@ -1,4 +1,4 @@
-import type { FeedFilters } from "./types";
+import type { FeedFilters, FeedSort } from "./types";
 import { isKnownDistrictCode } from "./districts";
 import { isConditionCode } from "./labels";
 
@@ -56,6 +56,14 @@ export function parseFilters(params: SearchParams): FeedFilters {
   // params, precisely so nobody later "tidies" it into hasActiveFilters —
   // see the note on FeedFilters.view and hasActiveFilters below.
   const view = str(params.view);
+  // Sort is a mode, not a filter — see FeedFilters.sort. deal=all must not
+  // price-order a mixed rent/sale catalogue (monthly $ vs sale $).
+  const rawSort = str(params.sort);
+  let sort: FeedSort =
+    rawSort === "price_asc" || rawSort === "price_desc" ? rawSort : "new";
+  if (dealType === undefined && sort !== "new") {
+    sort = "new";
+  }
   return {
     districts: districts.length > 0 ? districts : undefined,
     minPrice,
@@ -66,8 +74,14 @@ export function parseFilters(params: SearchParams): FeedFilters {
     maxArea,
     conditionCode,
     view: view === "intake" || view === "hot" ? view : undefined,
+    sort,
     page: Math.max(1, num(params.page) ?? 1),
   };
+}
+
+/** Explicit price sort — hides homepage rails (ordered grid must be complete). */
+export function isPriceSort(f: FeedFilters): boolean {
+  return f.sort === "price_asc" || f.sort === "price_desc";
 }
 
 /** Max districts in one filter. Plenty for "Saburtalo + Vake + Vera"; not a dump of the whole city. */
