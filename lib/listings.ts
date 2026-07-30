@@ -109,6 +109,31 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
   return q as unknown as T;
 }
 
+/**
+ * Catalogue order for the main feed (not hot).
+ *
+ * ⚠️ Price modes order `price_sort` (sql/015), NOT raw `price_usd`. Out-of-bound
+ * prices display as «ფასი მოთხოვნით» but used to still rank; price_sort is null
+ * for those rows. NULLS LAST is mandatory on DESC (Postgres puts nulls first
+ * otherwise — measured Claude 2026-07-30). id ASC is a stable page tie-break.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyFeedOrder(query: any, filters: FeedFilters) {
+  if (filters.sort === "price_asc") {
+    return query
+      .order("price_sort", { ascending: true, nullsFirst: false })
+      .order("id", { ascending: true });
+  }
+  if (filters.sort === "price_desc") {
+    return query
+      .order("price_sort", { ascending: false, nullsFirst: false })
+      .order("id", { ascending: true });
+  }
+  return query
+    .order("first_seen_at", { ascending: false })
+    .order("id", { ascending: true });
+}
+
 export async function fetchFeed(
   filters: FeedFilters,
   /**
@@ -117,6 +142,9 @@ export async function fetchFeed(
    * same ids in the same order — the page repeated itself and read as padding.
    * Excluded from the ROWS only; `total` still counts the whole inventory,
    * because "784 განცხადება" should mean what it says.
+   *
+   * ⚠️ When price-sorting, callers must pass [] (rails hidden). Rail excludeIds
+   * would remove candidates from a list that claims full cheapest/dearest order.
    */
   excludeIds: number[] = []
 ): Promise<FeedResult> {
@@ -125,10 +153,10 @@ export async function fetchFeed(
   const supabase = getSupabase();
 
   let base = applyFilters(
-    supabase
-      .from("listings_public")
-      .select(LISTING_COLUMNS, { count: "exact" })
-      .order("first_seen_at", { ascending: false }),
+    applyFeedOrder(
+      supabase.from("listings_public").select(LISTING_COLUMNS, { count: "exact" }),
+      filters
+    ),
     filters
   );
   if (excludeIds.length > 0) {
@@ -418,7 +446,7 @@ export async function fetchHot(
 
   try {
     const { listings, total } = await fetchHotPage(
-      { dealType: "rent", page: 1 },
+      { dealType: "rent", page: 1, sort: "new" },
       1,
       limit
     );
@@ -547,9 +575,28 @@ function isSanePriceDrop(listing: Listing): boolean {
 }
 
 /**
+ * Fisher–Yates copy. Keeps the price-drop rail from freezing on the same
+ * "8 newest drops" every visit (user: strip felt stale). Homepage is
+ * force-dynamic; this is a decoration strip, not a stable channel rank.
+ */
+function shuffleCopy<T>(items: T[]): T[] {
+  const a = items.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i]!;
+    a[i] = a[j]!;
+    a[j] = tmp;
+  }
+  return a;
+}
+
+/**
  * Live sale listings with a still-current price drop (old + new on the card).
  * 48h primary window; widen to 7d if fewer than PRICE_DROP_MIN_CARDS after
  * excludeIds. Hide (empty result) if still thin — caller must not render.
+ *
+ * Within the eligible pool, cards are SHUFFLED then capped — eligibility still
+ * prefers 48h when thick enough; order is no longer pure drop-time.
  */
 export async function fetchPriceDrops(
   excludeIds: number[] = [],
@@ -579,7 +626,8 @@ export async function fetchPriceDrops(
     (l) => (l.price_dropped_at ?? "") >= day2
   );
   const pool = fresh.length >= PRICE_DROP_MIN_CARDS ? fresh : eligible;
-  const listings = pool.slice(0, limit);
+  // Shuffle then take 8 — same eligibility, rotating cards each homepage load.
+  const listings = shuffleCopy(pool).slice(0, limit);
   if (listings.length < PRICE_DROP_MIN_CARDS) {
     return { listings: [], mainImages: new Map() };
   }
