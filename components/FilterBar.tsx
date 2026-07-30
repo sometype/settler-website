@@ -9,11 +9,22 @@ import {
   serializeDistricts,
 } from "@/lib/filters";
 import { FRAME_OPTIONS, isConditionCode } from "@/lib/labels";
-import type { ConditionCounts } from "@/lib/listings";
+import type { ConditionCounts, DistrictCounts } from "@/lib/listings";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
-export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | null }) {
+export function FilterBar({
+  frameCounts,
+  districtCounts,
+}: {
+  frameCounts?: ConditionCounts | null;
+  /**
+   * Live count per district for the ACTIVE deal. Optional on purpose: absent
+   * or null renders exactly as before, so a failed count degrades to today's
+   * UI rather than hiding districts.
+   */
+  districtCounts?: DistrictCounts | null;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
@@ -301,14 +312,21 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
               {DISTRICTS.map((d) => {
                 const selected = districts.includes(d.code);
                 const atCap = !selected && districts.length >= MAX_DISTRICTS;
+                // ⚠️ Counts are optional and absence is NOT zero. When
+                // districtCounts is null (query failed, or the caller did not
+                // fetch) every district stays selectable exactly as before —
+                // a failed count must never silently hide inventory.
+                const n = districtCounts ? (districtCounts[d.code] ?? 0) : null;
+                const empty = n === 0 && !selected;
                 return (
                   <button
                     key={d.code}
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    disabled={atCap}
+                    disabled={atCap || empty}
                     onClick={() => toggleDistrict(d.code)}
+                    title={empty ? "ამ უბანში ახლა არაფერია" : undefined}
                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sand/40 disabled:cursor-not-allowed disabled:opacity-40 ${
                       selected ? "font-semibold text-ink" : "text-mink"
                     }`}
@@ -323,7 +341,14 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
                     >
                       {selected ? "✓" : ""}
                     </span>
-                    {d.ka}
+                    <span className="min-w-0 flex-1 truncate">{d.ka}</span>
+                    {/* .num on the FIGURE only — Georgian must never route
+                        through the mono face (it has no coverage). */}
+                    {n !== null && (
+                      <span className="num shrink-0 text-[11px] tabular-nums text-mink">
+                        {n}
+                      </span>
+                    )}
                   </button>
                 );
               })}

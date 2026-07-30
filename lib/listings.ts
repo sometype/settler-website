@@ -227,6 +227,55 @@ export async function fetchConditionCounts(): Promise<ConditionCounts | null> {
   return counts;
 }
 
+export type DistrictCounts = Record<string, number>;
+
+/**
+ * Live listing count per district for ONE deal type, so the filter can stop
+ * offering choices that cannot succeed.
+ *
+ * ⚠️ WHY THIS EXISTS. District is the single biggest dead end on the site:
+ * measured over 24h on 2026-07-30, 355 of 405 zero-result sessions had a
+ * district applied, and dropping it alone would have found stock for 285 of
+ * them. The cause is not that people pick badly — it is that the selector
+ * lists every district in `DISTRICTS` regardless of whether the active deal
+ * has a single listing there. **Eight districts have ZERO sale listings**
+ * (Tskneti, Tabakhmela, Vedzisi, Lotkini, Okrokana, Elia, Afrika, Kiketi) and
+ * seventeen more hold 1–4. Preventing the choice beats explaining the zero.
+ *
+ * ⚠️ Counts are per DEAL. A district thick with rentals can be empty for sale,
+ * so a count fetched for the wrong tab would be worse than none — it would be
+ * confidently wrong. The caller passes the active deal; `undefined` (deal=all)
+ * counts everything, which is what that tab actually searches.
+ *
+ * ⚠️ Selecting `district_code` alone and counting in JS mirrors
+ * `fetchConditionCounts` rather than inventing a grouped RPC: PostgREST has no
+ * GROUP BY without a database function, and adding one for ~2.1k short rows
+ * would be a migration for no measurable gain. Re-measure if the corpus grows
+ * an order of magnitude.
+ *
+ * Returns null on failure so the UI degrades to today's behaviour — a filter
+ * that shows no counts is fine; a filter that hides districts because a query
+ * failed is not.
+ */
+export async function fetchDistrictCounts(
+  dealType: "rent" | "sale" | undefined
+): Promise<DistrictCounts | null> {
+  let q = getSupabase()
+    .from("listings_public")
+    .select("district_code")
+    .not("district_code", "is", null);
+  if (dealType) q = q.eq("deal_type", dealType);
+
+  const { data, error } = await q;
+  if (error || !data) return null;
+
+  const counts: DistrictCounts = {};
+  for (const row of data as { district_code: string }[]) {
+    counts[row.district_code] = (counts[row.district_code] ?? 0) + 1;
+  }
+  return counts;
+}
+
 export interface JustAddedResult {
   listings: Listing[];
   mainImages: Map<number, ListingImage>;

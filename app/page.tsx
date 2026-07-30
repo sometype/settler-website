@@ -1,7 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import {
   fetchConditionCounts,
+  fetchDistrictCounts,
   fetchFeed,
   fetchRailPlan,
   type RailPlan,
@@ -28,6 +28,7 @@ import { Pagination } from "@/components/Pagination";
 import { SortBar } from "@/components/SortBar";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
+import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -96,57 +97,26 @@ async function Feed({
     }
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
     return (
-      <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
+      <EmptyState
+        filters={filters}
+        reason="page_out_of_range"
+        pageCount={result.pageCount}
+        backHref={backHref}
+      >
         <FeedBeacon
           empty
           hasFilters={hasActiveFilters(filters)}
           meta={{ ...meta, reason: "page_out_of_range", total: result.total }}
         />
-        <h2 className="text-lg font-semibold text-ink">ასეთი გვერდი არ არსებობს</h2>
-        <p className="mt-2 text-sm text-mink">
-          სულ {result.pageCount.toLocaleString("ka-GE")} გვერდია.
-        </p>
-        <Link
-          href={backHref}
-          className="mt-4 inline-block text-sm font-semibold text-moss-deep underline underline-offset-2"
-        >
-          პირველ გვერდზე დაბრუნება
-        </Link>
-      </div>
+      </EmptyState>
     );
   }
 
   if (result.listings.length === 0) {
-    const emptyHot = filters.view === "hot";
-    const hotSale = filters.view === "hot" && filters.dealType === "sale";
-    const title = hotSale
-      ? "ეს არხი ჯერ მხოლოდ ქირისთვისაა"
-      : emptyHot
-        ? "ახლა საკმარისი აქტივობა არ არის"
-        : hasActiveFilters(filters)
-          ? "ფილტრს არაფერი ემთხვევა"
-          : "ჯერ არ არის განცხადებები";
-    const detail = hotSale
-      ? "გაყიდვის განცხადებებისთვის სანდო ცხელი რეიტინგი ჯერ არ გვაქვს."
-      : emptyHot
-        ? "აქ მხოლოდ ის ქირის განცხადებები ჩნდება, რომლებიც ცხელი რეიტინგის ზღვარს გადიან."
-        : hasActiveFilters(filters)
-          ? "სცადე ფასის ან ფართის დიაპაზონის გაფართოება, ან ფილტრების გასუფთავება."
-          : "ახალი განცხადებები აქ გამოჩნდება, როგორც კი გაიფილტრება. შემოგვიარე მალე.";
     return (
-      <div className="rounded-2xl bg-card p-10 text-center ring-1 ring-sand">
+      <EmptyState filters={filters} reason={filters.view === "hot" ? "hot" : "no_match"}>
         <FeedBeacon empty hasFilters={hasActiveFilters(filters)} meta={{ ...meta, total: 0 }} />
-        <h2 className="text-lg font-semibold text-ink">{title}</h2>
-        <p className="mt-2 text-sm text-mink">{detail}</p>
-        {hotSale && (
-          <Link
-            href="/?view=hot"
-            className="mt-4 inline-block text-sm font-semibold text-clay-deep underline underline-offset-2"
-          >
-            ქირის არხის ნახვა
-          </Link>
-        )}
-      </div>
+      </EmptyState>
     );
   }
 
@@ -288,8 +258,21 @@ export default async function HomePage({
   const homeFilters = parseFilters(params);
   // Sale only, so the rent homepage — the common case — pays nothing for a
   // control it never renders. ~250 short rows; null on failure hides the row.
-  const frameCounts =
-    homeFilters.dealType === "sale" ? await fetchConditionCounts() : null;
+  // District counts for the ACTIVE deal, so the selector can grey out choices
+  // that cannot succeed. Measured 2026-07-30: district was applied in 355 of
+  // 405 zero-result sessions, and 9 districts have no sale listings at all —
+  // preventing the pick is cheaper than explaining the zero. Null degrades to
+  // the previous UI, so a failed query never hides inventory.
+  //
+  // ⚠️ Promise.all, NOT two awaits. The query itself is 5.9ms (measured with
+  // EXPLAIN ANALYZE, 891 rows) — the cost that matters is the round trip to
+  // Singapore, and the homepage already pays ~16 of them for a 3.2s stream
+  // (HANDOFF 2026-07-27). Serialising these two would have added a whole
+  // round trip to the shell for nothing.
+  const [frameCounts, districtCounts] = await Promise.all([
+    homeFilters.dealType === "sale" ? fetchConditionCounts() : Promise.resolve(null),
+    fetchDistrictCounts(homeFilters.dealType),
+  ]);
 
   return (
     <>
@@ -299,7 +282,11 @@ export default async function HomePage({
         <Hero />
       </Suspense>
       <div className="mx-auto w-full max-w-6xl space-y-5 px-4 pb-6 pt-0">
-        <FilterBar key={filterKey} frameCounts={frameCounts} />
+        <FilterBar
+          key={filterKey}
+          frameCounts={frameCounts}
+          districtCounts={districtCounts}
+        />
         {/* All rails are planned together (fetchRailPlan) rather than fetching
             independently, because they must not repeat each other's listings —
             and the feed must not repeat any of them. */}
