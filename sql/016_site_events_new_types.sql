@@ -1,9 +1,13 @@
 -- 016 — allow session_start / filter_clear / sort_apply into site_events.
 --
 -- ⚠️⚠️ WHY THIS EXISTS, AND THE TRAP IT DOCUMENTS.
--- `site_events.event_type` is guarded in TWO places that must agree:
---   1. `ALLOWED` in app/api/events/route.ts  (rejects with 400)
---   2. `site_events_event_type_check` in the database (rejects with 500)
+-- `site_events.event_type` is guarded in THREE places that must agree:
+--   1. `ALLOWED` in app/api/events/route.ts        (rejects with 400)
+--   2. `site_events_event_type_check` on the table (rejects with 500)
+--   3. the `site_events_anon_insert` RLS policy's WITH CHECK — the route
+--      inserts as `anon`, so this one bites even after the table constraint
+--      is fixed, and it fails with the SAME opaque 500. Fixing only the
+--      constraint looked correct and changed nothing.
 -- Commit 48cb18d added three new event types to the first and not the second,
 -- because nothing in the route hints that a second gate exists. Result: every
 -- session_start POST returned 500 and NOTHING was recorded — the events looked
@@ -34,6 +38,22 @@ ALTER TABLE site_events
     'filter_apply'::text,
     'empty_result'::text,
     -- 2026-07-30, see AITALKS § FROZEN CONTRACT — instrumentation (item #4)
+    'session_start'::text,
+    'filter_clear'::text,
+    'sort_apply'::text
+  ]));
+
+-- The RLS policy the route actually inserts under. Same list, third place.
+DROP POLICY IF EXISTS site_events_anon_insert ON site_events;
+
+CREATE POLICY site_events_anon_insert ON site_events
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (event_type = ANY (ARRAY[
+    'call_tap'::text,
+    'wa_tap'::text,
+    'listing_open'::text,
+    'filter_apply'::text,
+    'empty_result'::text,
     'session_start'::text,
     'filter_clear'::text,
     'sort_apply'::text
