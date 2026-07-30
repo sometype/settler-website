@@ -45,8 +45,44 @@ export function FilterBar({
   const districtsRef = useRef(districts);
   const [syncedDistrictUrlKey, setSyncedDistrictUrlKey] = useState(districtUrlKey);
   const [districtOpen, setDistrictOpen] = useState(false);
-  const [min, setMin] = useState(params.get("min") ?? "");
-  const [max, setMax] = useState(params.get("max") ?? "");
+  // ⚠️ SALE PRICES ARE ENTERED IN THOUSANDS. Georgians quote flats as "80",
+  // meaning $80,000 — measured 117 sessions/day typed bounds like 30–40 or
+  // 100–110 on the sale tab and got ZERO every single time, because the field
+  // read them as $30 and $110.
+  //
+  // ⚠️ THE CONVERSION LIVES ONLY AT THIS BOUNDARY. The URL, `parseFilters`,
+  // `listings_public` and every analytics row stay in REAL DOLLARS, so old
+  // bookmarks, `meta.min`/`meta.max` history and the price-drop writers are
+  // untouched. Only what the human types and reads is denominated in thousands.
+  //
+  // ⚠️ And it is never silent: the resolved dollars render under the fields as
+  // they type. A guess that shows its work is a unit; a guess that hides it is
+  // the invisible ×1000 this round refused.
+  // Read straight off the URL: `deal` is declared below, and FilterBar remounts
+  // on a deal change (page.tsx filterKey), so this is stable for the mount.
+  const priceUnit = params.get("deal") === "sale" ? 1000 : 1;
+  const toField = (raw: string | null) => {
+    if (!raw) return "";
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    const v = n / priceUnit;
+    // Trim 80.0 -> 80 but keep 85.5 for a bookmarked $85,500.
+    return String(Number(v.toFixed(3)));
+  };
+  const toUsd = (field: string) => {
+    const t = field.trim();
+    if (!t) return "";
+    const n = Number(t);
+    if (!Number.isFinite(n) || n <= 0) return "";
+    return String(Math.round(n * priceUnit));
+  };
+  const usdLabel = (field: string) => {
+    const usd = toUsd(field);
+    return usd ? `$${Number(usd).toLocaleString("en-US")}` : null;
+  };
+
+  const [min, setMin] = useState(() => toField(params.get("min")));
+  const [max, setMax] = useState(() => toField(params.get("max")));
   const [minArea, setMinArea] = useState(params.get("mina") ?? "");
   const [maxArea, setMaxArea] = useState(params.get("maxa") ?? "");
   const rooms = params.get("rooms") ?? "";
@@ -55,6 +91,7 @@ export function FilterBar({
   // URL-driven like the room chips, so no local state and no filterKey entry.
   const rawFrame = params.get("frame") ?? "";
   const frame = deal === "sale" && isConditionCode(rawFrame) ? rawFrame : "";
+  const isSale = deal === "sale";
 
   // Adjust URL-backed state during render (React's guarded previous-value
   // pattern), so back/forward and district-rail links update chips without an
@@ -126,8 +163,10 @@ export function FilterBar({
     next.delete("district");
     const values: Record<string, string> = {
       district: serializeDistricts(districtsRef.current),
-      min: min.trim(),
-      max: max.trim(),
+      // Thousands -> real dollars for sale; identity for rent. The URL is
+      // always dollars, so nothing downstream needs to know about the unit.
+      min: toUsd(min),
+      max: toUsd(max),
       mina: minArea.trim(),
       maxa: maxArea.trim(),
       ...overrides,
@@ -374,28 +413,47 @@ export function FilterBar({
           )}
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-mink">მინ. $</span>
+          <span className="text-xs font-medium text-mink">
+            {isSale ? "მინ. $ (ათასებში)" : "მინ. $"}
+          </span>
           <input
             type="number"
             inputMode="numeric"
             min={0}
             value={min}
             onChange={(e) => setMin(e.target.value)}
-            placeholder="0"
+            placeholder={isSale ? "80" : "0"}
+            // Sale is denominated in thousands, so a bookmarked $85,500 shows as
+            // 85.5 — the default step of 1 would mark that invalid and block submit.
+            step="any"
             className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
+          {/* ⚠️ .num on the FIGURE only — Georgian never routes through the
+              mono face. This line is what keeps the unit honest: the visitor
+              always sees the dollars that will actually be searched. */}
+          {isSale && usdLabel(min) && (
+            <span className="num text-[11px] text-faint">{usdLabel(min)}</span>
+          )}
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-mink">მაქს. $</span>
+          <span className="text-xs font-medium text-mink">
+            {isSale ? "მაქს. $ (ათასებში)" : "მაქს. $"}
+          </span>
           <input
             type="number"
             inputMode="numeric"
             min={0}
             value={max}
             onChange={(e) => setMax(e.target.value)}
-            placeholder="ნებისმიერი"
+            placeholder={isSale ? "120" : "ნებისმიერი"}
+            // Sale is denominated in thousands, so a bookmarked $85,500 shows as
+            // 85.5 — the default step of 1 would mark that invalid and block submit.
+            step="any"
             className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
+          {isSale && usdLabel(max) && (
+            <span className="num text-[11px] text-faint">{usdLabel(max)}</span>
+          )}
         </label>
         <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
