@@ -259,7 +259,16 @@ export function FilterBar({
             type="button"
             // Leaving sale must drop `frame` in the SAME navigation, or a rent
             // URL keeps a parameter with no chip to show or clear it.
-            onClick={() => apply({ deal: value, ...(value === "rent" ? { frame: "" } : {}) })}
+            onClick={() =>
+              apply({
+                deal: value,
+                // Rent and sale use different input units. Carrying an
+                // unsubmitted sale `80` into rent created `min=80000`; clear
+                // both bounds only when the deal actually changes.
+                ...(value !== deal ? { min: "", max: "" } : {}),
+                ...(value === "rent" ? { frame: "" } : {}),
+              })
+            }
             className={`rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
               deal === value
                 ? "bg-ink text-white ring-ink"
