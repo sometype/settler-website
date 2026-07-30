@@ -215,10 +215,21 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
         <div className="space-y-3">
           {/* Intake honestly expands to the whole newest-first catalogue. Hot
               keeps its threshold and rolling-attention order, so its heading
-              can keep the attention claim without relabelling a newest feed. */}
+              can keep the attention claim without relabelling a newest feed.
+              ⚠️ Intake ALLOWS price sort (it is the full catalogue, reordered),
+              so the heading must drop "ახლიდან" when it is no longer newest —
+              a channel heading that outlives its ordering is the same false
+              claim that kept hot out of ChannelView until it could paginate
+              honestly. Caught by GPT's sort audit. */}
           <ChannelHeading
             id="channel-heading"
-            label={isHot ? "რასაც ახლა სხვები უყურებენ" : "ყველა განცხადება, ახლიდან"}
+            label={
+              isHot
+                ? "რასაც ახლა სხვები უყურებენ"
+                : isPriceSort(filters)
+                  ? "ყველა განცხადება"
+                  : "ყველა განცხადება, ახლიდან"
+            }
             dot={isHot ? "clay" : undefined}
           />
           <Feed searchParams={searchParams} />
