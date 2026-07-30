@@ -39,7 +39,10 @@ export async function DistrictPulse({
           ChannelStrip — long chip rows must not inflate html.scrollWidth
           (Grok 2026-07-30). */}
       <div className="min-w-0 max-w-full overflow-x-clip [contain:paint]">
-        <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
+        {/* scroll-px-4 must match px-4 — see the note in Channel.tsx: snap
+            aligns to the scrollport, not the padding box, so without this the
+            first chip's left edge is clipped by the full-bleed. */}
+        <ul className="-mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
           {districts.map((d) => (
             <li key={d.code} className="shrink-0 snap-start">
               <Link

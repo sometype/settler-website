@@ -210,7 +210,14 @@ export function RailCard({
 export function ChannelStrip({ children }: { children: ReactNode }) {
   return (
     <div className="min-w-0 max-w-full overflow-x-clip [contain:paint]">
-      <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
+      {/* ⚠️ scroll-px-4 MUST match px-4. A snap target aligns to the SCROLLPORT
+          edge, which ignores the scroller's own padding — so `snap-start` on
+          the first card snapped scrollLeft past the 16px inset, the `-mx-4`
+          full bleed then put that edge under the clip, and the card's left side
+          (the price, the age badge) was sliced off on both desktop and mobile.
+          The visible symptom is "a tiny cut edge you have to drag right to
+          read". scroll-padding is what teaches snap about the inset. */}
+      <ul className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
         {children}
       </ul>
     </div>
