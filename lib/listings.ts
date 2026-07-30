@@ -257,21 +257,47 @@ export type DistrictCounts = Record<string, number>;
  * that shows no counts is fine; a filter that hides districts because a query
  * failed is not.
  */
+const DISTRICT_COUNT_PAGE = 1000;
+
 export async function fetchDistrictCounts(
   dealType: "rent" | "sale" | undefined
 ): Promise<DistrictCounts | null> {
-  let q = getSupabase()
-    .from("listings_public")
-    .select("district_code")
-    .not("district_code", "is", null);
-  if (dealType) q = q.eq("deal_type", dealType);
-
-  const { data, error } = await q;
-  if (error || !data) return null;
-
+  const supabase = getSupabase();
   const counts: DistrictCounts = {};
-  for (const row of data as { district_code: string }[]) {
-    counts[row.district_code] = (counts[row.district_code] ?? 0) + 1;
+
+  // ⚠️⚠️ PostgREST RETURNS AT MOST 1000 ROWS AND SAYS NOTHING ABOUT IT.
+  // The first version of this function selected every row and counted in JS
+  // with no `.range()`. Sale has ~910 live rows so it was exact, which is what
+  // it was verified against — but RENT HAS ~1,295, so the counts were built
+  // from a silent 1,000-row sample. Live consequence on production: ოქროყანა
+  // (2 rent listings) and ავჭალა (1) rendered as 0 and were DISABLED, hiding
+  // real inventory behind the very control meant to prevent dead ends.
+  // Caught by GPT 2026-07-30. **A truncated result set is indistinguishable
+  // from a complete one — page until a short page comes back.**
+  //
+  // ⚠️ `.order("id")` is not decoration: without a stable sort, PostgREST
+  // pagination can repeat or skip rows between requests — the same tie-break
+  // lesson `listings_hot` learned when page 1 and page 2 overlapped.
+  for (let from = 0; ; from += DISTRICT_COUNT_PAGE) {
+    let q = supabase
+      .from("listings_public")
+      .select("district_code")
+      .not("district_code", "is", null)
+      .order("id", { ascending: true })
+      .range(from, from + DISTRICT_COUNT_PAGE - 1);
+    if (dealType) q = q.eq("deal_type", dealType);
+
+    const { data, error } = await q;
+    // Fail closed: a partial count is worse than none, because it disables
+    // districts that do have stock. Null renders the selector as it was.
+    if (error || !data) return null;
+
+    for (const row of data as { district_code: string }[]) {
+      counts[row.district_code] = (counts[row.district_code] ?? 0) + 1;
+    }
+    if (data.length < DISTRICT_COUNT_PAGE) break;
+    // Guard against an unbounded loop if the cap ever changes shape.
+    if (from > 50_000) break;
   }
   return counts;
 }
