@@ -35,19 +35,24 @@ export async function DistrictPulse({
       <h2 id="district-pulse-heading" className="sr-only">
         უბნები სადაც დღეს ყველაზე მეტი დაემატა
       </h2>
-      <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
-        {districts.map((d) => (
-          <li key={d.code} className="shrink-0 snap-start">
-            <Link
-              href={`/?deal=${deal}&district=${d.code}`}
-              className="inline-flex items-baseline gap-1.5 rounded bg-card px-2.5 py-1 text-xs font-medium text-mink ring-1 ring-inset ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-ink"
-            >
-              {districtLabel(d.code, null) ?? d.code}
-              <span className="num font-bold text-moss">+{d.new24h}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {/* Outer clip + paint containment: same document-width trap as
+          ChannelStrip — long chip rows must not inflate html.scrollWidth
+          (Grok 2026-07-30). */}
+      <div className="min-w-0 max-w-full overflow-x-clip [contain:paint]">
+        <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
+          {districts.map((d) => (
+            <li key={d.code} className="shrink-0 snap-start">
+              <Link
+                href={`/?deal=${deal}&district=${d.code}`}
+                className="inline-flex items-baseline gap-1.5 rounded bg-card px-2.5 py-1 text-xs font-medium text-mink ring-1 ring-inset ring-sand transition hover:ring-sand-strong focus-visible:outline-2 focus-visible:outline-ink"
+              >
+                {districtLabel(d.code, null) ?? d.code}
+                <span className="num font-bold text-moss">+{d.new24h}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }

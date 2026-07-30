@@ -55,12 +55,15 @@ export default function RootLayout({
       lang="ka"
       className={`${georgian.variable} ${monoNum.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-paper font-sans text-ink">
+      {/* min-w-0: flex children default to min-width:auto and can refuse to
+          shrink below content — that alone can keep a horizontal page scroll
+          alive even with overflow-x:clip on html/body (Grok 2026-07-30). */}
+      <body className="flex min-h-full min-w-0 flex-col bg-paper font-sans text-ink">
         {/* Chrome sits on a white panel against the cool page ground, separated
             by a hairline — the whole system is panels and hairlines, not
             shadows and rounded slabs. 44px tall on a phone; the fold budget
             below it is measured and tight. */}
-        <header className="sticky top-0 z-20 border-b border-sand bg-card/95 backdrop-blur">
+        <header className="sticky top-0 z-20 min-w-0 border-b border-sand bg-card/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-2.5">
             <Link href="/" className="flex items-baseline gap-2.5">
               {/* ONE Latin token — "Mepatrone" is the brand name, not a phrase.
@@ -77,7 +80,7 @@ export default function RootLayout({
             </Link>
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>
         <footer className="border-t border-sand bg-card">
           <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-mink">
             <p className="text-base font-bold text-ink">

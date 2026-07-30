@@ -194,17 +194,25 @@ export function RailCard({
 /**
  * The scroller itself — negative margin so cards bleed to the screen edge.
  *
- * ⚠️ `overscroll-x-contain` is NOT cosmetic. Without it this rail's horizontal
- * overflow CHAINS: swipe to the end of the strip, keep swiping, and the browser
- * hands the gesture to the page, which slides right and shows blank space beside
- * it. Gallery.tsx already carried this class; the rails did not — the same
- * "fixed in one place, missed in the others" shape as the three-copy rail markup
- * and the five-copy cover pick.
+ * ⚠️ TWO separate bugs, both required:
+ *
+ * 1. `overscroll-x-contain` — without it, swiping past the end of the strip
+ *    CHAINs the gesture to the page (Claude 1d51f27; Gallery already had this).
+ *
+ * 2. Outer wrapper with `overflow-x-clip` + **`contain: paint`**. Without
+ *    paint containment, Chrome still adds the UL's internal scrollWidth
+ *    (~1368px of rail cards) to **documentElement.scrollWidth**, so the page
+ *    can slide sideways even when body/html use overflow-x:clip (measured live
+ *    2026-07-30: html.sw 1201 at vw 390; window.scrollTo(200) moved the header
+ *    by −200px). `contain: paint` keeps document width = viewport; the UL still
+ *    scrolls. Do not drop this wrapper "to simplify".
  */
 export function ChannelStrip({ children }: { children: ReactNode }) {
   return (
-    <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
-      {children}
-    </ul>
+    <div className="min-w-0 max-w-full overflow-x-clip [contain:paint]">
+      <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
+        {children}
+      </ul>
+    </div>
   );
 }

@@ -78,7 +78,7 @@ export async function Hero() {
       {/* Status strip. Horizontally scrollable rather than wrapping, so a long
           Georgian label can never push the strip into a second row and eat the
           fold budget. */}
-      <div className="border-b border-sand/70">
+      <div className="min-w-0 border-b border-sand/70 [contain:paint]">
         <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-x-auto overscroll-x-contain px-4 py-2 text-[11.5px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss opacity-60" />
