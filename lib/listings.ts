@@ -74,10 +74,13 @@ interface Filterable {
 
 function applyFilters<T>(query: T, filters: FeedFilters): T {
   let q = query as unknown as Filterable;
-  if (filters.district) {
-    // Canonical code (parseFilters validated it) — matches the listing no
-    // matter which language the source spelled the district in.
-    q = q.eq("district_code", filters.district);
+  if (filters.districts && filters.districts.length > 0) {
+    // Multi-select OR: any of the chosen canonical codes. parseFilters already
+    // validated and capped the list. Single-code URLs still land here as length 1.
+    q =
+      filters.districts.length === 1
+        ? q.eq("district_code", filters.districts[0])
+        : q.in("district_code", filters.districts);
   }
   if (filters.minPrice !== undefined) {
     q = q.gte("price_usd", filters.minPrice);

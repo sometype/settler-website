@@ -11,6 +11,8 @@ import {
   hasActiveFilters,
   hasNarrowingFilters,
   isChannelView,
+  parseDistrictCodes,
+  serializeDistricts,
   type SearchParams,
 } from "@/lib/filters";
 import { Hero } from "@/components/Hero";
@@ -28,9 +30,14 @@ import { FeedBeacon } from "@/components/FeedBeacon";
 export const dynamic = "force-dynamic";
 
 function filterMeta(filters: ReturnType<typeof parseFilters>) {
+  const districts = filters.districts ?? [];
   return {
     deal: filters.dealType ?? "rent",
-    district: filters.district ?? null,
+    // Multi-district (2026-07-30). Keep singular `district` as first code for
+    // old queries; `districts` is always the authoritative array (length
+    // 0–MAX), never JSON null, so jsonb_array_length remains safe.
+    district: districts[0] ?? null,
+    districts,
     rooms: filters.rooms ?? null,
     min: filters.minPrice ?? null,
     max: filters.maxPrice ?? null,
@@ -76,7 +83,11 @@ async function Feed({
   if (result.listings.length === 0 && result.total > 0 && filters.page > result.pageCount) {
     const backParams = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams)) {
-      const v = Array.isArray(value) ? value[0] : value;
+      // Preserve every district when recovering from an out-of-range page;
+      // repeated-key input is normalized to the preferred one-key CSV form.
+      const v = key === "district"
+        ? serializeDistricts(parseDistrictCodes(value))
+        : Array.isArray(value) ? value[0] : value;
       if (v && key !== "page") backParams.set(key, v);
     }
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
@@ -234,10 +245,11 @@ export default async function HomePage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  // Every control that keeps LOCAL state must appear here, or back/forward
-  // leaves a stale value in the box while the feed shows something else.
+  // Typed controls keep local state and remount when their URL values change.
+  // District has its own guarded URL sync in FilterBar so the multi-select can
+  // stay open while each checkbox immediately navigates.
   // Chips (rooms, deal) drive straight off the URL and need no key.
-  const filterKey = ["district", "min", "max", "mina", "maxa"]
+  const filterKey = ["min", "max", "mina", "maxa"]
     .map((k) => `${k}=${params[k] ?? ""}`)
     .join("&");
 

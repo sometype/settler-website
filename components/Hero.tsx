@@ -79,7 +79,7 @@ export async function Hero() {
           Georgian label can never push the strip into a second row and eat the
           fold budget. */}
       <div className="border-b border-sand/70">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-x-auto px-4 py-2 text-[11.5px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 overflow-x-auto overscroll-x-contain px-4 py-2 text-[11.5px] whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden="true">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-moss opacity-60" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-moss" />

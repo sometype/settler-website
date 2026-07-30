@@ -191,10 +191,19 @@ export function RailCard({
   );
 }
 
-/** The scroller itself — negative margin so cards bleed to the screen edge. */
+/**
+ * The scroller itself — negative margin so cards bleed to the screen edge.
+ *
+ * ⚠️ `overscroll-x-contain` is NOT cosmetic. Without it this rail's horizontal
+ * overflow CHAINS: swipe to the end of the strip, keep swiping, and the browser
+ * hands the gesture to the page, which slides right and shows blank space beside
+ * it. Gallery.tsx already carried this class; the rails did not — the same
+ * "fixed in one place, missed in the others" shape as the three-copy rail markup
+ * and the five-copy cover pick.
+ */
 export function ChannelStrip({ children }: { children: ReactNode }) {
   return (
-    <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1">
+    <ul className="-mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
       {children}
     </ul>
   );

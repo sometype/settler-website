@@ -45,15 +45,19 @@ export function parseFilters(params: SearchParams): FeedFilters {
   const frame = str(params.frame);
   const conditionCode =
     dealType === "sale" && frame && isConditionCode(frame) ? frame : undefined;
-  // District is a canonical code from the dropdown. Anything else (old
-  // free-text URLs, typos) is ignored rather than silently matching nothing.
-  const district = str(params.district);
+  // Districts: multi-select OR. URL forms accepted:
+  //   ?district=saburtalo              (legacy single)
+  //   ?district=saburtalo,vake         (preferred multi)
+  //   ?district=saburtalo&district=vake (array form from some clients)
+  // Unknown codes dropped; order preserved; capped so a crafted URL cannot
+  // explode PostgREST `.in()` lists.
+  const districts = parseDistrictCodes(params.district);
   // A channel opened full-screen. Named `view`, not folded into the filter
   // params, precisely so nobody later "tidies" it into hasActiveFilters —
   // see the note on FeedFilters.view and hasActiveFilters below.
   const view = str(params.view);
   return {
-    district: district && isKnownDistrictCode(district) ? district : undefined,
+    districts: districts.length > 0 ? districts : undefined,
     minPrice,
     maxPrice,
     rooms: rooms && ["1", "2", "3", "4", "5+"].includes(rooms) ? rooms : undefined,
@@ -64,6 +68,46 @@ export function parseFilters(params: SearchParams): FeedFilters {
     view: view === "intake" || view === "hot" ? view : undefined,
     page: Math.max(1, num(params.page) ?? 1),
   };
+}
+
+/** Max districts in one filter. Plenty for "Saburtalo + Vake + Vera"; not a dump of the whole city. */
+export const MAX_DISTRICTS = 8;
+
+/**
+ * Parse district query value(s) into a de-duplicated list of known codes.
+ * Shared so FilterBar and the server agree on what a multi-select URL means.
+ */
+export function parseDistrictCodes(
+  raw: string | string[] | undefined
+): string[] {
+  const parts: string[] = [];
+  const push = (s: string) => {
+    for (const piece of s.split(",")) {
+      const code = piece.trim().toLowerCase();
+      if (code) parts.push(code);
+    }
+  };
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === "string") push(item);
+    }
+  } else if (typeof raw === "string") {
+    push(raw);
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const code of parts) {
+    if (!isKnownDistrictCode(code) || seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+    if (out.length >= MAX_DISTRICTS) break;
+  }
+  return out;
+}
+
+/** Serialize for the URL (empty string clears the param). */
+export function serializeDistricts(codes: string[]): string {
+  return parseDistrictCodes(codes).join(",");
 }
 
 /**
@@ -86,7 +130,7 @@ export function isChannelView(f: FeedFilters): boolean {
  */
 export function hasNarrowingFilters(f: FeedFilters): boolean {
   return Boolean(
-    f.district ||
+    (f.districts && f.districts.length > 0) ||
       f.minPrice !== undefined ||
       f.maxPrice !== undefined ||
       f.minArea !== undefined ||
@@ -110,7 +154,7 @@ export function hasNarrowingFilters(f: FeedFilters): boolean {
  */
 export function hasActiveFilters(f: FeedFilters): boolean {
   return Boolean(
-    f.district ||
+    (f.districts && f.districts.length > 0) ||
       f.minPrice !== undefined ||
       f.maxPrice !== undefined ||
       f.minArea !== undefined ||

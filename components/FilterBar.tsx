@@ -1,8 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
-import { DISTRICTS } from "@/lib/districts";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { DISTRICTS, districtLabel } from "@/lib/districts";
+import {
+  MAX_DISTRICTS,
+  parseDistrictCodes,
+  serializeDistricts,
+} from "@/lib/filters";
 import { FRAME_OPTIONS, isConditionCode } from "@/lib/labels";
 import type { ConditionCounts } from "@/lib/listings";
 
@@ -12,8 +17,23 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
   const router = useRouter();
   const params = useSearchParams();
   const [, startTransition] = useTransition();
+  const districtListId = useId();
+  const districtPanelRef = useRef<HTMLDivElement>(null);
 
-  const [district, setDistrict] = useState(params.get("district") ?? "");
+  // Multi-district: comma-separated `district` query (and array form).
+  const districtUrlValues = params.getAll("district");
+  const districtUrlKey = districtUrlValues.join("\u001f");
+  const [districts, setDistricts] = useState<string[]>(() =>
+    parseDistrictCodes(districtUrlValues.length > 1
+      ? districtUrlValues
+      : params.get("district") ?? undefined)
+  );
+  // Synchronous source of truth between router navigations. React state and
+  // useSearchParams update after navigation; a ref keeps two quick taps from
+  // both reading the same old URL and dropping the first district.
+  const districtsRef = useRef(districts);
+  const [syncedDistrictUrlKey, setSyncedDistrictUrlKey] = useState(districtUrlKey);
+  const [districtOpen, setDistrictOpen] = useState(false);
   const [min, setMin] = useState(params.get("min") ?? "");
   const [max, setMax] = useState(params.get("max") ?? "");
   const [minArea, setMinArea] = useState(params.get("mina") ?? "");
@@ -24,6 +44,46 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
   // URL-driven like the room chips, so no local state and no filterKey entry.
   const rawFrame = params.get("frame") ?? "";
   const frame = deal === "sale" && isConditionCode(rawFrame) ? rawFrame : "";
+
+  // Adjust URL-backed state during render (React's guarded previous-value
+  // pattern), so back/forward and district-rail links update chips without an
+  // effect-driven extra render. Keeping the component mounted also keeps the
+  // multi-select panel open while each checkbox immediately updates the URL.
+  if (districtUrlKey !== syncedDistrictUrlKey) {
+    const fromUrl = parseDistrictCodes(
+      districtUrlValues.length > 1
+        ? districtUrlValues
+        : params.get("district") ?? undefined
+    );
+    setDistricts(fromUrl);
+    setSyncedDistrictUrlKey(districtUrlKey);
+  }
+
+  useEffect(() => {
+    districtsRef.current = districts;
+  }, [districts]);
+
+  // Close the district panel on outside click / Escape.
+  useEffect(() => {
+    if (!districtOpen) return;
+    function onDoc(e: MouseEvent) {
+      if (
+        districtPanelRef.current &&
+        !districtPanelRef.current.contains(e.target as Node)
+      ) {
+        setDistrictOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setDistrictOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [districtOpen]);
 
   // Phones only: everything except the rent/sale toggle collapses behind a
   // button. Measured before this change — hero 260px + filter bar 471px meant
@@ -39,7 +99,7 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
   // deliberately absent — it no longer narrows anything, so it must not light
   // the panel up either.
   const hasFilters = Boolean(
-    params.get("district") ||
+    districts.length > 0 ||
       params.get("min") ||
       params.get("max") ||
       params.get("mina") ||
@@ -51,8 +111,10 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
 
   function apply(overrides: Record<string, string>) {
     const next = new URLSearchParams(params.toString());
+    // Drop repeated district keys so we never double-apply array + CSV.
+    next.delete("district");
     const values: Record<string, string> = {
-      district: district.trim(),
+      district: serializeDistricts(districtsRef.current),
       min: min.trim(),
       max: max.trim(),
       mina: minArea.trim(),
@@ -79,6 +141,33 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
     });
   }
 
+  function updateDistricts(next: string[]) {
+    districtsRef.current = next;
+    setDistricts(next);
+  }
+
+  function toggleDistrict(code: string) {
+    const current = districtsRef.current;
+    let next: string[];
+    if (current.includes(code)) {
+      next = current.filter((c) => c !== code);
+    } else if (current.length >= MAX_DISTRICTS) {
+      // Cap hit — keep existing selection; visitor must deselect first.
+      return;
+    } else {
+      next = [...current, code];
+    }
+    updateDistricts(next);
+    // Apply with the next list immediately — same "complete intent" rule as
+    // the old single-select dropdown, but for multi-toggle.
+    apply({ district: serializeDistricts(next) });
+  }
+
+  function clearDistricts() {
+    updateDistricts([]);
+    apply({ district: "" });
+  }
+
   const chip = (active: boolean) =>
     `rounded px-2.5 py-1 text-xs font-medium ring-1 ring-inset transition ${
       active
@@ -90,6 +179,13 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
   const openFilters = `${
     openOnMobile || hasFilters ? "block" : "hidden"
   } sm:block`;
+
+  const districtSummary =
+    districts.length === 0
+      ? "ყველა უბანი"
+      : districts.length === 1
+        ? (districtLabel(districts[0], null) ?? districts[0])
+        : `${districts.length} უბანი`;
 
   return (
     <form
@@ -142,26 +238,116 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
       </div>
       <div className={openFilters}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
-        <label className="col-span-2 flex flex-col gap-1 sm:col-span-1">
-          <span className="text-xs font-medium text-mink">უბანი</span>
-          <select
-            value={district}
-            onChange={(e) => {
-              // Apply immediately — a dropdown pick is a complete intent,
-              // unlike typing a price which needs the ძებნა commit.
-              setDistrict(e.target.value);
-              apply({ district: e.target.value });
-            }}
-            className="rounded border border-sand-strong bg-card px-3 py-2 text-sm text-ink focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
+        <div
+          ref={districtPanelRef}
+          className="relative col-span-2 flex flex-col gap-1 sm:col-span-1"
+        >
+          <span className="text-xs font-medium text-mink" id={`${districtListId}-label`}>
+            უბანი
+          </span>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded={districtOpen}
+            aria-controls={districtListId}
+            aria-labelledby={`${districtListId}-label ${districtListId}-summary`}
+            onClick={() => setDistrictOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-2 rounded border border-sand-strong bg-card px-3 py-2 text-left text-sm text-ink focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           >
-            <option value="">ყველა უბანი</option>
-            {DISTRICTS.map((d) => (
-              <option key={d.code} value={d.code}>
-                {d.ka}
-              </option>
-            ))}
-          </select>
-        </label>
+            <span
+              id={`${districtListId}-summary`}
+              className={districts.length === 0 ? "text-mink" : "text-ink"}
+            >
+              {districtSummary}
+            </span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden="true"
+              className={`h-4 w-4 shrink-0 text-mink transition ${districtOpen ? "rotate-180" : ""}`}
+            >
+              <path fillRule="evenodd" d="M5.3 7.3a1 1 0 0 1 1.4 0L10 10.58l3.3-3.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 0 1 0-1.42Z" clipRule="evenodd" />
+            </svg>
+          </button>
+          {districtOpen && (
+            <div
+              id={districtListId}
+              role="listbox"
+              aria-multiselectable="true"
+              aria-labelledby={`${districtListId}-label`}
+              className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded border border-sand-strong bg-card py-1 shadow-md"
+            >
+              <button
+                type="button"
+                role="option"
+                aria-selected={districts.length === 0}
+                onClick={clearDistricts}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sand/40 ${
+                  districts.length === 0 ? "font-semibold text-ink" : "text-mink"
+                }`}
+              >
+                <span
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                    districts.length === 0
+                      ? "border-ink bg-ink text-white"
+                      : "border-sand-strong"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {districts.length === 0 ? "✓" : ""}
+                </span>
+                ყველა უბანი
+              </button>
+              {DISTRICTS.map((d) => {
+                const selected = districts.includes(d.code);
+                const atCap = !selected && districts.length >= MAX_DISTRICTS;
+                return (
+                  <button
+                    key={d.code}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    disabled={atCap}
+                    onClick={() => toggleDistrict(d.code)}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-sand/40 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      selected ? "font-semibold text-ink" : "text-mink"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                        selected
+                          ? "border-ink bg-ink text-white"
+                          : "border-sand-strong"
+                      }`}
+                      aria-hidden="true"
+                    >
+                      {selected ? "✓" : ""}
+                    </span>
+                    {d.ka}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {districts.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {districts.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => toggleDistrict(code)}
+                  className="inline-flex items-center gap-1 rounded bg-sand/50 px-1.5 py-0.5 text-[11px] font-medium text-ink ring-1 ring-inset ring-sand-strong hover:bg-sand"
+                  title="ამოშლა"
+                >
+                  {districtLabel(code, null) ?? code}
+                  <span aria-hidden="true" className="text-mink">
+                    ×
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-mink">მინ. $</span>
           <input
@@ -197,7 +383,7 @@ export function FilterBar({ frameCounts }: { frameCounts?: ConditionCounts | nul
             <button
               type="button"
               onClick={() => {
-                setDistrict("");
+                updateDistricts([]);
                 setMin("");
                 setMax("");
                 setMinArea("");

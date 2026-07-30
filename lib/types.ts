@@ -107,8 +107,16 @@ export interface ListingImage {
 }
 
 export interface FeedFilters {
-  /** Canonical district code (lib/districts.ts). */
-  district?: string;
+  /**
+   * Canonical district codes (lib/districts.ts). Multi-select OR filter —
+   * a listing matches if its district_code is any of these.
+   *
+   * URL: `?district=saburtalo,vake` (comma-separated). A single code still
+   * works for old bookmarks and district-rail links. Empty / missing = all
+   * districts. Cap is enforced in parseFilters so a crafted URL cannot
+   * explode the query.
+   */
+  districts?: string[];
   minPrice?: number;
   maxPrice?: number;
   rooms?: string;

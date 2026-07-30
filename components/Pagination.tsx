@@ -1,10 +1,18 @@
 import Link from "next/link";
-import type { SearchParams } from "@/lib/filters";
+import {
+  parseDistrictCodes,
+  serializeDistricts,
+  type SearchParams,
+} from "@/lib/filters";
 
 function pageHref(params: SearchParams, page: number): string {
   const next = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    const v = Array.isArray(value) ? value[0] : value;
+    // Next exposes repeated query keys as string[]. Canonicalize district to
+    // the one-key CSV contract so page 2 cannot silently lose selections.
+    const v = key === "district"
+      ? serializeDistricts(parseDistrictCodes(value))
+      : Array.isArray(value) ? value[0] : value;
     if (v) next.set(key, v);
   }
   if (page > 1) next.set("page", String(page));

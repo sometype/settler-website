@@ -35,7 +35,7 @@ export async function DistrictPulse({
       <h2 id="district-pulse-heading" className="sr-only">
         უბნები სადაც დღეს ყველაზე მეტი დაემატა
       </h2>
-      <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto px-4 pb-1">
+      <ul className="-mx-4 flex snap-x gap-2 overflow-x-auto overscroll-x-contain px-4 pb-1">
         {districts.map((d) => (
           <li key={d.code} className="shrink-0 snap-start">
             <Link

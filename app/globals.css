@@ -118,7 +118,28 @@ body {
   background-color: var(--paper);
   color: var(--ink);
   font-family: var(--font-georgian), "Noto Sans Georgian", system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
+  /*
+   * `clip`, NOT `hidden`. They look identical — neither shows a scrollbar — and
+   * that is exactly why `hidden` hid this bug for so long.
+   *
+   * `overflow-x: hidden` still makes the page a SCROLL CONTAINER; it only
+   * removes the scrollbar. The box can still be moved — by a trackpad swipe, by
+   * scroll chaining out of a rail, by `scrollTo` — so the whole page slid right
+   * and showed blank space beside it. Measured on a 375px viewport:
+   * `document.documentElement.scrollWidth` was 1201 against a 375px body, i.e.
+   * 826px of slack for the page to drift into.
+   *
+   * `overflow-x: clip` is not a scroll container at all: the overflow is simply
+   * clipped and there is nothing to scroll, from any input. It also leaves
+   * `overflow-y` alone — `hidden` on one axis forces the other to `auto`,
+   * whereas `clip` does not, so vertical scrolling stays exactly as it was.
+   *
+   * ⚠️ This is a mask over a real layout overflow, not a cure. If
+   * documentElement.scrollWidth is still > clientWidth, something is genuinely
+   * too wide — find it (the rails' `-mx-4` full-bleed is the usual suspect)
+   * rather than trusting this line to keep hiding it.
+   */
+  overflow-x: clip;
 }
 
 /*
