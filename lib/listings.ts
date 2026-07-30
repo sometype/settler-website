@@ -109,31 +109,6 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
   return q as unknown as T;
 }
 
-/**
- * Catalogue order for the main feed (not hot).
- *
- * ⚠️ Price modes order `price_sort` (sql/015), NOT raw `price_usd`. Out-of-bound
- * prices display as «ფასი მოთხოვნით» but used to still rank; price_sort is null
- * for those rows. NULLS LAST is mandatory on DESC (Postgres puts nulls first
- * otherwise — measured Claude 2026-07-30). id ASC is a stable page tie-break.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFeedOrder(query: any, filters: FeedFilters) {
-  if (filters.sort === "price_asc") {
-    return query
-      .order("price_sort", { ascending: true, nullsFirst: false })
-      .order("id", { ascending: true });
-  }
-  if (filters.sort === "price_desc") {
-    return query
-      .order("price_sort", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: true });
-  }
-  return query
-    .order("first_seen_at", { ascending: false })
-    .order("id", { ascending: true });
-}
-
 export async function fetchFeed(
   filters: FeedFilters,
   /**
@@ -142,9 +117,6 @@ export async function fetchFeed(
    * same ids in the same order — the page repeated itself and read as padding.
    * Excluded from the ROWS only; `total` still counts the whole inventory,
    * because "784 განცხადება" should mean what it says.
-   *
-   * ⚠️ When price-sorting, callers must pass [] (rails hidden). Rail excludeIds
-   * would remove candidates from a list that claims full cheapest/dearest order.
    */
   excludeIds: number[] = []
 ): Promise<FeedResult> {
@@ -153,10 +125,10 @@ export async function fetchFeed(
   const supabase = getSupabase();
 
   let base = applyFilters(
-    applyFeedOrder(
-      supabase.from("listings_public").select(LISTING_COLUMNS, { count: "exact" }),
-      filters
-    ),
+    supabase
+      .from("listings_public")
+      .select(LISTING_COLUMNS, { count: "exact" })
+      .order("first_seen_at", { ascending: false }),
     filters
   );
   if (excludeIds.length > 0) {
@@ -446,7 +418,7 @@ export async function fetchHot(
 
   try {
     const { listings, total } = await fetchHotPage(
-      { dealType: "rent", page: 1, sort: "new" },
+      { dealType: "rent", page: 1 },
       1,
       limit
     );
