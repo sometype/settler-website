@@ -22,6 +22,7 @@ export function ListingCard({
   listing,
   mainImage,
   src,
+  sort,
 }: {
   listing: Listing;
   mainImage: ListingImageRow | null;
@@ -37,6 +38,15 @@ export function ListingCard({
    * are silently lost.
    */
   src?: "hot_all" | "intake_all";
+  /**
+   * The feed ordering this card was opened FROM, carried into `listing_open`.
+   *
+   * ⚠️ Without it, "do people who sort by price convert better?" can only be
+   * answered by association at session level — a visitor can change mode
+   * before opening anything. Carrying it on the link makes the attribution
+   * exact. Omitted for the default `new` so ordinary URLs stay clean.
+   */
+  sort?: string;
 }) {
   const imageSrc = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
@@ -44,7 +54,10 @@ export function ListingCard({
   const checkedLabel = listing.last_checked_at
     ? relativeTimeKa(listing.last_checked_at)
     : null;
-  const href = `/listing/${listing.id}${src ? `?src=${src}` : ""}`;
+  const q = new URLSearchParams();
+  if (src) q.set("src", src);
+  if (sort && sort !== "new") q.set("sort", sort);
+  const href = `/listing/${listing.id}${q.size ? `?${q.toString()}` : ""}`;
 
   return (
     <article className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card transition duration-150 hover:border-sand-strong">

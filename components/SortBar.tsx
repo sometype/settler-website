@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { FeedSort } from "@/lib/types";
+import { trackEvent } from "@/lib/events";
 
 const OPTIONS: { value: FeedSort; label: string }[] = [
   { value: "new", label: "ახალი" },
@@ -22,6 +23,27 @@ export function SortBar({ active }: { active: FeedSort }) {
   const [, startTransition] = useTransition();
 
   function go(next: FeedSort) {
+    // ⚠️ Sort is NOT a filter, so it never fires `filter_apply` — which means
+    // that on the default rent feed, choosing a sort currently records
+    // NOTHING. Sort adoption has only ever been visible where sale happened
+    // to be active, i.e. biased, and "should we drop «ძვირი → იაფი»?" cannot
+    // be answered from it. This event is that blind spot closed; it must stay
+    // out of hasActiveFilters (AITALKS frozen contract, tripwire 6).
+    if (next !== active) {
+      trackEvent("sort_apply", {
+        meta: {
+          from: active,
+          to: next,
+          deal: params.get("deal") ?? "rent",
+          has_filters: Boolean(
+            params.get("district") || params.get("min") || params.get("max") ||
+            params.get("mina") || params.get("maxa") || params.get("rooms") ||
+            params.get("frame") || (params.get("deal") && params.get("deal") !== "rent")
+          ),
+          view: params.get("view"),
+        },
+      });
+    }
     const sp = new URLSearchParams(params.toString());
     if (next === "new") sp.delete("sort");
     else sp.set("sort", next);

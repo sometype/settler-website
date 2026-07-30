@@ -156,6 +156,7 @@ async function Feed({
                   ? "intake_all"
                   : undefined
             }
+            sort={filters.sort}
           />
         ))}
       </div>

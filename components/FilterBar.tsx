@@ -10,6 +10,7 @@ import {
 } from "@/lib/filters";
 import { FRAME_OPTIONS, isConditionCode } from "@/lib/labels";
 import type { ConditionCounts, DistrictCounts } from "@/lib/listings";
+import { trackEvent } from "@/lib/events";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
@@ -480,6 +481,29 @@ export function FilterBar({
                 setMax("");
                 setMinArea("");
                 setMaxArea("");
+                // ⚠️ Clearing to a bare feed emits NOTHING today, so "gave up"
+                // and "cleared and kept browsing" are indistinguishable. That
+                // is the question the zero screen raises and cannot answer.
+                // `before` is the filter state at the moment of clearing —
+                // without it we learn THAT people clear, not WHICH filter drove
+                // them to. sendBeacon survives the navigation below.
+                trackEvent("filter_clear", {
+                  meta: {
+                    scope: "all",
+                    source: "filterbar",
+                    before: {
+                      deal,
+                      districts: districtsRef.current,
+                      district: districtsRef.current[0] ?? null,
+                      rooms: rooms || null,
+                      min: params.get("min"),
+                      max: params.get("max"),
+                      min_area: params.get("mina"),
+                      max_area: params.get("maxa"),
+                      condition_code: frame || null,
+                    },
+                  },
+                });
                 startTransition(() => router.push("/?deal=rent"));
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"

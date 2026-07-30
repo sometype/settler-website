@@ -77,15 +77,21 @@ export default async function ListingPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ src?: string | string[] }>;
+  searchParams: Promise<{ src?: string | string[]; sort?: string | string[] }>;
 }) {
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const { src } = await searchParams;
+  const { src, sort } = await searchParams;
   const srcValue = Array.isArray(src) ? src[0] : src;
   const rail = srcValue && RAIL_SOURCES.has(srcValue) ? srcValue : null;
+  // The ordering the visitor opened this from. Whitelisted like `rail` — an
+  // unknown value records `null` rather than passing a stranger's string into
+  // analytics. Absent means the default newest-first feed.
+  const sortValue = Array.isArray(sort) ? sort[0] : sort;
+  const openSort =
+    sortValue === "price_asc" || sortValue === "price_desc" ? sortValue : "new";
 
   let data;
   try {
@@ -150,6 +156,10 @@ export default async function ListingPage({
           rooms: listing.rooms,
           has_phone: listing.has_phone,
           rail,
+          // ⚠️ NEW FIELD 2026-07-30 — this creates a before/after boundary in
+          // listing_open, the same class as the 2026-07-29 area/condition break
+          // and the 2026-07-27 beacon break. Do not compare meta.sort across it.
+          sort: openSort,
         }}
       />
 

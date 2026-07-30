@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { hasActiveFilters, type SearchParams } from "@/lib/filters";
+import { ClearLink } from "@/components/ClearLink";
 import type { FeedFilters } from "@/lib/types";
 
 /**
@@ -166,6 +167,20 @@ export function EmptyState({
       filters.minArea !== undefined || filters.maxArea !== undefined;
     const hasFrame = Boolean(filters.conditionCode);
 
+    // The filter state at the moment of clearing — same shape as filterMeta so
+    // analysis never needs a second fingerprint schema (AITALKS frozen contract).
+    const before = {
+      deal: filters.dealType ?? "rent",
+      districts,
+      district: districts[0] ?? null,
+      rooms: filters.rooms ?? null,
+      min: filters.minPrice ?? null,
+      max: filters.maxPrice ?? null,
+      min_area: filters.minArea ?? null,
+      max_area: filters.maxArea ?? null,
+      condition_code: filters.conditionCode ?? null,
+    };
+
     // First match wins, in measured recovery order.
     const why = looksLikeThousands(filters)
       ? "ფასი ჩაწერე ათასებში — მაგ. 80 ნიშნავს $80,000"
@@ -205,22 +220,27 @@ export function EmptyState({
           ამ ფილტრებით განცხადება არ არის
         </h2>
         <p className="mt-2 text-sm text-mink">{why}</p>
-        <Link
+        <ClearLink
           href={clearedHref(searchParams)}
+          scope="all"
+          before={before}
           className="mt-4 inline-block rounded bg-ink px-3 py-2 text-sm font-semibold text-white transition hover:bg-ink/90"
         >
           ფილტრების გასუფთავება
-        </Link>
+        </ClearLink>
         {secondary.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
             {secondary.map((s) => (
-              <Link
+              <ClearLink
                 key={s.axis}
                 href={withoutAxis(searchParams, s.axis)}
+                scope="axis"
+                axis={s.axis}
+                before={before}
                 className="text-sm font-medium text-moss-deep underline underline-offset-2"
               >
                 {s.label}
-              </Link>
+              </ClearLink>
             ))}
           </div>
         )}

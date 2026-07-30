@@ -7,6 +7,12 @@ const ALLOWED = new Set([
   "listing_open",
   "filter_apply",
   "empty_result",
+  // 2026-07-30 — see AITALKS § FROZEN CONTRACT — instrumentation (item #4).
+  // A type missing from this set 400s, which is how a new event silently
+  // records nothing (the RAIL_SOURCES lesson, three times over).
+  "session_start",
+  "filter_clear",
+  "sort_apply",
 ]);
 
 type Body = {

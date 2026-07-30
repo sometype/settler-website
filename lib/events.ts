@@ -8,9 +8,25 @@ export type SiteEventType =
   | "wa_tap"
   | "listing_open"
   | "filter_apply"
-  | "empty_result";
+  | "empty_result"
+  // Added 2026-07-30. ⚠️ Each answers a question that was previously
+  // UNANSWERABLE, and events cannot be backfilled — see the frozen contract in
+  // AITALKS § FROZEN CONTRACT — instrumentation (item #4) before changing any
+  // meta shape here.
+  //   session_start — the denominator. Without it every rate we quote is "of
+  //     people who already clicked something", which is survivorship.
+  //   filter_clear  — tells recovery from abandonment after a zero result.
+  //     Clearing to a bare feed emits nothing, so "left" and "cleared and
+  //     carried on" are currently identical.
+  //   sort_apply    — sort is deliberately not a filter, so choosing one on the
+  //     DEFAULT RENT feed fires nothing at all today. Sort adoption is measured
+  //     only where sale happens to be active, i.e. biased.
+  | "session_start"
+  | "filter_clear"
+  | "sort_apply";
 
 const SESSION_KEY = "mp_sid";
+const SESSION_START_KEY = "mp_ss";
 
 function sessionId(): string {
   if (typeof window === "undefined") return "";
@@ -66,4 +82,35 @@ export function trackEvent(
     body,
     keepalive: true,
   }).catch(() => {});
+}
+
+/**
+ * Fire `session_start` exactly once per tab.
+ *
+ * ⚠️ ONCE PER SESSION, NOT ONCE PER PAGE. Next's app router navigates on the
+ * client without a reload, so a naive "first render" check fires on every
+ * page a visitor opens and the denominator becomes page views — which is the
+ * exact bug that voided every funnel number before 2026-07-27 (`FeedBeacon`
+ * fired on every feed render). The flag lives beside `mp_sid` and dies with
+ * the tab, so it identifies nobody and needs no cookie banner.
+ *
+ * ⚠️ This is the number that makes "should the homepage default to sale?"
+ * answerable. Today 87% of searches are sale — but only among visitors who
+ * already searched, so people who look and leave are invisible and that 87%
+ * is survivorship.
+ */
+export function markSessionStart(): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (sessionStorage.getItem(SESSION_START_KEY)) return;
+    sessionStorage.setItem(SESSION_START_KEY, "1");
+  } catch {
+    // Private mode or blocked storage: fire once for this render rather than
+    // loop. Losing the guard is better than losing the event entirely.
+  }
+  trackEvent("session_start", {
+    // Pathname only — no query string. The query can carry a visitor's exact
+    // search, and an entry marker does not need it.
+    meta: { entry: window.location.pathname },
+  });
 }

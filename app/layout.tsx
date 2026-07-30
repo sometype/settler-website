@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Google_Sans, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
+import { SessionBeacon } from "@/components/SessionBeacon";
 
 // Georgian-first, and it must SELF-HOST the Georgian glyphs — the original Geist
 // face was Latin-only, so every Georgian string fell back to a system font.
@@ -80,6 +81,7 @@ export default function RootLayout({
             </Link>
           </div>
         </header>
+        <SessionBeacon />
         <main className="min-w-0 flex-1 overflow-x-clip">{children}</main>
         <footer className="border-t border-sand bg-card">
           <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-mink">
