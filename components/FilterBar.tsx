@@ -14,6 +14,34 @@ import { trackEvent } from "@/lib/events";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
+/**
+ * m² presets, cut at real inventory boundaries rather than round numbers.
+ *
+ * ⚠️ WHY PRESETS AT ALL. A free min/max is the footgun: measured 24h on
+ * 2026-07-30, an area bound appeared in 144 of 405 zero-result sessions, and
+ * shapes like "min 200" are trivially typed and never match anything. Presets
+ * cannot express an empty range.
+ *
+ * ⚠️ AND WHY NOT DELETE m² LIKE THE AMENITY CHIPS. Amenities were removed
+ * because absence meant "unknown", so the filter was lying. Area data is
+ * sound — it is only the unbounded input that fails. Measured bucket sizes,
+ * rent / sale: <50 → 425/176 · 50-80 → 626/429 · 80-120 → 185/230 ·
+ * 120+ → 68/96. No chip is a dead end on either deal, which is the property
+ * that has to hold if these boundaries are ever re-cut.
+ *
+ * ⚠️ The boundaries OVERLAP by design: the filter is gte/lte, so a flat of
+ * exactly 80 m² appears under both "50–80" and "80–120". Do not "fix" this to
+ * 79/80 — chips are not a partition, and a gap would make a real listing
+ * unreachable from either side, which is the failure this control exists to
+ * prevent. An overlap costs nothing.
+ */
+const AREA_PRESETS: { label: string; mina: string; maxa: string }[] = [
+  { label: "50 მ²-მდე", mina: "", maxa: "50" },
+  { label: "50–80 მ²", mina: "50", maxa: "80" },
+  { label: "80–120 მ²", mina: "80", maxa: "120" },
+  { label: "120 მ²-დან", mina: "120", maxa: "" },
+];
+
 export function FilterBar({
   frameCounts,
   districtCounts,
@@ -86,6 +114,15 @@ export function FilterBar({
   const [max, setMax] = useState(() => toField(params.get("max")));
   const [minArea, setMinArea] = useState(params.get("mina") ?? "");
   const [maxArea, setMaxArea] = useState(params.get("maxa") ?? "");
+  // Exact-range panel: open when the URL carries a range no preset expresses,
+  // so a bookmarked ?mina=105&maxa=140 is visible and editable rather than
+  // filtering invisibly behind a "ნებისმიერი" chip.
+  const [exactArea, setExactArea] = useState(() => {
+    const mina = params.get("mina") ?? "";
+    const maxa = params.get("maxa") ?? "";
+    if (!mina && !maxa) return false;
+    return !AREA_PRESETS.some((p) => p.mina === mina && p.maxa === maxa);
+  });
   const rooms = params.get("rooms") ?? "";
   // Default rent when param missing (matches parseFilters).
   const deal = params.get("deal") ?? "rent";
@@ -519,32 +556,82 @@ export function FilterBar({
           joining price in one line — four numeric boxes side by side is
           unusable on a phone. Removing the eight amenity chips gave back more
           height than this row costs. */}
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-sm">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-mink">მ²-დან</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={minArea}
-            onChange={(e) => setMinArea(e.target.value)}
-            placeholder="30"
-            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-mink">მ²-მდე</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            value={maxArea}
-            onChange={(e) => setMaxArea(e.target.value)}
-            placeholder="ნებისმიერი"
-            className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
-          />
-        </label>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-xs font-medium text-mink">ფართი:</span>
+        <button
+          type="button"
+          onClick={() => {
+            setMinArea("");
+            setMaxArea("");
+            apply({ mina: "", maxa: "" });
+          }}
+          className={chip(!minArea && !maxArea)}
+        >
+          ნებისმიერი
+        </button>
+        {AREA_PRESETS.map((preset) => {
+          const on = minArea === preset.mina && maxArea === preset.maxa;
+          return (
+            <button
+              key={preset.label}
+              type="button"
+              aria-pressed={on}
+              onClick={() => {
+                // Toggling off returns to "any" rather than leaving a half
+                // range behind — a preset is a whole answer, not two numbers.
+                const next = on
+                  ? { mina: "", maxa: "" }
+                  : { mina: preset.mina, maxa: preset.maxa };
+                setMinArea(next.mina);
+                setMaxArea(next.maxa);
+                apply(next);
+              }}
+              className={chip(on)}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+        {/* ⚠️ The exact range stays reachable, just not the default path. A
+            bookmarked ?mina=105&maxa=140 matches no chip, so this opens
+            automatically — otherwise the visitor would see "ნებისმიერი"
+            highlighted while a range was silently filtering their results. */}
+        <button
+          type="button"
+          onClick={() => setExactArea((v) => !v)}
+          className="ml-1 text-xs font-medium text-mink underline underline-offset-2 hover:text-ink"
+        >
+          {exactArea ? "დახურვა" : "ზუსტი"}
+        </button>
       </div>
+      {exactArea && (
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:max-w-sm">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-mink">მ²-დან</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={minArea}
+              onChange={(e) => setMinArea(e.target.value)}
+              placeholder="30"
+              className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-mink">მ²-მდე</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={maxArea}
+              onChange={(e) => setMaxArea(e.target.value)}
+              placeholder="ნებისმიერი"
+              className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
+            />
+          </label>
+        </div>
+      )}
       {/* კარკასი — unfinished shells, SALE ONLY (149 of 151 such listings are
           sale; rent had 2). Each chip carries its live sale-wide count, which
           is also what lets a grade with no stock hide itself instead of
