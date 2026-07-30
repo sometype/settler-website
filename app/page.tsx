@@ -165,7 +165,13 @@ async function Feed({
             key={listing.id}
             listing={listing}
             mainImage={result.mainImages.get(listing.id) ?? null}
-            src={filters.view === "hot" ? "hot_all" : undefined}
+            src={
+              filters.view === "hot"
+                ? "hot_all"
+                : filters.view === "intake"
+                  ? "intake_all"
+                  : undefined
+            }
           />
         ))}
       </div>

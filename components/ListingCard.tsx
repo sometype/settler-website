@@ -28,15 +28,15 @@ export function ListingCard({
   /**
    * Channel attribution → `meta.rail` in site_events.
    *
-   * ⚠️ `hot_all` is the FULL-PAGE channel, deliberately distinct from the
-   * rail's `hot`. Collapsing them would make the first question about this
-   * feature — "does anyone actually tap ყველა?" — unanswerable, because both
-   * surfaces would land in the same bucket.
+   * ⚠️ `hot_all` and `intake_all` are FULL-PAGE channels, deliberately
+   * distinct from their rail surfaces. Collapsing either would make the first
+   * question about this feature — "does anyone actually tap ყველა?" —
+   * unanswerable, because both surfaces would land in the same bucket.
    * Any value added here must also be added to RAIL_SOURCES in
    * app/listing/[id]/page.tsx, or the beacon records rail:null and the taps
    * are silently lost.
    */
-  src?: "hot_all";
+  src?: "hot_all" | "intake_all";
 }) {
   const imageSrc = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
