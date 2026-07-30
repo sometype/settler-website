@@ -114,7 +114,11 @@ async function Feed({
 
   if (result.listings.length === 0) {
     return (
-      <EmptyState filters={filters} reason={filters.view === "hot" ? "hot" : "no_match"}>
+      <EmptyState
+        filters={filters}
+        searchParams={searchParams}
+        reason={filters.view === "hot" ? "hot" : "no_match"}
+      >
         <FeedBeacon empty hasFilters={hasActiveFilters(filters)} meta={{ ...meta, total: 0 }} />
       </EmptyState>
     );
