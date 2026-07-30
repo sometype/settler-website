@@ -52,8 +52,13 @@ const ALL_NARROWING = [
 function toParams(searchParams: SearchParams): URLSearchParams {
   const out = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
-    const v = Array.isArray(value) ? value[0] : value;
-    if (v) out.set(key, v);
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (v) out.append(key, v);
+      }
+    } else if (value) {
+      out.set(key, value);
+    }
   }
   return out;
 }
