@@ -35,6 +35,37 @@ const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
  * unreachable from either side, which is the failure this control exists to
  * prevent. An overlap costs nothing.
  */
+/**
+ * Budget ceilings, taken from what visitors actually type — not round numbers.
+ *
+ * ⚠️ MEASURED DEMAND (distinct sessions, 2026-07-28 →). Sale ceilings: $50k 115,
+ * $60k 107, $70k 103, $80k 94, $100k 67. Rent: $300 81, $400 64, $500 47.
+ * Price is the second-most-used filter and `price_asc` outsells `price_desc`
+ * 10:1, so budget-first is how this audience shops.
+ *
+ * ⚠️ NO CHIP MAY BE A DEAD END — the m² lesson. Stock behind each, counted with
+ * the same sane bounds the cards display: sale 45 / 171 / 444, rent 85 / 328 /
+ * 633. Re-check these before re-cutting the values; a chip that returns nothing
+ * is worse than no chip, because the visitor blames the site rather than the
+ * budget.
+ *
+ * ⚠️ These set the URL in REAL DOLLARS. The sale input is denominated in
+ * thousands for humans (see priceUnit), but `max` on the URL is always dollars,
+ * so nothing downstream has to know about the unit.
+ */
+const PRICE_CEILINGS: Record<"rent" | "sale", { label: string; max: number }[]> = {
+  sale: [
+    { label: "$50,000-მდე", max: 50_000 },
+    { label: "$70,000-მდე", max: 70_000 },
+    { label: "$100,000-მდე", max: 100_000 },
+  ],
+  rent: [
+    { label: "$300-მდე", max: 300 },
+    { label: "$400-მდე", max: 400 },
+    { label: "$500-მდე", max: 500 },
+  ],
+};
+
 const AREA_PRESETS: { label: string; mina: string; maxa: string }[] = [
   { label: "50 მ²-მდე", mina: "", maxa: "50" },
   { label: "50–80 მ²", mina: "50", maxa: "80" },
@@ -556,6 +587,31 @@ export function FilterBar({
           joining price in one line — four numeric boxes side by side is
           unusable on a phone. Removing the eight amenity chips gave back more
           height than this row costs. */}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-xs font-medium text-mink">ბიუჯეტი:</span>
+        {PRICE_CEILINGS[isSale ? "sale" : "rent"].map((p) => {
+          // Compare against the URL (real dollars), not the field (thousands
+          // on sale) — otherwise the active state disagrees with the search.
+          const on = (params.get("max") ?? "") === String(p.max);
+          return (
+            <button
+              key={p.max}
+              type="button"
+              aria-pressed={on}
+              onClick={() => {
+                // A ceiling is a whole answer: toggling off clears it rather
+                // than leaving half a range behind. Never touches `min`.
+                const nextMax = on ? "" : String(p.max);
+                setMax(on ? "" : String(p.max / priceUnit));
+                apply({ max: nextMax });
+              }}
+              className={chip(on)}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-0.5 text-xs font-medium text-mink">ფართი:</span>
         <button
