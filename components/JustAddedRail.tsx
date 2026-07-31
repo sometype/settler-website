@@ -25,7 +25,7 @@ export function JustAddedRail({
   // feed excludes every id the rails show, on every page of the unfiltered
   // homepage. The freshest inventory was the hardest thing on the site to
   // browse, which is the exact opposite of the product's claim.
-  const seeAll = `/?view=intake${dealType === "sale" ? "&deal=sale" : ""}`;
+  const seeAll = `/?view=intake${dealType === "rent" ? "&deal=rent" : ""}`;
   // Too few genuinely-fresh cards → no rail. Padding with older stock would
   // put stale listings under a heading that promises the opposite.
   if (listings.length < JUST_ADDED_MIN_CARDS) return null;

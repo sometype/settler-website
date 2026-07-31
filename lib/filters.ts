@@ -19,9 +19,10 @@ function num(v: string | string[] | undefined): number | undefined {
 export function parseFilters(params: SearchParams): FeedFilters {
   const rooms = str(params.rooms);
   const deal = str(params.deal) ?? str(params.deal_type);
-  // Default to rent so the homepage doesn't mix $500/mo with $80k sales.
+  // Sale is the homepage's default mode. Keep `deal=rent` explicit so old
+  // rental links remain stable; `deal=all` is still the only mixed catalogue.
   const dealType =
-    deal === "sale" || deal === "rent" ? deal : deal === "all" ? undefined : "rent";
+    deal === "sale" || deal === "rent" ? deal : deal === "all" ? undefined : "sale";
   let minPrice = num(params.min);
   let maxPrice = num(params.max);
   // Reversed range would silently return nothing; treat it as the intended range.
@@ -175,6 +176,6 @@ export function hasActiveFilters(f: FeedFilters): boolean {
       f.maxArea !== undefined ||
       f.conditionCode ||
       f.rooms ||
-      (f.dealType && f.dealType !== "rent")
+      (f.dealType && f.dealType !== "sale")
   );
 }

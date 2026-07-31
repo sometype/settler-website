@@ -35,7 +35,7 @@ export const dynamic = "force-dynamic";
 function filterMeta(filters: ReturnType<typeof parseFilters>) {
   const districts = filters.districts ?? [];
   return {
-    deal: filters.dealType ?? "rent",
+    deal: filters.dealType ?? "sale",
     // Multi-district (2026-07-30). Keep singular `district` as first code for
     // old queries; `districts` is always the authoritative array (length
     // 0–MAX), never JSON null, so jsonb_array_length remains safe.
@@ -298,7 +298,7 @@ export default async function HomePage({
         {/* All rails are planned together (fetchRailPlan) rather than fetching
             independently, because they must not repeat each other's listings —
             and the feed must not repeat any of them. */}
-        <Suspense key={`rails-${homeFilters.dealType ?? "rent"}-${JSON.stringify(params)}`} fallback={<FeedSkeleton />}>
+        <Suspense key={`rails-${homeFilters.dealType ?? "sale"}-${JSON.stringify(params)}`} fallback={<FeedSkeleton />}>
           <Rails searchParams={params} />
         </Suspense>
       </div>

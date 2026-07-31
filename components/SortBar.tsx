@@ -24,7 +24,7 @@ export function SortBar({ active }: { active: FeedSort }) {
 
   function go(next: FeedSort) {
     // ⚠️ Sort is NOT a filter, so it never fires `filter_apply` — which means
-    // that on the default rent feed, choosing a sort currently records
+    // that on the default feed, choosing a sort otherwise records
     // NOTHING. Sort adoption has only ever been visible where sale happened
     // to be active, i.e. biased, and "should we drop «ძვირი → იაფი»?" cannot
     // be answered from it. This event is that blind spot closed; it must stay
@@ -34,11 +34,11 @@ export function SortBar({ active }: { active: FeedSort }) {
         meta: {
           from: active,
           to: next,
-          deal: params.get("deal") ?? "rent",
+          deal: params.get("deal") ?? "sale",
           has_filters: Boolean(
             params.get("district") || params.get("min") || params.get("max") ||
             params.get("mina") || params.get("maxa") || params.get("rooms") ||
-            params.get("frame") || (params.get("deal") && params.get("deal") !== "rent")
+            params.get("frame") || (params.get("deal") && params.get("deal") !== "sale")
           ),
           view: params.get("view"),
         },

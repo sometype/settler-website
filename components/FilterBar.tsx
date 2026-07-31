@@ -89,7 +89,7 @@ export function FilterBar({
   // the invisible ×1000 this round refused.
   // Read straight off the URL: `deal` is declared below, and FilterBar remounts
   // on a deal change (page.tsx filterKey), so this is stable for the mount.
-  const priceUnit = params.get("deal") === "sale" ? 1000 : 1;
+  const priceUnit = (params.get("deal") ?? "sale") === "sale" ? 1000 : 1;
   const toField = (raw: string | null) => {
     if (!raw) return "";
     const n = Number(raw);
@@ -124,8 +124,8 @@ export function FilterBar({
     return !AREA_PRESETS.some((p) => p.mina === mina && p.maxa === maxa);
   });
   const rooms = params.get("rooms") ?? "";
-  // Default rent when param missing (matches parseFilters).
-  const deal = params.get("deal") ?? "rent";
+  // Default sale when param missing (matches parseFilters).
+  const deal = params.get("deal") ?? "sale";
   // URL-driven like the room chips, so no local state and no filterKey entry.
   const rawFrame = params.get("frame") ?? "";
   const frame = deal === "sale" && isConditionCode(rawFrame) ? rawFrame : "";
@@ -192,7 +192,7 @@ export function FilterBar({
       params.get("maxa") ||
       frame ||
       rooms ||
-      (params.get("deal") && params.get("deal") !== "rent")
+      (params.get("deal") && params.get("deal") !== "sale")
   );
 
   function apply(overrides: Record<string, string>) {
@@ -541,7 +541,7 @@ export function FilterBar({
                     },
                   },
                 });
-                startTransition(() => router.push("/?deal=rent"));
+                startTransition(() => router.push("/"));
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"
             >

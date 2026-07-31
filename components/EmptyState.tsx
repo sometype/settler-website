@@ -170,7 +170,7 @@ export function EmptyState({
     // The filter state at the moment of clearing — same shape as filterMeta so
     // analysis never needs a second fingerprint schema (AITALKS frozen contract).
     const before = {
-      deal: filters.dealType ?? "rent",
+      deal: filters.dealType ?? "sale",
       districts,
       district: districts[0] ?? null,
       rooms: filters.rooms ?? null,

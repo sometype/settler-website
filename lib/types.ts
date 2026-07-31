@@ -120,7 +120,7 @@ export interface FeedFilters {
   minPrice?: number;
   maxPrice?: number;
   rooms?: string;
-  /** Default on the feed is rent so sale prices don't mix unlabeled. */
+  /** Default on the feed is sale; rent remains available via `deal=rent`. */
   dealType?: DealType;
   /**
    * Floor area in m², inclusive. Replaced the amenity chips 2026-07-29:
