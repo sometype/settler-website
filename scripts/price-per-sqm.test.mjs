@@ -1,7 +1,37 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { formatPrice, pricePerSqm, sanePriceUsd } from "../lib/prices.ts";
+import {
+  formatPrice,
+  priceInputToUsd,
+  pricePerSqm,
+  priceUsdToInput,
+  sanePriceUsd,
+} from "../lib/prices.ts";
+
+test("accepts sale shorthand and full-dollar input as the same budget", () => {
+  for (const input of ["80", "80000", "80 000", "80,000", "$80,000"]) {
+    assert.equal(priceInputToUsd(input, "sale"), 80_000, input);
+  }
+  assert.equal(priceInputToUsd("85.5", "sale"), 85_500);
+  assert.equal(priceInputToUsd("2000", "sale"), 2_000_000);
+  assert.equal(priceInputToUsd("5000", "sale"), 5_000);
+});
+
+test("keeps rent literal and rejects malformed price input", () => {
+  assert.equal(priceInputToUsd("800", "rent"), 800);
+  for (const input of ["", "0", "-80", "80k", "1e3", "Infinity"]) {
+    assert.equal(priceInputToUsd(input, "sale"), null, input);
+  }
+});
+
+test("round-trips real-dollar URL bounds without changing old links", () => {
+  for (const dollars of [30, 5_000, 80_000, 85_500, 2_000_000, 5_000_000]) {
+    const field = priceUsdToInput(String(dollars), "sale");
+    assert.equal(priceInputToUsd(field, "sale"), dollars, `${dollars} -> ${field}`);
+  }
+  assert.equal(priceUsdToInput("800", "rent"), "800");
+});
 
 test("calculates whole-dollar sale price per square metre", () => {
   assert.equal(pricePerSqm(78_000, 60, "sale"), 1_300);

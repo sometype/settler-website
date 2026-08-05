@@ -11,6 +11,7 @@ import {
 import { FRAME_OPTIONS, isConditionCode } from "@/lib/labels";
 import type { ConditionCounts, DistrictCounts } from "@/lib/listings";
 import { trackEvent } from "@/lib/events";
+import { priceInputToUsd, priceUsdToInput } from "@/lib/prices";
 
 const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
 
@@ -49,9 +50,9 @@ const ROOM_OPTIONS = ["1", "2", "3", "4", "5+"];
  * is worse than no chip, because the visitor blames the site rather than the
  * budget.
  *
- * ⚠️ These set the URL in REAL DOLLARS. The sale input is denominated in
- * thousands for humans (see priceUnit), but `max` on the URL is always dollars,
- * so nothing downstream has to know about the unit.
+ * ⚠️ These set the URL in REAL DOLLARS. Sale accepts either shorthand (`80`)
+ * or full dollars (`80 000` / `80000`), but `max` on the URL is always dollars,
+ * so nothing downstream has to know which form the visitor used.
  */
 const PRICE_CEILINGS: Record<"rent" | "sale", { label: string; max: number }[]> = {
   sale: [
@@ -105,36 +106,29 @@ export function FilterBar({
   const districtsRef = useRef(districts);
   const [syncedDistrictUrlKey, setSyncedDistrictUrlKey] = useState(districtUrlKey);
   const [districtOpen, setDistrictOpen] = useState(false);
-  // ⚠️ SALE PRICES ARE ENTERED IN THOUSANDS. Georgians quote flats as "80",
-  // meaning $80,000 — measured 117 sessions/day typed bounds like 30–40 or
-  // 100–110 on the sale tab and got ZERO every single time, because the field
-  // read them as $30 and $110.
+  // ⚠️ SALE ACCEPTS BOTH SHORTHAND AND FULL DOLLARS. Georgians quote flats as
+  // "80" meaning $80,000, while other visitors paste "80000" or "80 000".
+  // The previous thousands-only field multiplied the latter into $80m — 18 of
+  // 35 measured zero-result sessions carried impossible >$2m sale bounds.
   //
   // ⚠️ THE CONVERSION LIVES ONLY AT THIS BOUNDARY. The URL, `parseFilters`,
   // `listings_public` and every analytics row stay in REAL DOLLARS, so old
   // bookmarks, `meta.min`/`meta.max` history and the price-drop writers are
-  // untouched. Only what the human types and reads is denominated in thousands.
+  // untouched. Only the human-input boundary accepts the shorthand.
   //
   // ⚠️ And it is never silent: the resolved dollars render under the fields as
-  // they type. A guess that shows its work is a unit; a guess that hides it is
-  // the invisible ×1000 this round refused.
-  // Read straight off the URL: `deal` is declared below, and FilterBar remounts
-  // on a deal change (page.tsx filterKey), so this is stable for the mount.
-  const priceUnit = (params.get("deal") ?? "sale") === "sale" ? 1000 : 1;
-  const toField = (raw: string | null) => {
-    if (!raw) return "";
-    const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0) return "";
-    const v = n / priceUnit;
-    // Trim 80.0 -> 80 but keep 85.5 for a bookmarked $85,500.
-    return String(Number(v.toFixed(3)));
-  };
+  // they type. Both accepted forms resolve visibly to one dollar value.
+  // Read straight off the URL; FilterBar remounts on a deal change
+  // (page.tsx filterKey), so this is stable for the mount.
+  const deal = params.get("deal") ?? "sale";
+  // Preserve the old `deal=all` contract as literal dollars. The public UI
+  // offers sale/rent, but crafted and historic mixed-deal URLs still exist.
+  const inputDeal = deal === "sale" ? "sale" : "rent";
+  const isSale = deal === "sale";
+  const toField = (raw: string | null) => priceUsdToInput(raw, inputDeal);
   const toUsd = (field: string) => {
-    const t = field.trim();
-    if (!t) return "";
-    const n = Number(t);
-    if (!Number.isFinite(n) || n <= 0) return "";
-    return String(Math.round(n * priceUnit));
+    const usd = priceInputToUsd(field, inputDeal);
+    return usd === null ? "" : String(usd);
   };
   const usdLabel = (field: string) => {
     const usd = toUsd(field);
@@ -155,12 +149,9 @@ export function FilterBar({
     return !AREA_PRESETS.some((p) => p.mina === mina && p.maxa === maxa);
   });
   const rooms = params.get("rooms") ?? "";
-  // Default sale when param missing (matches parseFilters).
-  const deal = params.get("deal") ?? "sale";
   // URL-driven like the room chips, so no local state and no filterKey entry.
   const rawFrame = params.get("frame") ?? "";
   const frame = deal === "sale" && isConditionCode(rawFrame) ? rawFrame : "";
-  const isSale = deal === "sale";
 
   // Adjust URL-backed state during render (React's guarded previous-value
   // pattern), so back/forward and district-rail links update chips without an
@@ -492,18 +483,17 @@ export function FilterBar({
         </div>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-mink">
-            {isSale ? "მინ. $ (ათასებში)" : "მინ. $"}
+            მინ. $
           </span>
           <input
-            type="number"
-            inputMode="numeric"
-            min={0}
+            type="text"
+            inputMode="decimal"
+            aria-label="მინ. $"
             value={min}
             onChange={(e) => setMin(e.target.value)}
             placeholder={isSale ? "80" : "0"}
-            // Sale is denominated in thousands, so a bookmarked $85,500 shows as
-            // 85.5 — the default step of 1 would mark that invalid and block submit.
-            step="any"
+            // Text is intentional: type=number refuses grouping spaces, so a
+            // visitor could not enter the explicitly supported `80 000` form.
             className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
           {/* ⚠️ .num on the FIGURE only — Georgian never routes through the
@@ -515,18 +505,16 @@ export function FilterBar({
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-mink">
-            {isSale ? "მაქს. $ (ათასებში)" : "მაქს. $"}
+            მაქს. $
           </span>
           <input
-            type="number"
-            inputMode="numeric"
-            min={0}
+            type="text"
+            inputMode="decimal"
+            aria-label="მაქს. $"
             value={max}
             onChange={(e) => setMax(e.target.value)}
             placeholder={isSale ? "120" : "ნებისმიერი"}
-            // Sale is denominated in thousands, so a bookmarked $85,500 shows as
-            // 85.5 — the default step of 1 would mark that invalid and block submit.
-            step="any"
+            // See min: grouping spaces/commas are valid human input here.
             className="num rounded border border-sand-strong px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-ink focus:outline-none focus:ring-1 focus:ring-ink"
           />
           {isSale && usdLabel(max) && (
@@ -581,6 +569,12 @@ export function FilterBar({
           )}
         </div>
       </div>
+      {isSale && (
+        <p className="mt-1.5 text-[11px] text-faint">
+          <span className="num">80</span> ან <span className="num">80 000</span>
+          {" → "}<span className="num">$80,000</span>
+        </p>
+      )}
       {/* Area sits directly under price, ABOVE the room chips: both are typed
           ranges committed by ძებნა, so separating them with chips would split
           the one group a visitor fills in together. Its own row rather than
@@ -590,8 +584,8 @@ export function FilterBar({
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="mr-0.5 text-xs font-medium text-mink">ბიუჯეტი:</span>
         {PRICE_CEILINGS[isSale ? "sale" : "rent"].map((p) => {
-          // Compare against the URL (real dollars), not the field (thousands
-          // on sale) — otherwise the active state disagrees with the search.
+          // Compare against the URL (real dollars), not the human input form —
+          // otherwise the active state disagrees with the search.
           const on = (params.get("max") ?? "") === String(p.max);
           return (
             <button
@@ -602,7 +596,7 @@ export function FilterBar({
                 // A ceiling is a whole answer: toggling off clears it rather
                 // than leaving half a range behind. Never touches `min`.
                 const nextMax = on ? "" : String(p.max);
-                setMax(on ? "" : String(p.max / priceUnit));
+                setMax(on ? "" : priceUsdToInput(String(p.max), inputDeal));
                 apply({ max: nextMax });
               }}
               className={chip(on)}

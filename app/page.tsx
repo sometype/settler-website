@@ -254,9 +254,9 @@ export default async function HomePage({
   // District has its own guarded URL sync in FilterBar so the multi-select can
   // stay open while each checkbox immediately navigates.
   // Chips (rooms, deal) drive straight off the URL and need no key.
-  // ⚠️ `deal` is in the key because the sale price fields are denominated in
-  // THOUSANDS while rent is in dollars. Without a remount, a "80" typed on sale
-  // would survive a tab switch and silently mean $80 of rent.
+  // ⚠️ `deal` is in the key because sale accepts shorthand ("80" = $80k) while
+  // rent is always literal dollars. Without a remount, the same field text
+  // would change meaning across the tab switch.
   const filterKey = ["min", "max", "mina", "maxa", "deal"]
     .map((k) => `${k}=${params[k] ?? ""}`)
     .join("&");
