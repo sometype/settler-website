@@ -328,71 +328,6 @@ const JUST_ADDED_WINDOW_H: Record<"rent" | "sale", number> = { rent: 12, sale: 4
  */
 export const JUST_ADDED_MIN_CARDS = 4;
 
-/**
- * Same phone + same unit shape → one key. Used only to collapse dual-posts on
- * the just-added rail (belt while backend merge catches up / misses).
- * Null = cannot key safely (no phone or incomplete shape) → never collapse.
- */
-function justAddedUnitKey(l: Listing): string | null {
-  if (!l.has_phone || !l.phone) return null;
-  if (!l.deal_type || !l.rooms || l.area == null) return null;
-  const digits = String(l.phone).replace(/\D/g, "");
-  const p9 = digits.length >= 9 ? digits.slice(-9) : digits;
-  if (!p9) return null;
-  const floorHead = (l.floor || "").split("/")[0].trim() || "_";
-  // Integer m² bucket ≈ backend AREA_TOL_M2 (±3) for rail-only collapse.
-  const area = Math.round(Number(l.area));
-  return `${p9}|${l.deal_type}|${l.rooms}|${area}|${floorHead}`;
-}
-
-/**
- * Within the just-added strip: never show two cards of the same physical unit.
- * Prefers the older first_seen (closer to dedupe master bias), then more views.
- * Listings without a phone/shape key are never collapsed.
- */
-export function collapseJustAddedTwins(listings: Listing[]): Listing[] {
-  const groups = new Map<string, Listing[]>();
-  for (const l of listings) {
-    const k = justAddedUnitKey(l);
-    if (!k) continue;
-    const g = groups.get(k);
-    if (g) g.push(l);
-    else groups.set(k, [l]);
-  }
-
-  const keep = new Set<number>();
-  for (const group of groups.values()) {
-    if (group.length === 1) {
-      keep.add(group[0].id);
-      continue;
-    }
-    const winner = [...group].sort((a, b) => {
-      const ta = new Date(a.first_seen_at).getTime();
-      const tb = new Date(b.first_seen_at).getTime();
-      if (ta !== tb) return ta - tb; // older first
-      const va = a.views ?? 0;
-      const vb = b.views ?? 0;
-      if (va !== vb) return vb - va;
-      return a.id - b.id;
-    })[0];
-    keep.add(winner.id);
-  }
-
-  const emittedKey = new Set<string>();
-  const out: Listing[] = [];
-  for (const l of listings) {
-    const k = justAddedUnitKey(l);
-    if (!k) {
-      out.push(l);
-      continue;
-    }
-    if (!keep.has(l.id) || emittedKey.has(k)) continue;
-    emittedKey.add(k);
-    out.push(l);
-  }
-  return out;
-}
-
 /** The newest arrivals inside the freshness window, for the strip above the feed. */
 export async function fetchJustAdded(
   dealType: FeedFilters["dealType"],
@@ -403,15 +338,12 @@ export async function fetchJustAdded(
   const windowH = JUST_ADDED_WINDOW_H[dealType === "sale" ? "sale" : "rent"];
   const cutoff = new Date(Date.now() - windowH * 60 * 60 * 1000).toISOString();
 
-  // Over-fetch so phone+shape twin collapse still fills the strip.
-  const fetchLimit = Math.max(limit * 4, 24);
-
   let query = supabase
     .from("listings_public")
     .select(LISTING_COLUMNS)
     .gte("first_seen_at", cutoff)
     .order("first_seen_at", { ascending: false })
-    .limit(fetchLimit);
+    .limit(limit);
   // Same reason parseFilters defaults to rent: a $94,000 sale next to a $533
   // rent reads as broken, and the feed below the strip is deal-scoped too.
   if (dealType) query = query.eq("deal_type", dealType);
@@ -421,7 +353,7 @@ export async function fetchJustAdded(
   // The strip is decoration over the feed — never let it break the page.
   if (error || !data) return { listings: [], mainImages: new Map() };
 
-  const listings = collapseJustAddedTwins(data as Listing[]).slice(0, limit);
+  const listings = data as Listing[];
   const mainImages = await fetchMainImages(
     listings.map((l) => l.id),
     "just-added"
