@@ -5,6 +5,8 @@ import type { ConditionCode } from "./labels";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
 
+export { formatPrice, pricePerSqm, sanePriceUsd } from "./prices";
+
 export const PAGE_SIZE = 24;
 
 const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
@@ -860,38 +862,6 @@ export async function fetchListing(
  */
 export function isNew(firstSeenAt: string): boolean {
   return Date.now() - new Date(firstSeenAt).getTime() < 12 * 60 * 60 * 1000;
-}
-
-/**
- * Sanity bounds per deal type. The scrapers pass through whatever the source
- * shows, and sources contain garbage ($0 sales, $38 "sales" that are rents,
- * $30 rents). Out-of-range prices render as "ფასი მოთხოვნით" instead of
- * presenting nonsense as fact.
- */
-const PRICE_BOUNDS: Record<"rent" | "sale", { min: number; max: number }> = {
-  rent: { min: 50, max: 50_000 },
-  sale: { min: 5_000, max: 5_000_000 },
-};
-
-export function sanePriceUsd(
-  priceUsd: number | null | undefined,
-  dealType: "rent" | "sale" | null | undefined
-): number | null {
-  if (priceUsd === null || priceUsd === undefined) return null;
-  const bounds = PRICE_BOUNDS[dealType === "sale" ? "sale" : "rent"];
-  if (priceUsd < bounds.min || priceUsd > bounds.max) return null;
-  return priceUsd;
-}
-
-export function formatPrice(
-  priceUsd: number | null,
-  dealType: "rent" | "sale" | null | undefined = "rent"
-): string | null {
-  const sane = sanePriceUsd(priceUsd, dealType);
-  if (sane === null) return null;
-  const amount = `$${sane.toLocaleString("en-US")}`;
-  if (dealType === "sale") return amount; // full sale price
-  return `${amount} / თვეში`;
 }
 
 export interface FeedStats {

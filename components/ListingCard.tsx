@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
-import { formatPrice } from "@/lib/listings";
+import { formatPrice, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
 import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
@@ -50,6 +50,7 @@ export function ListingCard({
 }) {
   const imageSrc = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
+  const unitPrice = pricePerSqm(listing.price_usd, listing.area, listing.deal_type);
   const district = districtLabel(listing.district_code, listing.district);
   const checkedLabel = listing.last_checked_at
     ? relativeTimeKa(listing.last_checked_at)
@@ -98,24 +99,36 @@ export function ListingCard({
         </div>
 
         <div className="flex flex-1 flex-col p-2.5 pb-0">
-          {price ? (
-            <p className="text-[17px] font-bold leading-none text-ink">
-              {price.includes(" / ") ? (
-                <>
-                  <span className="num">{price.slice(0, price.indexOf(" / "))}</span>
-                  <span className="text-[12px] font-semibold text-mink">
-                    {price.slice(price.indexOf(" / "))}
-                  </span>
-                </>
-              ) : (
-                <span className="num">{price}</span>
-              )}
-            </p>
-          ) : (
-            <p className="text-[15px] font-semibold leading-none text-faint">
-              ფასი მოთხოვნით
-            </p>
-          )}
+          <div className={listing.deal_type === "sale" ? "min-h-9" : undefined}>
+            {price ? (
+              <p className="text-[17px] font-bold leading-none text-ink">
+                {price.includes(" / ") ? (
+                  <>
+                    <span className="num">{price.slice(0, price.indexOf(" / "))}</span>
+                    <span className="text-[12px] font-semibold text-mink">
+                      {price.slice(price.indexOf(" / "))}
+                    </span>
+                  </>
+                ) : (
+                  <span className="num">{price}</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-[15px] font-semibold leading-none text-faint">
+                ფასი მოთხოვნით
+              </p>
+            )}
+            {unitPrice !== null && (
+              <p className="mt-1 text-[11px] leading-none text-mink">
+                <span className="sr-only">
+                  {unitPrice.toLocaleString("en-US")} დოლარი ერთ კვადრატულ მეტრზე
+                </span>
+                <span className="num" aria-hidden="true">
+                  ${unitPrice.toLocaleString("en-US")}/მ²
+                </span>
+              </p>
+            )}
+          </div>
           {district && (
             <p className="mt-1.5 truncate text-[13px] font-medium text-ink">{district}</p>
           )}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchListing, formatPrice } from "@/lib/listings";
+import { fetchListing, formatPrice, pricePerSqm } from "@/lib/listings";
 import { stripHtml } from "@/lib/text";
 import { districtLabel } from "@/lib/districts";
 import {
@@ -118,6 +118,7 @@ export default async function ListingPage({
   const deal = listing.deal_type === "sale" ? "sale" : "rent";
   const dealLabel = deal === "sale" ? "იყიდება" : "ქირავდება";
   const price = formatPrice(listing.price_usd, deal);
+  const unitPrice = pricePerSqm(listing.price_usd, listing.area, deal);
   const description = listing.description_ka?.trim() || stripHtml(listing.description);
   const district = districtLabel(listing.district_code, listing.district);
   // roomsAltKa maps studio → სტუდიო; the old `${rooms}-ოთახიანი` left English
@@ -215,6 +216,16 @@ export default async function ListingPage({
               </p>
             ) : (
               <p className="text-2xl font-semibold text-faint">ფასი მოთხოვნით</p>
+            )}
+            {unitPrice !== null && (
+              <p className="text-sm text-mink">
+                <span className="sr-only">
+                  {unitPrice.toLocaleString("en-US")} დოლარი ერთ კვადრატულ მეტრზე
+                </span>
+                <span className="num" aria-hidden="true">
+                  ${unitPrice.toLocaleString("en-US")}/მ²
+                </span>
+              </p>
             )}
             <h1 className="text-2xl font-bold text-ink">{title}</h1>
             <p className="text-sm text-mink">
