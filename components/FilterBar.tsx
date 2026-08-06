@@ -88,7 +88,11 @@ export function FilterBar({
 }) {
   const router = useRouter();
   const params = useSearchParams();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<
+    "deal" | "search" | "filter" | "clear" | null
+  >(null);
+  const [pendingDeal, setPendingDeal] = useState<"rent" | "sale" | null>(null);
   const districtListId = useId();
   const districtPanelRef = useRef<HTMLDivElement>(null);
 
@@ -193,38 +197,41 @@ export function FilterBar({
     };
   }, [districtOpen]);
 
+  // Count filter AXES, not raw fields: min+max is one budget choice and
+  // mina+maxa is one area choice. Deal is deliberately NOT a filter here. The
+  // previous code counted bare rent as an active filter, which forced the
+  // mobile panel open forever even while its button said aria-expanded=false.
+  const activeFilterCount =
+    Number(districts.length > 0) +
+    Number(Boolean(params.get("min") || params.get("max"))) +
+    Number(Boolean(params.get("mina") || params.get("maxa"))) +
+    Number(Boolean(frame)) +
+    Number(Boolean(rooms));
+  const hasFilters = activeFilterCount > 0;
+
   // Phones only: everything except the rent/sale toggle collapses behind a
-  // button. Measured before this change — hero 260px + filter bar 471px meant
-  // the first apartment sat at y=896 on a 812px screen, so a visitor still had
-  // to scroll past a full screen of chrome to see the product. Desktop keeps the
-  // bar always open (sm:block below); it has the room.
-  // Opens by default when filters are already applied, so a returning visitor
-  // can see and clear what is narrowing their results.
-  const [openOnMobile, setOpenOnMobile] = useState(false);
+  // button. A bookmarked filtered URL opens once so the visitor can see what
+  // narrows it; after that this is a real disclosure and can always be closed.
+  // Desktop keeps the bar open (sm:block below).
+  const [openOnMobile, setOpenOnMobile] = useState(() => hasFilters);
+  const urlDeal = deal === "rent" ? "rent" : "sale";
+  // Optimism lasts only for the transition. The deal change currently remounts
+  // FilterBar (`deal` is in page.tsx's key), but correctness must not depend on
+  // that implementation detail: a failed navigation or future key change
+  // cleanly falls back to the URL instead of leaving a stale selected tab.
+  const activeDeal = isPending && pendingDeal ? pendingDeal : urlDeal;
 
-  // ⚠️ Reads the URL, not local state: this decides whether the mobile panel
-  // opens for someone arriving on a bookmarked filtered link. Legacy `amen` is
-  // deliberately absent — it no longer narrows anything, so it must not light
-  // the panel up either.
-  const hasFilters = Boolean(
-    districts.length > 0 ||
-      params.get("min") ||
-      params.get("max") ||
-      params.get("mina") ||
-      params.get("maxa") ||
-      frame ||
-      rooms ||
-      (params.get("deal") && params.get("deal") !== "sale")
-  );
-
-  function apply(overrides: Record<string, string>) {
+  function apply(
+    overrides: Record<string, string>,
+    action: "deal" | "search" | "filter" = "filter"
+  ) {
     const next = new URLSearchParams(params.toString());
     // Drop repeated district keys so we never double-apply array + CSV.
     next.delete("district");
     const values: Record<string, string> = {
       district: serializeDistricts(districtsRef.current),
-      // Thousands -> real dollars for sale; identity for rent. The URL is
-      // always dollars, so nothing downstream needs to know about the unit.
+      // Sale shorthand/full-dollar input -> real dollars; identity for rent.
+      // The URL is always dollars, so nothing downstream knows the input form.
       min: toUsd(min),
       max: toUsd(max),
       mina: minArea.trim(),
@@ -246,9 +253,11 @@ export function FilterBar({
     // who filters from inside the channel and then clears would land back on a
     // homepage with the rails silently missing and nothing to explain why.
     next.delete("view");
-    startTransition(() => {
-      router.push(next.size ? `/?${next.toString()}` : "/");
-    });
+    // Clicking an already-active control used to start a full server render
+    // with no visible outcome. That is indistinguishable from a stuck button.
+    if (next.toString() === params.toString()) return;
+    setPendingAction(action);
+    startTransition(() => router.push(next.size ? `/?${next.toString()}` : "/"));
   }
 
   function updateDistricts(next: string[]) {
@@ -285,10 +294,8 @@ export function FilterBar({
         : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
     }`;
 
-  // Hidden on phones unless toggled or already filtering; always shown from sm up.
-  const openFilters = `${
-    openOnMobile || hasFilters ? "block" : "hidden"
-  } sm:block`;
+  // Hidden on phones unless explicitly open; always shown from sm up.
+  const openFilters = `${openOnMobile ? "block" : "hidden"} sm:block`;
 
   const districtSummary =
     districts.length === 0
@@ -304,9 +311,16 @@ export function FilterBar({
          instrument chrome and gives ~20px back to the fold budget. */
       onSubmit={(e) => {
         e.preventDefault();
-        apply({});
+        apply({}, "search");
       }}
     >
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {isPending && pendingAction === "deal"
+          ? `${pendingDeal === "rent" ? "ქირავდება" : "იყიდება"} იტვირთება`
+          : isPending && pendingAction === "search"
+            ? "ძიების შედეგები იტვირთება"
+            : ""}
+      </span>
       <div className="mb-3 flex flex-wrap gap-1.5">
         {(
           [
@@ -317,24 +331,38 @@ export function FilterBar({
           <button
             key={value}
             type="button"
+            aria-pressed={activeDeal === value}
+            aria-busy={isPending && pendingAction === "deal" && pendingDeal === value}
+            disabled={isPending}
             // Leaving sale must drop `frame` in the SAME navigation, or a rent
             // URL keeps a parameter with no chip to show or clear it.
-            onClick={() =>
-              apply({
-                deal: value,
-                // Rent and sale use different input units. Carrying an
-                // unsubmitted sale `80` into rent created `min=80000`; clear
-                // both bounds only when the deal actually changes.
-                ...(value !== deal ? { min: "", max: "" } : {}),
-                ...(value === "rent" ? { frame: "" } : {}),
-              })
-            }
-            className={`rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition ${
-              deal === value
+            onClick={() => {
+              if (value === activeDeal) return;
+              setPendingDeal(value);
+              apply(
+                {
+                  deal: value,
+                  // Rent and sale use different input units. Carrying an
+                  // unsubmitted sale `80` into rent created `min=80000`; clear
+                  // both bounds only when the deal actually changes.
+                  ...(value !== deal ? { min: "", max: "" } : {}),
+                  ...(value === "rent" ? { frame: "" } : {}),
+                },
+                "deal"
+              );
+            }}
+            className={`inline-flex min-w-[5.4rem] items-center justify-center gap-1.5 rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition disabled:cursor-wait disabled:opacity-70 ${
+              activeDeal === value
                 ? "bg-ink text-white ring-ink"
                 : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
             }`}
           >
+            {isPending && pendingAction === "deal" && pendingDeal === value && (
+              <span
+                className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
+            )}
             {label}
           </button>
         ))}
@@ -342,9 +370,20 @@ export function FilterBar({
           type="button"
           onClick={() => setOpenOnMobile((v) => !v)}
           aria-expanded={openOnMobile}
-          className="ml-auto inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-semibold text-mink ring-1 ring-inset ring-sand-strong transition hover:ring-sand-strong sm:hidden"
+          aria-controls={`${districtListId}-filters`}
+          aria-label={hasFilters ? `ფილტრი, ${activeFilterCount} აქტიური` : "ფილტრი"}
+          className={`ml-auto inline-flex items-center gap-1 rounded px-3 py-1.5 text-xs font-semibold ring-1 ring-inset transition sm:hidden ${
+            hasFilters
+              ? "bg-sand/60 text-ink ring-sand-strong"
+              : "text-mink ring-sand-strong hover:ring-sand-strong"
+          }`}
         >
           ფილტრი
+          {hasFilters && (
+            <span className="num inline-flex min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] leading-4 text-white">
+              {activeFilterCount}
+            </span>
+          )}
           <svg
             viewBox="0 0 20 20"
             fill="currentColor"
@@ -355,7 +394,7 @@ export function FilterBar({
           </svg>
         </button>
       </div>
-      <div className={openFilters}>
+      <div id={`${districtListId}-filters`} className={openFilters}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[1fr_repeat(2,minmax(0,0.6fr))_auto]">
         <div
           ref={districtPanelRef}
@@ -524,9 +563,10 @@ export function FilterBar({
         <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
             type="submit"
-            className="rounded bg-ink px-4 py-2 text-sm font-semibold text-card transition hover:bg-pine focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            disabled={isPending}
+            className="min-w-[5.5rem] rounded bg-ink px-4 py-2 text-sm font-semibold text-card transition hover:bg-pine disabled:cursor-wait disabled:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            ძებნა
+            {isPending && pendingAction === "search" ? "იძებნება…" : "ძებნა"}
           </button>
           {hasFilters && (
             <button
@@ -537,6 +577,7 @@ export function FilterBar({
                 setMax("");
                 setMinArea("");
                 setMaxArea("");
+                setOpenOnMobile(false);
                 // ⚠️ Clearing to a bare feed emits NOTHING today, so "gave up"
                 // and "cleared and kept browsing" are indistinguishable. That
                 // is the question the zero screen raises and cannot answer.
@@ -560,7 +601,12 @@ export function FilterBar({
                     },
                   },
                 });
-                startTransition(() => router.push("/"));
+                setPendingAction("clear");
+                // Clearing secondary filters must not silently switch rent
+                // back to the default sale tab. Keep the chosen catalogue;
+                // all actual narrowing axes are still removed.
+                const clearHref = deal === "rent" ? "/?deal=rent" : "/";
+                startTransition(() => router.push(clearHref));
               }}
               className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"
             >
