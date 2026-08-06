@@ -59,6 +59,14 @@ function sourceFromHost(host: string | null): AcquisitionSource | null {
   if (host === "facebook.com" || host.endsWith(".facebook.com")) return "facebook";
   if (host === "instagram.com" || host.endsWith(".instagram.com")) return "instagram";
   if (host === "google.com" || host.endsWith(".google.com")) return "google";
+  // Android apps send their package id as the referrer rather than a hostname.
+  // The Google Search app is real Google discovery traffic and was landing in
+  // `referral`: measured 22 of 48 Google sessions in the first 3h after the
+  // Phase A cutover, i.e. it was understating Google by ~46%.
+  if (host === "com.google.android.googlequicksearchbox") return "google";
+  // NOTE: other search engines (bing.com seen once) stay `referral`. The enum
+  // has no generic search bucket and one session does not justify a contract
+  // change — but do not read `referral` as "someone linked us".
   return "referral";
 }
 
@@ -101,7 +109,21 @@ export function acquisitionMeta(
   return {
     entry: pathname,
     acq_source: source,
-    paid_click: hasFbclid || hasGclid || medium === "cpc" || medium === "paid_social",
+    // ⚠️ `fbclid` IS NOT EVIDENCE OF A PAID CLICK, and treating it as one made
+    // this field almost pure noise: 204 of 209 Facebook sessions in the first
+    // 3h after cutover came back paid_click=true with utm_medium null, which
+    // would have read as an enormous ad spend that does not exist. Meta appends
+    // fbclid to ORGANIC outbound links too.
+    //
+    // `gclid` is different and is kept: Google Ads auto-tagging is the only
+    // thing that sets it, so it does imply a paid click. The asymmetry is the
+    // whole point — one click id is a paid signal, the other is just Meta.
+    //
+    // Cost of the narrowing: a paid Meta campaign that forgets to tag
+    // utm_medium now reads as unpaid. That is the right direction to fail —
+    // under-claiming spend beats inventing it. Tag campaigns with
+    // utm_medium=paid_social or cpc and this stays accurate.
+    paid_click: hasGclid || medium === "cpc" || medium === "paid_social",
     utm_medium: medium,
     referrer_host: externalReferrer,
   };

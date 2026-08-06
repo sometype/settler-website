@@ -100,6 +100,42 @@ test("contact contract hard-rejects only missing listing and unknown surface", (
   });
 });
 
+// Added after the first 3h of live Phase A data exposed two classification
+// defects. See TRACKINGDISCUSSION.md § Claude post-cutover findings, D1 and D2.
+test("paid_click needs real paid evidence — fbclid alone is not it", () => {
+  // D1. Meta appends fbclid to organic outbound links, so 204/209 live Facebook
+  // sessions were flagged paid. Source classification still uses it; spend does not.
+  const organicMeta = acquisitionMeta("/", "?fbclid=abc", "", "mepatrone.com");
+  assert.equal(organicMeta.acq_source, "facebook", "fbclid still identifies the channel");
+  assert.equal(organicMeta.paid_click, false, "but it must not imply ad spend");
+
+  // gclid is set only by Google Ads auto-tagging, so it does imply a paid click.
+  assert.equal(acquisitionMeta("/", "?gclid=abc", "", "mepatrone.com").paid_click, true);
+
+  // Explicit campaign tagging remains the reliable signal, including on Meta.
+  assert.equal(
+    acquisitionMeta("/", "?fbclid=abc&utm_medium=paid_social", "", "mepatrone.com").paid_click,
+    true
+  );
+  assert.equal(acquisitionMeta("/", "?utm_medium=cpc", "", "mepatrone.com").paid_click, true);
+});
+
+test("the Android Google app is Google, not a referral", () => {
+  // D2. Android sends a package id instead of a hostname; this was understating
+  // Google by ~46% (22 of 48 sessions) in the first 3h after cutover.
+  const m = acquisitionMeta(
+    "/",
+    "",
+    "android-app://com.google.android.googlequicksearchbox/",
+    "mepatrone.com"
+  );
+  assert.equal(m.acq_source, "google");
+  assert.equal(m.referrer_host, "com.google.android.googlequicksearchbox");
+  assert.equal(m.paid_click, false, "organic app search is not paid");
+  // Other engines stay `referral` — documented, not an oversight.
+  assert.equal(acquisitionMeta("/", "", "https://bing.com/s", "mepatrone.com").acq_source, "referral");
+});
+
 // Added at reconciliation (Claude): both of these are fail-soft consequences
 // that the original Phase A hardening did not cover. See TRACKINGDISCUSSION.md
 // § Claude reconciliation, R1 and R2.
