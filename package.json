@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "node --test scripts/price-per-sqm.test.mjs"
+    "test:unit": "node --test scripts/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.8",

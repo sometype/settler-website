@@ -13,6 +13,8 @@ const ALLOWED = new Set([
   "session_start",
   "filter_clear",
   "sort_apply",
+  "card_photo_exposure",
+  "card_photo_swipe",
 ]);
 
 type Body = {

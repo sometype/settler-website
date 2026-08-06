@@ -23,7 +23,9 @@ export type SiteEventType =
   //     only where sale happens to be active, i.e. biased.
   | "session_start"
   | "filter_clear"
-  | "sort_apply";
+  | "sort_apply"
+  | "card_photo_exposure"
+  | "card_photo_swipe";
 
 const SESSION_KEY = "mp_sid";
 const SESSION_START_KEY = "mp_ss";

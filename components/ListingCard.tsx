@@ -1,12 +1,11 @@
 import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
-import { resolveImageUrl } from "@/lib/images";
 import { formatPrice, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
 import { locationLine } from "@/lib/location";
 import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
-import { ListingImage } from "./ListingImage";
+import { CardPhotoPeek } from "./CardPhotoPeek";
 import { AgeStamp } from "./AgeStamp";
 import { DealBadge } from "./Badges";
 import { CardCallButton } from "./CardCallButton";
@@ -21,12 +20,12 @@ import { CardCallButton } from "./CardCallButton";
  */
 export function ListingCard({
   listing,
-  mainImage,
+  images,
   src,
   sort,
 }: {
   listing: Listing;
-  mainImage: ListingImageRow | null;
+  images: ListingImageRow[];
   /**
    * Channel attribution → `meta.rail` in site_events.
    *
@@ -49,7 +48,6 @@ export function ListingCard({
    */
   sort?: string;
 }) {
-  const imageSrc = mainImage ? resolveImageUrl(mainImage) : null;
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, listing.deal_type);
   const district = districtLabel(listing.district_code, listing.district);
@@ -67,42 +65,29 @@ export function ListingCard({
 
   return (
     <article className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card transition duration-150 hover:border-sand-strong">
+      <CardPhotoPeek
+        listingId={listing.id}
+        images={images}
+        alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
+        href={href}
+      >
+        <div className="absolute left-1.5 top-1.5 z-10 rounded bg-card/90 px-1.5 py-0.5 backdrop-blur-[2px]">
+          <AgeStamp
+            iso={listing.first_seen_at}
+            initialLabel={compactAgeKa(listing.first_seen_at)}
+            initialBand={ageBand(listing.first_seen_at)}
+            className="text-[11px]"
+          />
+        </div>
+        <div className="absolute right-1.5 top-1.5 z-10">
+          <DealBadge dealType={listing.deal_type} />
+        </div>
+      </CardPhotoPeek>
+
       <Link
         href={href}
         className="flex min-w-0 flex-1 flex-col focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
       >
-        {/* Media well: fixed mid-neutral, contain+blur — never page void. */}
-        <div className="relative aspect-[4/3] overflow-hidden bg-well">
-          {imageSrc && (
-            // eslint-disable-next-line @next/next/no-img-element -- see ListingImage
-            <img
-              src={imageSrc}
-              alt=""
-              aria-hidden="true"
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-              className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-2xl"
-            />
-          )}
-          <ListingImage
-            src={imageSrc}
-            alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
-            className="absolute inset-0 h-full w-full object-contain"
-          />
-          <div className="absolute left-1.5 top-1.5 z-10 rounded bg-card/90 px-1.5 py-0.5 backdrop-blur-[2px]">
-            <AgeStamp
-              iso={listing.first_seen_at}
-              initialLabel={compactAgeKa(listing.first_seen_at)}
-              initialBand={ageBand(listing.first_seen_at)}
-              className="text-[11px]"
-            />
-          </div>
-          <div className="absolute right-1.5 top-1.5 z-10">
-            <DealBadge dealType={listing.deal_type} />
-          </div>
-        </div>
-
         <div className="flex flex-1 flex-col p-2.5 pb-0">
           <div className={listing.deal_type === "sale" ? "min-h-9" : undefined}>
             {price ? (

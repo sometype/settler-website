@@ -148,7 +148,7 @@ async function Feed({
           <ListingCard
             key={listing.id}
             listing={listing}
-            mainImage={result.mainImages.get(listing.id) ?? null}
+            images={result.cardImages.get(listing.id) ?? []}
             src={
               filters.view === "hot"
                 ? "hot_all"

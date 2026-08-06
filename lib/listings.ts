@@ -1,6 +1,6 @@
 import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
 import { hasNarrowingFilters } from "./filters";
-import { indexMainImages, orderForGallery } from "./images";
+import { indexCardImages, indexMainImages, orderForGallery } from "./images";
 import type { ConditionCode } from "./labels";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
@@ -38,26 +38,41 @@ const IMAGE_COLUMNS = imageColumns();
  * Images are decoration on a card: a failure here returns an empty map and the
  * card renders its placeholder, never an error page.
  */
-async function fetchMainImages(
+async function fetchImageRows(
   listingIds: number[],
   surface: string
-): Promise<Map<number, ListingImage>> {
-  if (listingIds.length === 0) return new Map();
+): Promise<ListingImage[]> {
+  if (listingIds.length === 0) return [];
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from(imageSource())
     .select(IMAGE_COLUMNS)
     .in("listing_id", listingIds)
     .order("position", { ascending: true });
-  if (error || !data) return new Map();
+  if (error || !data) return [];
   // Double cast: the column list is chosen at runtime by the flag, so
   // supabase-js cannot infer a row shape from a literal any more.
-  return indexMainImages(applyCoverMode(data as unknown as ListingImage[], surface));
+  return applyCoverMode(data as unknown as ListingImage[], surface);
+}
+
+async function fetchMainImages(
+  listingIds: number[],
+  surface: string
+): Promise<Map<number, ListingImage>> {
+  return indexMainImages(await fetchImageRows(listingIds, surface));
+}
+
+/** Feed-only top-three previews from the same all-rows batch used for covers. */
+async function fetchCardImages(
+  listingIds: number[],
+  surface: string
+): Promise<Map<number, ListingImage[]>> {
+  return indexCardImages(await fetchImageRows(listingIds, surface), 3);
 }
 
 export interface FeedResult {
   listings: Listing[];
-  mainImages: Map<number, ListingImage>;
+  cardImages: Map<number, ListingImage[]>;
   total: number;
   page: number;
   pageCount: number;
@@ -184,14 +199,13 @@ export async function fetchFeed(
   const listings = (data ?? []) as Listing[];
   const total = count ?? 0;
 
-  const mainImages = await fetchMainImages(
+  const cardImages = await fetchCardImages(
     listings.map((l) => l.id),
     "feed"
   );
-
   return {
     listings,
-    mainImages,
+    cardImages,
     total,
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -493,13 +507,13 @@ async function fetchHotPage(
 
 export async function fetchHotFeed(filters: FeedFilters): Promise<FeedResult> {
   const { listings, total } = await fetchHotPage(filters, filters.page, PAGE_SIZE);
-  const mainImages = await fetchMainImages(
+  const cardImages = await fetchCardImages(
     listings.map((listing) => listing.id),
     "hot"
   );
   return {
     listings,
-    mainImages,
+    cardImages,
     total,
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),

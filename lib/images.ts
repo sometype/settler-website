@@ -86,6 +86,33 @@ export function indexMainImages(images: ListingImage[]): Map<number, ListingImag
 }
 
 /**
+ * Ordered, client-safe preview images for a batch of listings.
+ *
+ * The feed query already loads every image row needed to choose one cover.
+ * Grouping that same batch and keeping the first few therefore adds no second
+ * database query and, crucially, uses the exact comparator as the cover and
+ * detail gallery. A global PostgREST limit would not be per listing.
+ */
+export function indexCardImages(
+  images: ListingImage[],
+  limit = 3
+): Map<number, ListingImage[]> {
+  const grouped = new Map<number, ListingImage[]>();
+  if (!Number.isInteger(limit) || limit <= 0) return grouped;
+
+  for (const image of images) {
+    const current = grouped.get(image.listing_id);
+    if (current) current.push(image);
+    else grouped.set(image.listing_id, [image]);
+  }
+
+  for (const [listingId, rows] of grouped) {
+    grouped.set(listingId, orderForGallery(rows).slice(0, limit));
+  }
+  return grouped;
+}
+
+/**
  * Gallery order for a single listing's photos — the detail page. Same rule as
  * the cover, applied to the whole set, so the photo a caller sees first is the
  * photo the card promised. Pure: the caller's array is not mutated.
