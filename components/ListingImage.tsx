@@ -41,7 +41,12 @@ export function ListingImage({
   className?: string;
   placeholderLabel?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  // Track the URL that failed instead of a component-wide boolean. A stable
+  // gallery image element can then change from one src to another without a
+  // failure on the previous photo poisoning every later photo. This also lets
+  // callers keep the component mounted and avoid a visible remount blink.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = src != null && failedSrc === src;
 
   if (!src || failed) {
     // Keep className (often absolute inset-0) so a failed load cannot collapse
@@ -62,7 +67,7 @@ export function ListingImage({
       loading="lazy"
       decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }

@@ -183,7 +183,18 @@ export function CardPhotoPeek({
   function moveTo(index: number) {
     const viewport = viewportRef.current;
     if (!viewport) return;
-    viewport.scrollTo({ left: index * viewport.clientWidth, behavior: "smooth" });
+    // A dot can jump straight from photo 1 to photo 3. Mount the requested
+    // target before scrolling toward it; otherwise Safari visibly reaches an
+    // empty slide and the image appears only after settleIndex() runs.
+    setLoadedThrough((current) => Math.max(current, index));
+    requestAnimationFrame(() => {
+      const currentViewport = viewportRef.current;
+      if (!currentViewport) return;
+      currentViewport.scrollTo({
+        left: index * currentViewport.clientWidth,
+        behavior: "smooth",
+      });
+    });
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -222,7 +233,7 @@ export function CardPhotoPeek({
     >
       <div
         ref={viewportRef}
-        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         onScroll={onScroll}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -237,28 +248,22 @@ export function CardPhotoPeek({
                 alt={index === active ? `${alt} — ფოტო ${index + 1}` : ""}
               />
             ) : null;
-          const className =
-            "relative h-full w-full shrink-0 snap-start focus-visible:outline-2 " +
-            "focus-visible:outline-offset-[-2px] focus-visible:outline-ink";
-
-          return index === active ? (
-            <Link
-              key={`${image.listing_id}-${image.position}`}
-              href={href}
-              aria-label={`${alt} — ფოტო ${index + 1} ${slides.length}-დან, განცხადების გახსნა`}
-              className={className}
-              onClick={onOpen}
-              draggable={false}
-            >
-              {content}
-            </Link>
-          ) : (
+          return (
             <div
               key={`${image.listing_id}-${image.position}`}
-              aria-hidden="true"
-              className={className}
+              aria-hidden={index === active ? undefined : "true"}
+              className="relative h-full w-full shrink-0 snap-start"
             >
               {content}
+              {index === active && (
+                <Link
+                  href={href}
+                  aria-label={`${alt} — ფოტო ${index + 1} ${slides.length}-დან, განცხადების გახსნა`}
+                  className="absolute inset-0 z-10 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
+                  onClick={onOpen}
+                  draggable={false}
+                />
+              )}
             </div>
           );
         })}

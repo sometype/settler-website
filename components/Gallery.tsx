@@ -54,7 +54,6 @@ export function Gallery({
         {src && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={`bg-${activeImage.position}`}
             src={src}
             alt=""
             aria-hidden="true"
@@ -64,7 +63,6 @@ export function Gallery({
           />
         )}
         <ListingImage
-          key={activeImage.position}
           src={src}
           alt={`${alt} — ფოტო ${active + 1}`}
           className="absolute inset-0 h-full w-full object-contain"
@@ -78,7 +76,7 @@ export function Gallery({
         )}
       </div>
       {images.length > 1 && (
-        <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1">
+        <div className="flex gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-1">
           {images.map((img, i) => (
             <button
               key={`${img.position}-${i}`}

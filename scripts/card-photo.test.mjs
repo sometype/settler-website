@@ -58,3 +58,33 @@ test("card event types are present in TypeScript, API, CHECK and RLS gates", asy
   assert.match(migration, /site_events_event_type_check/);
   assert.match(migration, /site_events_anon_insert/);
 });
+
+test("carousel keeps image DOM stable and mounts direct-jump targets before scrolling", async () => {
+  const component = await readFile(
+    new URL("../components/CardPhotoPeek.tsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(component, /overflow-x-auto overflow-y-hidden/);
+  assert.match(
+    component,
+    /setLoadedThrough\(\(current\) => Math\.max\(current, index\)\)[\s\S]*requestAnimationFrame[\s\S]*scrollTo/
+  );
+  assert.doesNotMatch(component, /return index === active \?/);
+  assert.match(component, /aria-hidden=\{index === active \? undefined : "true"\}/);
+  assert.match(component, /\{content\}[\s\S]*\{index === active && \([\s\S]*<Link/);
+});
+
+test("detail gallery changes sources without remounting its image layers", async () => {
+  const [gallery, listingImage] = await Promise.all([
+    readFile(new URL("../components/Gallery.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ListingImage.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(gallery, /key=\{`bg-\$\{activeImage\.position\}`\}/);
+  assert.doesNotMatch(gallery, /key=\{activeImage\.position\}/);
+  assert.match(gallery, /overflow-x-auto overflow-y-hidden/);
+  assert.match(listingImage, /const \[failedSrc, setFailedSrc\]/);
+  assert.match(listingImage, /failedSrc === src/);
+  assert.match(listingImage, /onError=\{\(\) => setFailedSrc\(src\)\}/);
+});
