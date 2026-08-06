@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { ListingImage } from "./ListingImage";
@@ -22,6 +22,43 @@ export function Gallery({
   alt: string;
 }) {
   const [active, setActive] = useState(0);
+  const loadTokenRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      // Invalidate an in-flight preload if the visitor leaves the detail page.
+      loadTokenRef.current += 1;
+    },
+    []
+  );
+
+  function selectImage(index: number) {
+    if (index === active) return;
+    const token = loadTokenRef.current + 1;
+    loadTokenRef.current = token;
+    const nextSrc = resolveImageUrl(images[index]);
+    if (!nextSrc) {
+      setActive(index);
+      return;
+    }
+
+    // Keep the current image painted until the requested file is ready. A
+    // direct src swap can blank the stable <img> for hundreds of milliseconds
+    // on a cold /img response, which reads as a refresh/flicker on phones.
+    const preload = new Image();
+    let finished = false;
+    const commit = () => {
+      if (finished) return;
+      finished = true;
+      if (loadTokenRef.current === token) setActive(index);
+    };
+    preload.onload = commit;
+    // A failed target should still become active so ListingImage can render
+    // its normal clean placeholder instead of trapping the previous photo.
+    preload.onerror = commit;
+    preload.src = nextSrc;
+    if (preload.complete) commit();
+  }
 
   // Mid-neutral well (never page void). Aspect only — do NOT max-h band-aid.
   // A 905px-tall gallery on phones was the GRID column blowing out to ~1448px
@@ -81,7 +118,7 @@ export function Gallery({
             <button
               key={`${img.position}-${i}`}
               type="button"
-              onClick={() => setActive(i)}
+              onClick={() => selectImage(i)}
               aria-label={`ფოტო ${i + 1}`}
               className={`h-14 w-20 shrink-0 overflow-hidden rounded border transition sm:h-16 sm:w-24 ${
                 i === active

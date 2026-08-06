@@ -84,6 +84,10 @@ test("detail gallery changes sources without remounting its image layers", async
   assert.doesNotMatch(gallery, /key=\{`bg-\$\{activeImage\.position\}`\}/);
   assert.doesNotMatch(gallery, /key=\{activeImage\.position\}/);
   assert.match(gallery, /overflow-x-auto overflow-y-hidden/);
+  assert.match(gallery, /const preload = new Image\(\)/);
+  assert.match(gallery, /preload\.onload = commit/);
+  assert.match(gallery, /loadTokenRef\.current === token/);
+  assert.match(gallery, /onClick=\{\(\) => selectImage\(i\)\}/);
   assert.match(listingImage, /const \[failedSrc, setFailedSrc\]/);
   assert.match(listingImage, /failedSrc === src/);
   assert.match(listingImage, /onError=\{\(\) => setFailedSrc\(src\)\}/);
