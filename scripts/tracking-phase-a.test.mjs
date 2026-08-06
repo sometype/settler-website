@@ -75,9 +75,9 @@ test("contact contract preserves the row while dropping unsafe attribution", () 
     deal: "sale",
   });
   assert.deepEqual(unsafe.notices, [
-    { reason: "unknown_contact_key", key: "phone" },
     { reason: "bad_rail", key: "rail" },
     { reason: "bad_sort", key: "sort" },
+    { reason: "unknown_contact_key", key: "phone" },
   ]);
   assert.ok(!JSON.stringify(unsafe).includes("555123456"));
 });
@@ -103,8 +103,15 @@ test("contact contract hard-rejects only missing listing and unknown surface", (
 // Added at reconciliation (Claude): both of these are fail-soft consequences
 // that the original Phase A hardening did not cover. See TRACKINGDISCUSSION.md
 // § Claude reconciliation, R1 and R2.
-test("a pathological contact payload is bounded, logged once, and still written", () => {
-  const junk = { surface: "sticky_bar", rail: "new", sort: "new", deal: "sale" };
+test("a pathological contact payload has globally bounded safe notices and is still written", () => {
+  const privateKey = `phone_${"5".repeat(5000)}`;
+  const junk = {
+    surface: "sticky_bar",
+    rail: "crafted",
+    sort: "random",
+    deal: "unknown",
+    [privateKey]: "private",
+  };
   for (let i = 0; i < 500; i += 1) junk[`junk_${i}`] = "x".repeat(64);
 
   const result = validatePhaseAEvent("call_tap", 6455, junk);
@@ -113,21 +120,20 @@ test("a pathological contact payload is bounded, logged once, and still written"
   assert.equal(result.error, null);
   assert.deepEqual(result.meta, {
     surface: "sticky_bar",
-    rail: "new",
-    sort: "new",
-    deal: "sale",
+    rail: null,
+    sort: null,
+    deal: null,
   });
-  // R2: notices are capped, so 500 unknown keys cannot become 500 log lines
-  // reachable by an anonymous POST.
-  assert.ok(
-    result.notices.length <= 6,
-    `notices must stay bounded, got ${result.notices.length}`
-  );
+  // R2: every notice category shares one hard cap, so invalid enums plus 500
+  // unknown keys still cannot become an anonymous log flood.
+  assert.equal(result.notices.length, 6);
   assert.equal(
     result.notices.at(-1).reason,
-    "unknown_contact_key_truncated",
+    "sanitization_notices_truncated",
     "truncation must be visible, not silent"
   );
+  assert.ok(!JSON.stringify(result.notices).includes(privateKey));
+  assert.ok(result.notices.some((notice) => notice.key === "invalid_key"));
   // The sanitized meta is small by construction, which is why the route can
   // safely skip the raw 2,048-byte gate for contacts.
   assert.ok(JSON.stringify(result.meta).length < 2048);
@@ -241,6 +247,9 @@ test("compatibility SQL never guesses direct acquisition for legacy starts", asy
   assert.match(sql, /facebook_legacy/);
   assert.match(sql, /google_legacy/);
   assert.match(sql, /unknown_legacy/);
-  assert.match(sql, /NOT DEPLOYED YET/);
+  assert.match(sql, /Phase A cutover: DEPLOYED 2026-08-06/);
+  assert.match(sql, /2026-08-06T13:28:15Z/);
+  assert.match(sql, /session_id not in \('claude_deploy_probe', 'claude_probe'\)/);
+  assert.doesNotMatch(sql, /NOT DEPLOYED YET/);
   assert.doesNotMatch(sql, /else 'direct'/i);
 });

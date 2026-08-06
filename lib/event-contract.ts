@@ -124,8 +124,14 @@ export type ContractIssue = {
   key: string;
 };
 
-/** Cap on sanitization notices per event — see the loop in the contact branch. */
-const MAX_NOTICES = 5;
+/** Hard cap on sanitization notices emitted for one anonymous event. */
+const MAX_NOTICES = 6;
+
+function safeNoticeKey(key: string): string {
+  // Object keys are attacker-controlled too. Keep useful schema-like names, but
+  // never copy an unbounded or potentially sensitive raw key into server logs.
+  return /^[a-z][a-z0-9_]{0,39}$/.test(key) ? key : "invalid_key";
+}
 
 export type PhaseAEventContract = {
   meta: Record<string, unknown>;
@@ -160,23 +166,10 @@ export function validatePhaseAEvent(
       return hardError({}, "bad_surface", "surface");
     }
 
-    const notices: ContractIssue[] = [];
-    // ⚠️ Bounded on purpose. Fail-soft means a pathological client can send
-    // thousands of unknown keys and still get a 200 — without this cap that
-    // becomes one console.warn per key in the route, i.e. a log flood reachable
-    // by anon POST. We only need to know THAT unknown keys arrived and a sample
-    // of which; the row is written either way.
-    for (const key of Object.keys(meta)) {
-      if (CONTACT_KEYS.has(key)) continue;
-      if (notices.length >= MAX_NOTICES) {
-        notices.push({ reason: "unknown_contact_key_truncated", key: "…" });
-        break;
-      }
-      notices.push({ reason: "unknown_contact_key", key });
-    }
     const rail = meta.rail === null || isOneOf(meta.rail, ANALYTICS_RAILS) ? meta.rail : null;
     const sort = isOneOf(meta.sort, ANALYTICS_SORTS) ? meta.sort : null;
     const deal = isOneOf(meta.deal, ANALYTICS_DEALS) ? meta.deal : null;
+    const notices: ContractIssue[] = [];
     if (meta.rail !== undefined && meta.rail !== null && rail === null) {
       notices.push({ reason: "bad_rail", key: "rail" });
     }
@@ -185,6 +178,16 @@ export function validatePhaseAEvent(
     }
     if (meta.deal !== undefined && deal === null) {
       notices.push({ reason: "bad_deal", key: "deal" });
+    }
+    for (const key of Object.keys(meta)) {
+      if (CONTACT_KEYS.has(key)) continue;
+      // Preserve the final slot as an explicit truncation signal. This bounds
+      // both the returned notice array and the route's warning loop.
+      if (notices.length >= MAX_NOTICES - 1) {
+        notices.push({ reason: "sanitization_notices_truncated", key: "truncated" });
+        break;
+      }
+      notices.push({ reason: "unknown_contact_key", key: safeNoticeKey(key) });
     }
 
     return {
