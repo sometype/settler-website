@@ -88,11 +88,16 @@ export function FilterBar({
 }) {
   const router = useRouter();
   const params = useSearchParams();
+  const paramsKey = params.toString();
   const [isPending, startTransition] = useTransition();
   const [pendingAction, setPendingAction] = useState<
     "deal" | "search" | "filter" | "clear" | null
   >(null);
   const [pendingDeal, setPendingDeal] = useState<"rent" | "sale" | null>(null);
+  // `useTransition` can finish as soon as router.push is scheduled, before the
+  // new server-rendered URL arrives. Keep visible feedback alive until the URL
+  // actually changes; otherwise Search can look idle for the whole request.
+  const [navigationOrigin, setNavigationOrigin] = useState<string | null>(null);
   const districtListId = useId();
   const districtPanelRef = useRef<HTMLDivElement>(null);
 
@@ -175,6 +180,18 @@ export function FilterBar({
     districtsRef.current = districts;
   }, [districts]);
 
+  useEffect(() => {
+    if (navigationOrigin === null || paramsKey !== navigationOrigin) return;
+    // A failed navigation must not permanently lock the controls. Normal
+    // production renders complete well inside this escape window.
+    const escape = window.setTimeout(() => {
+      setNavigationOrigin(null);
+      setPendingAction(null);
+      setPendingDeal(null);
+    }, 12_000);
+    return () => window.clearTimeout(escape);
+  }, [navigationOrigin, paramsKey]);
+
   // Close the district panel on outside click / Escape.
   useEffect(() => {
     if (!districtOpen) return;
@@ -219,7 +236,9 @@ export function FilterBar({
   // FilterBar (`deal` is in page.tsx's key), but correctness must not depend on
   // that implementation detail: a failed navigation or future key change
   // cleanly falls back to the URL instead of leaving a stale selected tab.
-  const activeDeal = isPending && pendingDeal ? pendingDeal : urlDeal;
+  const navigationPending =
+    isPending || (navigationOrigin !== null && navigationOrigin === paramsKey);
+  const activeDeal = navigationPending && pendingDeal ? pendingDeal : urlDeal;
 
   function apply(
     overrides: Record<string, string>,
@@ -255,8 +274,9 @@ export function FilterBar({
     next.delete("view");
     // Clicking an already-active control used to start a full server render
     // with no visible outcome. That is indistinguishable from a stuck button.
-    if (next.toString() === params.toString()) return;
+    if (next.toString() === paramsKey) return;
     setPendingAction(action);
+    setNavigationOrigin(paramsKey);
     startTransition(() => router.push(next.size ? `/?${next.toString()}` : "/"));
   }
 
@@ -315,9 +335,9 @@ export function FilterBar({
       }}
     >
       <span className="sr-only" aria-live="polite" aria-atomic="true">
-        {isPending && pendingAction === "deal"
+        {navigationPending && pendingAction === "deal"
           ? `${pendingDeal === "rent" ? "ქირავდება" : "იყიდება"} იტვირთება`
-          : isPending && pendingAction === "search"
+          : navigationPending && pendingAction === "search"
             ? "ძიების შედეგები იტვირთება"
             : ""}
       </span>
@@ -332,8 +352,8 @@ export function FilterBar({
             key={value}
             type="button"
             aria-pressed={activeDeal === value}
-            aria-busy={isPending && pendingAction === "deal" && pendingDeal === value}
-            disabled={isPending}
+            aria-busy={navigationPending && pendingAction === "deal" && pendingDeal === value}
+            disabled={navigationPending}
             // Leaving sale must drop `frame` in the SAME navigation, or a rent
             // URL keeps a parameter with no chip to show or clear it.
             onClick={() => {
@@ -357,7 +377,7 @@ export function FilterBar({
                 : "bg-card text-mink ring-sand-strong hover:ring-sand-strong"
             }`}
           >
-            {isPending && pendingAction === "deal" && pendingDeal === value && (
+            {navigationPending && pendingAction === "deal" && pendingDeal === value && (
               <span
                 className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
                 aria-hidden="true"
@@ -563,10 +583,11 @@ export function FilterBar({
         <div className="col-span-2 flex items-end gap-2 sm:col-span-3 lg:col-span-1">
           <button
             type="submit"
-            disabled={isPending}
+            aria-busy={navigationPending && pendingAction === "search"}
+            disabled={navigationPending}
             className="min-w-[5.5rem] rounded bg-ink px-4 py-2 text-sm font-semibold text-card transition hover:bg-pine disabled:cursor-wait disabled:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
-            {isPending && pendingAction === "search" ? "იძებნება…" : "ძებნა"}
+            {navigationPending && pendingAction === "search" ? "იძებნება…" : "ძებნა"}
           </button>
           {hasFilters && (
             <button
@@ -602,13 +623,15 @@ export function FilterBar({
                   },
                 });
                 setPendingAction("clear");
+                setNavigationOrigin(paramsKey);
                 // Clearing secondary filters must not silently switch rent
                 // back to the default sale tab. Keep the chosen catalogue;
                 // all actual narrowing axes are still removed.
                 const clearHref = deal === "rent" ? "/?deal=rent" : "/";
                 startTransition(() => router.push(clearHref));
               }}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink"
+              disabled={navigationPending}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-mink transition hover:text-ink disabled:cursor-wait disabled:opacity-70"
             >
               გასუფთავება
             </button>
