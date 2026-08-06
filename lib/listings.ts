@@ -18,7 +18,7 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
  */
 // Kept as one literal (not a joined array) so supabase-js can infer row types.
 const LISTING_COLUMNS =
-  "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone";
+  "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone, street_display";
 
 /**
  * Client-safe image columns: enough to build the /img path, nothing more.

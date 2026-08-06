@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { fetchListing, formatPrice, pricePerSqm } from "@/lib/listings";
 import { stripHtml } from "@/lib/text";
 import { districtLabel } from "@/lib/districts";
+import { trimDistrictFromLocation } from "@/lib/location";
 import {
   conditionLabel,
   statusLabel,
@@ -121,6 +122,15 @@ export default async function ListingPage({
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, deal);
   const description = listing.description_ka?.trim() || stripHtml(listing.description);
   const district = districtLabel(listing.district_code, listing.district);
+  // ⚠️ LABELLED `მდებარეობა` (location), NOT `ქუჩა` (street). street_display
+  // deliberately carries microdistricts and settlements as well as streets —
+  // `დიღომი 8`, `თემქა - ზღვისუბანი X კვარტ.` — and measured 2026-08-05 that is
+  // ~14% of live values, so a "street" label would be false on one card in
+  // seven. The district's own name is trimmed out so the two rows do not stutter
+  // ("უბანი: დიღმის მასივი" above "მდებარეობა: დიღმის მასივი - III კვარტალი").
+  const locationFact = listing.street_display
+    ? trimDistrictFromLocation(listing.street_display, district)
+    : null;
   // roomsAltKa maps studio → სტუდიო; the old `${rooms}-ოთახიანი` left English
   // "studio" in the H1 and every gallery alt on detail (card surfaces were fixed
   // earlier; this string was the remaining leak).
@@ -274,6 +284,7 @@ export default async function ListingPage({
             <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
+              <Fact label="მდებარეობა" value={locationFact} />
               <Fact label="ოთახები" value={roomsLabelKa(listing.rooms)} />
               <Fact
                 label="ფართი"
@@ -342,6 +353,7 @@ export default async function ListingPage({
             <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
             <dl className="mt-2">
               <Fact label="უბანი" value={district} />
+              <Fact label="მდებარეობა" value={locationFact} />
               <Fact label="ოთახები" value={roomsLabelKa(listing.rooms)} />
               <Fact
                 label="ფართი"

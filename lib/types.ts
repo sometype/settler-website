@@ -31,6 +31,14 @@ export interface Listing {
    * fallback for unmapped codes.
    */
   district_code: string | null;
+  /**
+   * Publishable street or place NAME — never a house number. The owner's phone
+   * is public, so street + number + phone would be a doorstep rather than a
+   * listing; `normalize_lib.street_display()` enforces that upstream and fails
+   * closed. Often a microdistrict rather than a street, which is why the UI
+   * labels it `მდებარეობა` and not `ქუჩა`. See STREETDISCUSSION.md.
+   */
+  street_display?: string | null;
   rooms: string | null;
   price_usd: number | null;
   /**

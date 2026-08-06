@@ -105,6 +105,14 @@ export function RailCard({
     : null;
   const stampIso = priceDrop?.dropAt ?? listing.first_seen_at;
   const district = districtLabel(listing.district_code, listing.district);
+  // ⚠️ NO STREET ON RAIL CARDS — TRIED IT, IT COSTS MORE THAN IT GIVES.
+  // The rail fact row is ONE truncating line at 11.5px carrying district +
+  // rooms + area. Folding the street into the district slot pushed rooms and m²
+  // off the card completely: "ვაკე · ფალიაშვილი ზ. ქ…" with no size at all.
+  // A rail is a scan surface — how big and how many rooms beats which street,
+  // and the street is one tap away on the card the rail links to. Verified in
+  // the browser at 375px before reverting. Feed cards have a separate line for
+  // the district and do have room; see ListingCard.
   const url = image ? resolveImageUrl(image) : null;
   const pricePlain = price ? price.replace(" / თვეში", "") : null;
   const prevPlain = prevPrice ? prevPrice.replace(" / თვეში", "") : null;

@@ -3,6 +3,7 @@ import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { formatPrice, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
+import { locationLine } from "@/lib/location";
 import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
 import { ListingImage } from "./ListingImage";
@@ -52,6 +53,10 @@ export function ListingCard({
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, listing.deal_type);
   const district = districtLabel(listing.district_code, listing.district);
+  // District plus the street when it adds something. Falls back to the district
+  // alone — never a placeholder, so a listing without a usable address looks
+  // exactly as it did before streets existed.
+  const location = locationLine(district, listing.street_display);
   const checkedLabel = listing.last_checked_at
     ? relativeTimeKa(listing.last_checked_at)
     : null;
@@ -129,8 +134,8 @@ export function ListingCard({
               </p>
             )}
           </div>
-          {district && (
-            <p className="mt-1.5 truncate text-[13px] font-medium text-ink">{district}</p>
+          {location && (
+            <p className="mt-1.5 truncate text-[13px] font-medium text-ink">{location}</p>
           )}
           <p className="mt-0.5 min-w-0 truncate text-[12px] text-mink">
             {[
