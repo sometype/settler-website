@@ -1,8 +1,20 @@
 -- READ-ONLY ANALYSIS — this file is not a migration and applies no schema change.
 --
--- Phase A cutover: NOT DEPLOYED YET. Replace this line with the UTC deployment
--- timestamp before interpreting a mixed old/new window. Events cannot be
--- backfilled, so an undated cutover makes every cross-boundary number a guess.
+-- Phase A cutover: DEPLOYED 2026-08-06. Commit `e81effb` pushed to main at
+-- 13:27:38Z; production still served the old code at 13:27:55Z and served the
+-- new code by 13:28:15Z. **Treat 2026-08-06T13:28:15Z as the cutover** and any
+-- row between 13:27:38Z and 13:28:15Z as indeterminate. Events cannot be
+-- backfilled, so this timestamp is the only thing that makes a cross-boundary
+-- number honest.
+--
+-- ⚠️ PROBE ROWS — EXCLUDE THEM (board law §3.8).
+-- `claude_deploy_probe` / `claude_probe` are deploy-verification sessions. All
+-- but one were invalid and wrote nothing, but id=127007 (`call_tap`,
+-- listing_id NULL, 13:27:55Z) WAS accepted by the pre-cutover code and is a
+-- manufactured contact row — trap 27, caused by using a contact-shaped payload
+-- to detect the rollout. It is malformed (null listing) so anything joining
+-- `listings` already drops it, but raw contact counts must exclude it by
+-- session_id. Next time, detect a cutover with a read-only signal, not a write.
 --
 -- Owner this round: Claude (see TRACKINGDISCUSSION.md § Claude orchestration,
 -- file ownership table O3). GPT owns the TypeScript side of the same contract;
@@ -74,6 +86,7 @@ select
 from public.site_events
 where event_type in ('call_tap', 'wa_tap')
   and coalesce(meta ->> 'env', '') <> 'preview'
+  and session_id not in ('claude_deploy_probe', 'claude_probe')   -- probe rows, see header
 group by 1, 2, 3, 4, 5
 order by contacts desc;
 
@@ -98,6 +111,7 @@ select
 from public.site_events
 where event_type in ('call_tap', 'wa_tap')
   and coalesce(meta ->> 'env', '') <> 'preview'
+  and session_id not in ('claude_deploy_probe', 'claude_probe')   -- probe rows, see header
   and created_at >= now() - interval '24 hours';
 
 
