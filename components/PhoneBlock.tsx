@@ -1,10 +1,13 @@
 "use client";
 
 import { trackEvent } from "@/lib/events";
+import type { ContactAttribution } from "@/lib/event-contract";
 
 /**
  * Buyer → seller contact. Shows real number when the public view provides it.
- * Taps fire first-party beacons (call_tap / wa_tap) — proxy for "time to contact".
+ * Taps fire first-party beacons (call_tap / wa_tap) with the current page's
+ * whitelisted rail/sort/deal context — proxy for "time to contact" without a
+ * stale sessionStorage attribution chain.
  */
 
 function digitsOnly(phone: string): string {
@@ -40,10 +43,12 @@ export function PhoneBlock({
   hasPhone,
   phone,
   listingId,
+  attribution,
 }: {
   hasPhone: boolean;
   phone?: string | null;
-  listingId?: number;
+  listingId: number;
+  attribution: ContactAttribution;
 }) {
   const number = phone?.trim() || null;
   const show = Boolean(hasPhone && number);
@@ -62,7 +67,7 @@ export function PhoneBlock({
             onClick={() =>
               trackEvent("call_tap", {
                 listingId,
-                meta: { surface: "phone_block" },
+                meta: { surface: "phone_block", ...attribution },
               })
             }
             // Ink fill = the one loud control (matches card call). Moss stays
@@ -78,7 +83,7 @@ export function PhoneBlock({
             onClick={() =>
               trackEvent("wa_tap", {
                 listingId,
-                meta: { surface: "phone_block" },
+                meta: { surface: "phone_block", ...attribution },
               })
             }
             className="flex w-full items-center justify-center rounded border border-sand-strong bg-card px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-ink"

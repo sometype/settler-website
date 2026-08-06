@@ -21,6 +21,11 @@ import { DealBadge } from "@/components/Badges";
 import { AgeStamp } from "@/components/AgeStamp";
 import { AmenityIcon } from "@/components/AmenityIcon";
 import type { DescFacts } from "@/lib/types";
+import {
+  ANALYTICS_RAILS,
+  type AnalyticsRail,
+  type ContactAttribution,
+} from "@/lib/event-contract";
 
 /**
  * Rental terms the description worker read out of the owner's own text.
@@ -63,15 +68,7 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
 // ყველა channels.
 // They are separate on purpose — see the note on ListingCard's `src` prop.
 // A value missing from this set records rail:null and the taps vanish.
-const RAIL_SOURCES = new Set([
-  "new",
-  "hot",
-  "hot_all",
-  "intake_all",
-  "district",
-  "price_drop",
-  "value",
-]);
+const RAIL_SOURCES = new Set<string>(ANALYTICS_RAILS);
 
 export default async function ListingPage({
   params,
@@ -86,7 +83,8 @@ export default async function ListingPage({
 
   const { src, sort } = await searchParams;
   const srcValue = Array.isArray(src) ? src[0] : src;
-  const rail = srcValue && RAIL_SOURCES.has(srcValue) ? srcValue : null;
+  const rail: AnalyticsRail | null =
+    srcValue && RAIL_SOURCES.has(srcValue) ? (srcValue as AnalyticsRail) : null;
   // The ordering the visitor opened this from. Whitelisted like `rail` — an
   // unknown value records `null` rather than passing a stranger's string into
   // analytics. Absent means the default newest-first feed.
@@ -117,6 +115,11 @@ export default async function ListingPage({
   if (!listing) notFound();
 
   const deal = listing.deal_type === "sale" ? "sale" : "rent";
+  const contactAttribution: ContactAttribution = {
+    rail,
+    sort: openSort,
+    deal,
+  };
   const dealLabel = deal === "sale" ? "იყიდება" : "ქირავდება";
   const price = formatPrice(listing.price_usd, deal);
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, deal);
@@ -269,6 +272,7 @@ export default async function ListingPage({
               hasPhone={listing.has_phone}
               phone={listing.phone}
               listingId={listing.id}
+              attribution={contactAttribution}
             />
           </div>
 
@@ -348,6 +352,7 @@ export default async function ListingPage({
             hasPhone={listing.has_phone}
             phone={listing.phone}
             listingId={listing.id}
+            attribution={contactAttribution}
           />
           <div className="rounded-lg border border-sand bg-card p-4">
             <h2 className="text-sm font-semibold text-ink">დეტალები</h2>
@@ -372,7 +377,11 @@ export default async function ListingPage({
       </div>
 
       {canCall && phone && (
-        <StickyContactBar phone={phone} listingId={listing.id} />
+        <StickyContactBar
+          phone={phone}
+          listingId={listing.id}
+          attribution={contactAttribution}
+        />
       )}
     </article>
   );

@@ -3,6 +3,12 @@
  * Events land in public.site_events for funnel measurement next to inventory.
  */
 
+import type {
+  AcquisitionMeta,
+  AcquisitionSource,
+  UtmMedium,
+} from "@/lib/event-contract";
+
 export type SiteEventType =
   | "call_tap"
   | "wa_tap"
@@ -29,6 +35,77 @@ export type SiteEventType =
 
 const SESSION_KEY = "mp_sid";
 const SESSION_START_KEY = "mp_ss";
+
+function normalizeHost(raw: string): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).hostname.toLowerCase().replace(/^www\./, "").slice(0, 120) || null;
+  } catch {
+    return null;
+  }
+}
+
+function sourceFromLabel(raw: string | null): AcquisitionSource | null {
+  const source = raw?.trim().toLowerCase() ?? "";
+  if (!source) return null;
+  if (["facebook", "fb", "meta"].includes(source)) return "facebook";
+  if (["instagram", "ig"].includes(source)) return "instagram";
+  if (["google", "google_ads", "adwords"].includes(source)) return "google";
+  return "other";
+}
+
+function sourceFromHost(host: string | null): AcquisitionSource | null {
+  if (!host) return null;
+  if (host === "facebook.com" || host.endsWith(".facebook.com")) return "facebook";
+  if (host === "instagram.com" || host.endsWith(".instagram.com")) return "instagram";
+  if (host === "google.com" || host.endsWith(".google.com")) return "google";
+  return "referral";
+}
+
+function normalizeMedium(raw: string | null): UtmMedium | null {
+  const medium = raw?.trim().toLowerCase().replace(/[- ]/g, "_") ?? "";
+  if (!medium) return null;
+  if (medium === "cpc" || medium === "ppc") return "cpc";
+  if (medium === "paid_social" || medium === "paidsocial") return "paid_social";
+  if (["social", "organic", "referral", "email", "display"].includes(medium)) {
+    return medium as UtmMedium;
+  }
+  return "other";
+}
+
+/** Privacy-safe acquisition facts: enums/booleans + hostname, never raw IDs or campaign text. */
+export function acquisitionMeta(
+  pathname: string,
+  search: string,
+  referrer: string,
+  currentHost: string
+): AcquisitionMeta {
+  const params = new URLSearchParams(search);
+  const referrerHost = normalizeHost(referrer);
+  const ownHost = currentHost.toLowerCase().replace(/^www\./, "");
+  const externalReferrer = referrerHost && referrerHost !== ownHost ? referrerHost : null;
+  const medium = normalizeMedium(params.get("utm_medium"));
+  const hasFbclid = params.has("fbclid");
+  const hasGclid = params.has("gclid");
+  const referrerSource = sourceFromHost(externalReferrer);
+  const source =
+    sourceFromLabel(params.get("utm_source")) ??
+    // Meta uses fbclid on Instagram too. A known referrer host is therefore
+    // stronger evidence than the shared click-id family.
+    (referrerSource && referrerSource !== "referral" ? referrerSource : null) ??
+    (hasFbclid ? "facebook" : null) ??
+    (hasGclid ? "google" : null) ??
+    referrerSource ??
+    "unattributed";
+
+  return {
+    entry: pathname,
+    acq_source: source,
+    paid_click: hasFbclid || hasGclid || medium === "cpc" || medium === "paid_social",
+    utm_medium: medium,
+    referrer_host: externalReferrer,
+  };
+}
 
 function sessionId(): string {
   if (typeof window === "undefined") return "";
@@ -65,7 +142,9 @@ export function trackEvent(
     event_type: eventType,
     listing_id: opts?.listingId ?? null,
     session_id: sessionId(),
-    path: window.location.pathname + window.location.search,
+    // Query values are unbounded user input. Product context belongs in each
+    // event's bounded meta contract, never in this transport field.
+    path: window.location.pathname,
     meta: opts?.meta ?? {},
   });
   try {
@@ -111,8 +190,11 @@ export function markSessionStart(): void {
     // loop. Losing the guard is better than losing the event entirely.
   }
   trackEvent("session_start", {
-    // Pathname only — no query string. The query can carry a visitor's exact
-    // search, and an entry marker does not need it.
-    meta: { entry: window.location.pathname },
+    meta: acquisitionMeta(
+      window.location.pathname,
+      window.location.search,
+      document.referrer,
+      window.location.hostname
+    ),
   });
 }

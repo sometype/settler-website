@@ -1,6 +1,7 @@
 "use client";
 
 import { trackEvent } from "@/lib/events";
+import type { ContactAttribution } from "@/lib/event-contract";
 import { displayPhone } from "./PhoneBlock";
 
 function digitsOnly(phone: string): string {
@@ -28,9 +29,11 @@ function waHref(phone: string): string {
 export function StickyContactBar({
   phone,
   listingId,
+  attribution,
 }: {
   phone: string;
   listingId: number;
+  attribution: ContactAttribution;
 }) {
   return (
     <div
@@ -47,7 +50,7 @@ export function StickyContactBar({
           onClick={() =>
             trackEvent("call_tap", {
               listingId,
-              meta: { surface: "sticky_bar" },
+              meta: { surface: "sticky_bar", ...attribution },
             })
           }
           className="flex flex-1 items-center justify-center rounded bg-ink py-3 text-sm font-bold text-card"
@@ -61,7 +64,7 @@ export function StickyContactBar({
           onClick={() =>
             trackEvent("wa_tap", {
               listingId,
-              meta: { surface: "sticky_bar" },
+              meta: { surface: "sticky_bar", ...attribution },
             })
           }
           className="flex flex-1 items-center justify-center rounded border border-sand-strong bg-card py-3 text-sm font-semibold text-ink"

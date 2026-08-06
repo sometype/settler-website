@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { FeedSort } from "@/lib/types";
 import { trackEvent } from "@/lib/events";
+import { parseDistrictCodes } from "@/lib/filters";
 
 const OPTIONS: { value: FeedSort; label: string }[] = [
   { value: "new", label: "ახალი" },
@@ -23,6 +24,10 @@ export function SortBar({ active }: { active: FeedSort }) {
   const [, startTransition] = useTransition();
 
   function go(next: FeedSort) {
+    const rawDeal = params.get("deal");
+    const deal = rawDeal === "rent" ? "rent" : "sale";
+    const rawView = params.get("view");
+    const view = rawView === "hot" || rawView === "intake" ? rawView : null;
     // ⚠️ Sort is NOT a filter, so it never fires `filter_apply` — which means
     // that on the default feed, choosing a sort otherwise records
     // NOTHING. Sort adoption has only ever been visible where sale happened
@@ -34,13 +39,14 @@ export function SortBar({ active }: { active: FeedSort }) {
         meta: {
           from: active,
           to: next,
-          deal: params.get("deal") ?? "sale",
+          deal,
           has_filters: Boolean(
             params.get("district") || params.get("min") || params.get("max") ||
             params.get("mina") || params.get("maxa") || params.get("rooms") ||
             params.get("frame") || (params.get("deal") && params.get("deal") !== "sale")
           ),
-          view: params.get("view"),
+          view,
+          district_count: parseDistrictCodes(params.getAll("district")).length,
         },
       });
     }

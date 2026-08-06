@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ListingImage as ListingImageRow } from "@/lib/types";
 import { resolveImageUrl } from "@/lib/images";
 import { trackEvent } from "@/lib/events";
+import type { CardPhotoContext } from "@/lib/event-contract";
 import { ListingImage } from "./ListingImage";
 
 const EXPOSURE_KEY = "mp_card_photo_exposure";
@@ -69,12 +70,14 @@ export function CardPhotoPeek({
   images,
   alt,
   href,
+  eventContext,
   children,
 }: {
   listingId: number;
   images: ListingImageRow[];
   alt: string;
   href: string;
+  eventContext: CardPhotoContext;
   children?: ReactNode;
 }) {
   const slides = images.slice(0, 3);
@@ -99,14 +102,14 @@ export function CardPhotoPeek({
         if (!claimExposure()) return;
         trackEvent("card_photo_exposure", {
           listingId,
-          meta: { n: slides.length, surface: "feed" },
+          meta: { n: slides.length, surface: "feed", ...eventContext },
         });
       },
       { threshold: 0.5 }
     );
     observer.observe(target);
     return () => observer.disconnect();
-  }, [listingId, slides.length]);
+  }, [eventContext, listingId, slides.length]);
 
   useEffect(
     () => () => {
@@ -134,7 +137,13 @@ export function CardPhotoPeek({
     );
     trackEvent("card_photo_swipe", {
       listingId,
-      meta: { from: previous, to: next, n: slides.length, surface: "feed" },
+      meta: {
+        from: previous,
+        to: next,
+        n: slides.length,
+        surface: "feed",
+        ...eventContext,
+      },
     });
   }
 

@@ -23,6 +23,8 @@ export function ListingCard({
   images,
   src,
   sort,
+  page,
+  hasFilters,
 }: {
   listing: Listing;
   images: ListingImageRow[];
@@ -47,6 +49,9 @@ export function ListingCard({
    * exact. Omitted for the default `new` so ordinary URLs stay clean.
    */
   sort?: string;
+  /** Bounded feed context compensating for pathname-only event transport. */
+  page: number;
+  hasFilters: boolean;
 }) {
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, listing.deal_type);
@@ -70,6 +75,11 @@ export function ListingCard({
         images={images}
         alt={roomsAltKa(listing.rooms, district ?? "თბილისი")}
         href={href}
+        eventContext={{
+          deal: listing.deal_type === "sale" ? "sale" : "rent",
+          page: Math.max(1, Math.min(999, Math.floor(page))),
+          has_filters: hasFilters,
+        }}
       >
         <div className="absolute left-1.5 top-1.5 z-10 rounded bg-card/90 px-1.5 py-0.5 backdrop-blur-[2px]">
           <AgeStamp
@@ -168,7 +178,17 @@ export function ListingCard({
       {/* Call lives outside the link — valid HTML, no preventDefault gymnastics. */}
       {listing.has_phone && (
         <div className="mt-auto p-2.5 pt-2">
-          <CardCallButton listingId={listing.id} hasPhone={listing.has_phone} />
+          <CardCallButton
+            listingId={listing.id}
+            hasPhone={listing.has_phone}
+            attribution={{
+              rail: src ?? null,
+              sort:
+                sort === "price_asc" || sort === "price_desc" ? sort : "new",
+              deal: listing.deal_type === "sale" ? "sale" : "rent",
+            }}
+            fallbackHref={href}
+          />
         </div>
       )}
     </article>

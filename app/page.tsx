@@ -66,6 +66,7 @@ async function Feed({
 }) {
   const filters = parseFilters(searchParams);
   const meta = filterMeta(filters);
+  const hasFilters = hasActiveFilters(filters);
 
   let result;
   try {
@@ -105,7 +106,7 @@ async function Feed({
       >
         <FeedBeacon
           empty
-          hasFilters={hasActiveFilters(filters)}
+          hasFilters={hasFilters}
           meta={{ ...meta, reason: "page_out_of_range", total: result.total }}
         />
       </EmptyState>
@@ -119,7 +120,7 @@ async function Feed({
         searchParams={searchParams}
         reason={filters.view === "hot" ? "hot" : "no_match"}
       >
-        <FeedBeacon empty hasFilters={hasActiveFilters(filters)} meta={{ ...meta, total: 0 }} />
+        <FeedBeacon empty hasFilters={hasFilters} meta={{ ...meta, total: 0 }} />
       </EmptyState>
     );
   }
@@ -131,13 +132,13 @@ async function Feed({
     <>
       <FeedBeacon
         empty={false}
-        hasFilters={hasActiveFilters(filters)}
+        hasFilters={hasFilters}
         meta={{ ...meta, total: result.total }}
       />
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-mink">
           {result.total.toLocaleString("ka-GE")} განცხადება
-          {hasActiveFilters(filters) ? " შენს ფილტრს ემთხვევა" : ""}
+          {hasFilters ? " შენს ფილტრს ემთხვევა" : ""}
         </p>
         {showSort && <SortBar active={filters.sort} />}
       </div>
@@ -157,6 +158,8 @@ async function Feed({
                   : undefined
             }
             sort={filters.sort}
+            page={result.page}
+            hasFilters={hasFilters}
           />
         ))}
       </div>

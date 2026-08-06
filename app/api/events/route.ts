@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { validatePhaseAEvent } from "@/lib/event-contract";
 
 const ALLOWED = new Set([
   "call_tap",
@@ -76,19 +77,44 @@ export async function POST(req: Request) {
 
   const sessionId =
     typeof body.session_id === "string" ? body.session_id.slice(0, 80) : null;
-  const path = typeof body.path === "string" ? body.path.slice(0, 500) : null;
+  const rawPath = typeof body.path === "string" ? body.path : null;
+  // Phase A privacy cutover: queries are unbounded user input. Re-strip every
+  // event server-side so old cached clients cannot keep writing them during
+  // rollout even after the new client switches to pathname-only transport.
+  const path = rawPath ? rawPath.split(/[?#]/, 1)[0].slice(0, 500) : null;
   const meta =
     body.meta && typeof body.meta === "object" && !Array.isArray(body.meta)
       ? body.meta
       : {};
   // session_id/path are length-capped above; cap meta too, or this endpoint
   // is an open invitation to bloat the free-tier DB with megabyte blobs.
-  if (JSON.stringify(meta).length > 2048) {
+  //
+  // ⚠️ I3 BEATS I7 FOR CONTACT EVENTS — ruled at reconciliation, on GPT's own
+  // flag. The contact contract returns a fixed {surface, rail, sort, deal}
+  // shape, so an oversized raw contact payload can never reach the DB no matter
+  // what it contained. Capping it BEFORE sanitization therefore protects
+  // nothing and deletes an unbackfillable conversion — precisely the failure
+  // C2 exists to prevent. Contacts are sanitized first and are bounded by
+  // construction; every other event type keeps the raw cap unchanged.
+  const isContact = eventType === "call_tap" || eventType === "wa_tap";
+  if (!isContact && JSON.stringify(meta).length > 2048) {
     return NextResponse.json({ ok: false, error: "meta_too_big" }, { status: 400 });
+  }
+  const contract = validatePhaseAEvent(eventType, listingId, meta);
+  for (const notice of contract.notices) {
+    // Key/reason only. The rejected value is exactly what must not reach DB or logs.
+    console.warn("[events] sanitized", notice.reason, notice.key);
+  }
+  if (contract.error) {
+    console.warn("[events] rejected", contract.error.reason, contract.error.key);
+    return NextResponse.json(
+      { ok: false, error: contract.error.reason },
+      { status: 400 }
+    );
   }
   // Stamped AFTER the size check so a caller cannot use it to dodge the cap,
   // and last so a client-supplied `env` can never overwrite the real one.
-  const taggedMeta = isPreview ? { ...meta, env: "preview" } : meta;
+  const taggedMeta = isPreview ? { ...contract.meta, env: "preview" } : contract.meta;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trackEvent } from "@/lib/events";
+import type { ContactAttribution } from "@/lib/event-contract";
 
 /**
  * Call straight from the feed card. The measured funnel is the reason this
@@ -12,16 +13,19 @@ import { trackEvent } from "@/lib/events";
  * from /api/phone/{id}. See that route for why (a tel: link per card would make
  * the feed a harvestable directory of owners' numbers).
  *
- * Fires call_tap with surface=card so the two call surfaces stay separable in
- * the funnel; without that, moving the button would silently rewrite the meaning
- * of the existing call_tap series.
+ * Fires call_tap with surface=card plus the current feed context so the contact
+ * can be joined to its channel without copying stale state through storage.
  */
 export function CardCallButton({
   listingId,
   hasPhone,
+  attribution,
+  fallbackHref,
 }: {
   listingId: number;
   hasPhone: boolean;
+  attribution: ContactAttribution;
+  fallbackHref: string;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -33,7 +37,10 @@ export function CardCallButton({
     if (busy) return;
     setBusy(true);
 
-    trackEvent("call_tap", { listingId, meta: { surface: "card" } });
+    trackEvent("call_tap", {
+      listingId,
+      meta: { surface: "card", ...attribution },
+    });
 
     try {
       const res = await fetch(`/api/phone/${listingId}`, { cache: "no-store" });
@@ -50,7 +57,7 @@ export function CardCallButton({
       setBusy(false);
     }
     // No number resolved: send them to the listing rather than dead-ending.
-    window.location.href = `/listing/${listingId}`;
+    window.location.href = fallbackHref;
   }
 
   return (
