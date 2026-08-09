@@ -15,10 +15,28 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
  * Explicit column list, never `*`. `source`, `source_id` and `url` exist on the
  * table but must not reach the client, and an explicit list keeps that true
  * regardless of what the view happens to expose.
+ *
+ * ⚠️ Two lists, on purpose. `description` and `description_ka` are ~1,309 bytes
+ * per row against ~450 for everything a card actually renders, and NO card
+ * reads either one — only the detail page does. Selecting them on feed and rail
+ * queries put both full texts on the wire 24 rows at a time for every visitor,
+ * and was the leading suspect in the 2026-08-09 egress overage that starved
+ * PostgREST. Measured against live PostgREST on four 24-row pages, dropping
+ * them cuts a feed page from ~44-57 KB to ~22-23 KB — **50-59%**, i.e. card
+ * queries roughly halve. (The raw-column ratio suggests ~74%; JSON key overhead
+ * on the other 27 columns is why the real saving is lower. Quote the measured
+ * number.) Card surfaces take LISTING_COLUMNS; the detail fetch takes
+ * DETAIL_COLUMNS.
+ *
+ * If a card ever needs description text, add a truncated/derived column to the
+ * view — do not move the full texts back into the card list.
  */
 // Kept as one literal (not a joined array) so supabase-js can infer row types.
 const LISTING_COLUMNS =
-  "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description, description_ka, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone, street_display";
+  "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone, street_display";
+
+/** Detail page only: the card columns plus the two full description texts. */
+const DETAIL_COLUMNS = `${LISTING_COLUMNS}, description, description_ka`;
 
 /**
  * Client-safe image columns: enough to build the /img path, nothing more.
@@ -843,7 +861,7 @@ export async function fetchListing(
 
   const { data, error } = await supabase
     .from("listings_public")
-    .select(LISTING_COLUMNS)
+    .select(DETAIL_COLUMNS)
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`Failed to load listing: ${error.message}`);
