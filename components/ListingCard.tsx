@@ -1,9 +1,9 @@
 import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
-import { formatPrice, pricePerSqm } from "@/lib/listings";
+import { formatPrice, isHonestRecentSaleDrop, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
 import { locationLine } from "@/lib/location";
-import { roomsAltKa, roomsLabelKa } from "@/lib/labels";
+import { knownConditionLabel, roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
 import { CardPhotoPeek } from "./CardPhotoPeek";
 import { AgeStamp } from "./AgeStamp";
@@ -63,6 +63,12 @@ export function ListingCard({
   const checkedLabel = listing.last_checked_at
     ? relativeTimeKa(listing.last_checked_at)
     : null;
+  // Feed card v2 (FEEDCARDDISCUSSION): the two decision tokens, both fail-soft.
+  // Condition uses the STRICT label — an unmapped future source value hides
+  // rather than leaking English onto every card. The badge uses the one
+  // canonical sale-drop predicate shared with the rail; never re-derive it.
+  const condition = knownConditionLabel(listing.condition);
+  const showDropBadge = isHonestRecentSaleDrop(listing);
   const q = new URLSearchParams();
   if (src) q.set("src", src);
   if (sort && sort !== "new") q.set("sort", sort);
@@ -101,16 +107,23 @@ export function ListingCard({
         <div className="flex flex-1 flex-col p-2.5 pb-0">
           <div className={listing.deal_type === "sale" ? "min-h-9" : undefined}>
             {price ? (
-              <p className="text-[17px] font-bold leading-none text-ink">
+              <p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[17px] font-bold leading-none text-ink">
                 {price.includes(" / ") ? (
-                  <>
+                  <span>
                     <span className="num">{price.slice(0, price.indexOf(" / "))}</span>
                     <span className="text-[12px] font-semibold text-mink">
                       {price.slice(price.indexOf(" / "))}
                     </span>
-                  </>
+                  </span>
                 ) : (
                   <span className="num">{price}</span>
+                )}
+                {/* Non-interactive text, never a button (a11y law). flex-wrap
+                    lets it take its own row instead of clipping the price. */}
+                {showDropBadge && (
+                  <span className="inline-flex items-center rounded bg-clay-deep/10 px-1.5 py-0.5 text-[10.5px] font-semibold leading-none text-clay-deep">
+                    ფასი დააკლდა
+                  </span>
                 )}
               </p>
             ) : (
@@ -154,6 +167,13 @@ export function ListingCard({
                 </span>
               ))}
           </p>
+          {/* Own line, not appended to the truncating size line above — a long
+              Georgian label plus rooms·m²·floor cannot share one truncate line
+              at 390px without eating the floor (GPT §H). Fail-soft: unknown or
+              missing condition renders nothing, card looks exactly as before. */}
+          {condition && (
+            <p className="mt-0.5 truncate text-[12px] text-mink">{condition}</p>
+          )}
 
           {checkedLabel && (
             <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-moss">

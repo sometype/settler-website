@@ -662,6 +662,22 @@ export interface PriceDropResult {
   mainImages: Map<number, ListingImage>;
 }
 
+/**
+ * THE canonical "honest recent sale drop" — the ONLY predicate allowed to put
+ * a «ფასი დააკლდა» claim in front of a visitor. Rail and feed-card badge both
+ * consume this; duplicating the bounds in a component is how a stale or
+ * implausible drop becomes a trust claim (FEEDCARDDISCUSSION, GPT §E: raw
+ * non-null is 7% of listings, this rule is ~2% — the gap is all junk).
+ * Sale-only by construction; rent needs its own measured policy first.
+ */
+export function isHonestRecentSaleDrop(listing: Listing): boolean {
+  if (listing.deal_type !== "sale") return false;
+  if (!listing.price_dropped_at) return false;
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  if (new Date(listing.price_dropped_at).getTime() < cutoff) return false;
+  return isSanePriceDrop(listing);
+}
+
 function isSanePriceDrop(listing: Listing): boolean {
   const prev = listing.price_drop_from_usd;
   const cur = listing.price_usd;
@@ -728,8 +744,11 @@ export async function fetchPriceDrops(
     .limit(80);
   if (error || !data) return { listings: [], mainImages: new Map() };
 
+  // Same canonical predicate as the card badge — one rule, two consumers.
+  // (The SQL above pre-narrows to sale + 7d; the helper re-checks both, which
+  // is redundant here and load-bearing for every other caller.)
   const eligible = (data as Listing[]).filter(
-    (l) => isSanePriceDrop(l) && !exclude.has(l.id)
+    (l) => isHonestRecentSaleDrop(l) && !exclude.has(l.id)
   );
   const fresh = eligible.filter(
     (l) => (l.price_dropped_at ?? "") >= day2

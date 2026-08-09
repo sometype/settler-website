@@ -97,6 +97,18 @@ function lookup(map: Record<string, string>, raw: string | null | undefined): st
 }
 
 export const conditionLabel = (raw: string | null | undefined) => lookup(CONDITION, raw);
+
+/**
+ * Feed-card variant: FAIL CLOSED on unknown values. `conditionLabel` returns
+ * an unmapped raw value unchanged — right for the detail page (source fallback
+ * beats a blank row), wrong for the feed, where a future English source value
+ * would leak onto every card at once. Same dictionary on purpose: a second
+ * condition map is exactly the drift this module's header warns about.
+ */
+export const knownConditionLabel = (raw: string | null | undefined): string | null => {
+  if (!raw) return null;
+  return CONDITION[raw.trim()] ?? null;
+};
 export const statusLabel = (raw: string | null | undefined) => lookup(STATUS, raw);
 export const projectTypeLabel = (raw: string | null | undefined) => lookup(PROJECT_TYPE, raw);
 
