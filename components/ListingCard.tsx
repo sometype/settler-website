@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
-import { formatPrice, isHonestRecentSaleDrop, pricePerSqm } from "@/lib/listings";
+import { formatPrice, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
 import { locationLine } from "@/lib/location";
 import { knownConditionLabel, roomsAltKa, roomsLabelKa } from "@/lib/labels";
+import { isHonestRecentSaleDrop } from "@/lib/price-drops";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
 import { CardPhotoPeek } from "./CardPhotoPeek";
 import { AgeStamp } from "./AgeStamp";

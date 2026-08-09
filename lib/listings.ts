@@ -2,6 +2,7 @@ import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
 import { hasNarrowingFilters } from "./filters";
 import { indexCardImages, indexMainImages, orderForGallery } from "./images";
 import type { ConditionCode } from "./labels";
+import { isHonestRecentSaleDrop } from "./price-drops";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
 
@@ -650,53 +651,9 @@ export interface DistrictRailData {
 /** Sale «ფასი დაეცა» strip — same min/size discipline as other rails. */
 export const PRICE_DROP_MIN_CARDS = 4;
 export const PRICE_DROP_RAIL_SIZE = 8;
-const PRICE_DROP_MIN_USD = 1000;
-const PRICE_DROP_MAX_USD = 50_000;
-const PRICE_DROP_MIN_PCT = 1;
-const PRICE_DROP_MAX_PCT = 25;
-const PRICE_DROP_SALE_PRICE_MIN = 5000;
-const PRICE_DROP_SALE_PRICE_MAX = 5_000_000;
-
 export interface PriceDropResult {
   listings: Listing[];
   mainImages: Map<number, ListingImage>;
-}
-
-/**
- * THE canonical "honest recent sale drop" — the ONLY predicate allowed to put
- * a «ფასი დააკლდა» claim in front of a visitor. Rail and feed-card badge both
- * consume this; duplicating the bounds in a component is how a stale or
- * implausible drop becomes a trust claim (FEEDCARDDISCUSSION, GPT §E: raw
- * non-null is 7% of listings, this rule is ~2% — the gap is all junk).
- * Sale-only by construction; rent needs its own measured policy first.
- */
-export function isHonestRecentSaleDrop(listing: Listing): boolean {
-  if (listing.deal_type !== "sale") return false;
-  if (!listing.price_dropped_at) return false;
-  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  if (new Date(listing.price_dropped_at).getTime() < cutoff) return false;
-  return isSanePriceDrop(listing);
-}
-
-function isSanePriceDrop(listing: Listing): boolean {
-  const prev = listing.price_drop_from_usd;
-  const cur = listing.price_usd;
-  if (prev == null || cur == null) return false;
-  if (prev <= cur) return false;
-  if (
-    prev < PRICE_DROP_SALE_PRICE_MIN ||
-    prev > PRICE_DROP_SALE_PRICE_MAX ||
-    cur < PRICE_DROP_SALE_PRICE_MIN ||
-    cur > PRICE_DROP_SALE_PRICE_MAX
-  ) {
-    return false;
-  }
-  const dropUsd = prev - cur;
-  if (dropUsd < PRICE_DROP_MIN_USD || dropUsd > PRICE_DROP_MAX_USD) return false;
-  const dropPct = (100 * dropUsd) / prev;
-  if (dropPct < PRICE_DROP_MIN_PCT || dropPct > PRICE_DROP_MAX_PCT) return false;
-  if (!listing.price_dropped_at) return false;
-  return true;
 }
 
 /**
