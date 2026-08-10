@@ -61,3 +61,7 @@ CREATE OR REPLACE VIEW listings_public AS
     street_display
    FROM listings
   WHERE listing_status = 'active'::text AND published = true AND removed_at IS NULL AND description_status IS DISTINCT FROM 'flagged_agent'::text AND canonical_id IS NULL AND phone IS NOT NULL AND btrim(phone) <> ''::text;
+
+-- CREATE OR REPLACE preserves existing grants in production, but keep this
+-- migration independently replayable on a fresh database too.
+GRANT SELECT ON listings_public TO anon, authenticated, claude_ro;
