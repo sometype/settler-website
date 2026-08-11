@@ -271,6 +271,7 @@ export default async function ListingPage({
             <PhoneBlock
               hasPhone={listing.has_phone}
               phone={listing.phone}
+              altPhones={listing.alt_phones}
               listingId={listing.id}
               attribution={contactAttribution}
             />
@@ -351,6 +352,7 @@ export default async function ListingPage({
           <PhoneBlock
             hasPhone={listing.has_phone}
             phone={listing.phone}
+            altPhones={listing.alt_phones}
             listingId={listing.id}
             attribution={contactAttribution}
           />

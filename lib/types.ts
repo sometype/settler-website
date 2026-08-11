@@ -91,6 +91,13 @@ export interface Listing {
   /** Seller phone when available (public by product design). */
   phone: string | null;
   has_phone: boolean;
+  /**
+   * Merged duals can carry a SECOND real number: two-SIM owners post the same
+   * flat on both portals under different SIMs (photo_shape dedupe). The hidden
+   * copy's verified number surfaces here. Detail fetch only — feed queries
+   * never select it.
+   */
+  alt_phones?: string[] | null;
 }
 
 /**

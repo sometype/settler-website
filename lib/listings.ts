@@ -36,8 +36,9 @@ const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
 const LISTING_COLUMNS =
   "id, deal_type, district, district_code, rooms, price_usd, price_drop_from_usd, price_dropped_at, area, floor, bathrooms, build_period, condition, status, project_type, balcony, description_status, amenities, desc_facts, views, image_status, first_seen_at, last_seen_at, last_checked_at, phone, has_phone, street_display";
 
-/** Detail page only: the card columns plus the two full description texts. */
-const DETAIL_COLUMNS = `${LISTING_COLUMNS}, description, description_ka`;
+/** Detail page only: the card columns plus the two full description texts and
+ *  the merged-dual second phone (two-SIM owners, sql/022). */
+const DETAIL_COLUMNS = `${LISTING_COLUMNS}, description, description_ka, alt_phones`;
 
 /**
  * Client-safe image columns: enough to build the /img path, nothing more.

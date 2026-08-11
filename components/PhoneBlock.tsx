@@ -42,16 +42,25 @@ export function displayPhone(phone: string): string {
 export function PhoneBlock({
   hasPhone,
   phone,
+  altPhones,
   listingId,
   attribution,
 }: {
   hasPhone: boolean;
   phone?: string | null;
+  /** Merged-dual second number(s): two-SIM owners (sql/022). Both are real
+   *  and verified for their own portal listing — the caller decides which. */
+  altPhones?: string[] | null;
   listingId: number;
   attribution: ContactAttribution;
 }) {
   const number = phone?.trim() || null;
   const show = Boolean(hasPhone && number);
+  // Belt-and-braces dedupe against the main number: the view already filters
+  // by normalized last-9, but a formatting drift must never show a twin.
+  const extras = (altPhones ?? [])
+    .map((p) => p.trim())
+    .filter((p) => p && digitsOnly(p).slice(-9) !== digitsOnly(number ?? "").slice(-9));
 
   return (
     <div className="rounded-lg border border-sand bg-card p-4">
@@ -90,6 +99,28 @@ export function PhoneBlock({
           >
             WhatsApp
           </a>
+          {extras.length > 0 && (
+            <div className="border-t border-sand pt-2.5">
+              {/* Two-SIM owner: the same flat was posted under a second number
+                  on the other portal. Both are real; the caller picks. */}
+              <p className="text-xs text-faint">დამატებითი ნომერი</p>
+              {extras.map((p) => (
+                <a
+                  key={p}
+                  href={telHref(p)}
+                  onClick={() =>
+                    trackEvent("call_tap", {
+                      listingId,
+                      meta: { surface: "phone_block_alt", ...attribution },
+                    })
+                  }
+                  className="num mt-1 block text-base font-semibold tracking-wide text-ink underline decoration-sand-strong underline-offset-4 transition hover:decoration-ink"
+                >
+                  {displayPhone(p)}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <p className="mt-2 text-sm text-mink">
