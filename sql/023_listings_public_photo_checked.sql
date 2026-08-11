@@ -1,19 +1,22 @@
--- 023 — a listing is not FINISHED until its photos are checked (human law,
--- DEDUPDISCUSSION 2026-08-11): the dedupe worker's photo check must run
--- BEFORE the card enters the feed, so a duplicate never flashes publicly at
--- all. Cost accepted by the human: a new listing appears up to ~15 min later.
+-- 023 v2 — a listing is not FINISHED until its photos are checked (human law
+-- 2026-08-11), REVISIONED per GPT critique: a one-time stamp is not a
+-- certificate, because inputs change after the check (late photos, phone
+-- reveal, price/shape edits, republish, unhide). schema_photo_gate.sql
+-- triggers advance photo_dedupe_due_at on every such change; the checker
+-- CAS-stamps photo_dedupe_checked_at after actually resolving the listing.
 --
--- Gate logic (no flap states):
---   photo_dedupe_checked_at set          -> visible (checked)
---   image_status 'pending'               -> hidden  (gallery incomplete)
---   terminal status + NO stored images   -> visible (nothing to check)
---   terminal status + images, unchecked  -> hidden  (waiting for the worker,
---                                            <=15 min; heartbeat alarms if
---                                            the worker starves the feed)
+-- Gate states (no flap):
+--   image_status 'pending'            -> hidden  (gallery incomplete)
+--   due IS NULL                       -> visible (terminal, nothing stored to check)
+--   checked_at >= due_at              -> visible (certified for THIS revision)
+--   otherwise                         -> hidden  (due; worker stamps within ~1 min,
+--                                        heartbeat pages on starvation)
 --
--- ⚠️ CUTOVER ORDER: backfill-stamp the existing corpus FIRST (it was fully
--- covered by the 2026-08-11 pilot + weekly scans) or the whole feed vanishes.
--- Verbatim 022 view + ONE appended predicate; columns untouched.
+-- ⚠️ CUTOVER (GPT §7): schema+triggers first · minute timer proven on canaries ·
+-- reconcile the corpus through the REAL checker (--reconcile-gate; never a
+-- blanket UPDATE) · parity check · only then apply this view. At the 2026-08-11
+-- snapshot, flipping early = 205 of 4,280 visible — a hard stop.
+-- Verbatim 022 view + the gate predicate; columns untouched.
 CREATE OR REPLACE VIEW listings_public AS
  SELECT id,
     COALESCE(deal_type, 'rent'::text) AS deal_type,
@@ -78,11 +81,9 @@ CREATE OR REPLACE VIEW listings_public AS
     ) AS alt_phones
    FROM listings
   WHERE listing_status = 'active'::text AND published = true AND removed_at IS NULL AND description_status IS DISTINCT FROM 'flagged_agent'::text AND canonical_id IS NULL AND phone IS NOT NULL AND btrim(phone) <> ''::text
- AND (photo_dedupe_checked_at IS NOT NULL
-        OR (image_status IS DISTINCT FROM 'pending'
-            AND NOT EXISTS (SELECT 1 FROM listing_images li
-                             WHERE li.listing_id = listings.id
-                               AND li.stored_path IS NOT NULL)));
+ AND (image_status IS DISTINCT FROM 'pending')
+    AND (photo_dedupe_due_at IS NULL
+         OR photo_dedupe_checked_at >= photo_dedupe_due_at);
 
 -- CREATE OR REPLACE preserves existing grants in production, but keep this
 -- migration independently replayable on a fresh database too.
