@@ -949,3 +949,272 @@ test("race 7: finalization is blocked while any pending hold exists", () => {
   assert.equal(galleryReady(out.slots), false, "three good photos are not enough while one is in flight");
   assert.equal(needsReconcile(out.slots), true, "reconciliation stays owed");
 });
+
+/* ------------------------------------------------------------------------- *
+ *  Attribute parity (2026-08-16) — derived from the DISPLAY AUTHORITY.
+ *
+ *  The required field set below is NOT a hand-written list: it is extracted
+ *  from app/listing/[id]/page.tsx (every `listing.X` the detail page reads,
+ *  every `facts.X` its terms renderer reads) and from the canonical
+ *  AMENITIES registry import. If the page starts displaying a new field, or
+ *  the registry gains a key, these tests fail until the owner path covers it.
+ * ------------------------------------------------------------------------- */
+import { AMENITIES } from "../lib/amenities.ts";
+import { OWNER_PROJECT_TYPES, OWNER_STATUSES } from "../lib/labels.ts";
+
+const PAGE = readFileSync(
+  fileURLToPath(new URL("../app/listing/[id]/page.tsx", import.meta.url)),
+  "utf8",
+);
+
+/** Display field -> owner payload key. Translation only — the REQUIRED set
+ *  comes from the page source, so this map cannot silently shrink it. */
+const FIELD_TO_PAYLOAD = {
+  deal_type: "deal_type",
+  district_code: "district_code",
+  street_display: "street_display",
+  rooms: "rooms",
+  area: "area",
+  floor: "floor",
+  price_usd: "price_usd",
+  condition: "condition",
+  description: "description",
+  phone: "phone",
+  bathrooms: "bathrooms",
+  // listings.build_period <- the owner's typed construction year
+  build_period: "build_period",
+  // listings.status is the BUILDING axis; the owner key is building_status
+  // so it can never collide with the submission workflow status
+  status: "building_status",
+  project_type: "project_type",
+  balcony: "balcony",
+};
+
+/** Fields the page reads that are DELIBERATELY not owner inputs. Each entry
+ *  must carry its reason; an unexplained exclusion fails the parity test. */
+const NON_OWNER_DISPLAY_FIELDS = {
+  id: "database identity",
+  district: "display fallback; canonical input is district_code",
+  district_code: null, // in FIELD_TO_PAYLOAD; listed here never
+  description_ka: "description worker output, never user input",
+  description_status: "pipeline state (internal)",
+  amenities: "covered by the amenity-registry parity test below",
+  desc_facts: "covered by the rental-terms parity test below",
+  has_phone: "derived from phone",
+  alt_phones: "dedupe output (merged duals), system-owned",
+  first_seen_at: "system timestamp",
+  last_seen_at: "system timestamp",
+  last_checked_at: "monitor state (internal)",
+  price_drop_from_usd: "price-drop tracker output",
+  price_dropped_at: "price-drop tracker output",
+  condition_code: "derived from condition by normalize_lib",
+  image_status: "pipeline state (internal)",
+  views: "source metric, never owner input",
+};
+
+function fullFacts() {
+  return {
+    ...goodFacts(),
+    deal_type: "rent",
+    price_usd: "600",
+    floor: "4/9",
+    bathrooms: "2",
+    build_year: "2015",
+    building_status: OWNER_STATUSES[0],
+    project_type: OWNER_PROJECT_TYPES[0],
+    balcony: "yes",
+    amenities: AMENITIES.filter((a) => a.key !== "pets_allowed").map((a) => a.key),
+    deposit_required: "no",
+    utilities_included: "yes",
+    min_months: "6",
+    pets_allowed: "yes",
+  };
+}
+
+function fullPayload() {
+  const built = buildCreatePayload({
+    session: "s",
+    phone: "555 12 34 56",
+    facts: fullFacts(),
+    description: "აღწერა",
+    declared: true,
+    idem: "i".repeat(16),
+  });
+  assert.equal(built.ok, true);
+  return built.payload;
+}
+
+test("parity: every structured field the listing page displays has an owner payload path", () => {
+  const displayed = new Set(
+    [...PAGE.matchAll(/listing\.([a-z_]+)/g)].map((m) => m[1]),
+  );
+  assert.ok(displayed.size >= 15, "page source no longer parseable");
+  const payload = fullPayload();
+  for (const field of displayed) {
+    const key = FIELD_TO_PAYLOAD[field];
+    if (key) {
+      assert.ok(
+        payload[key] !== undefined && payload[key] !== "",
+        `displayed field listing.${field} has no owner payload path (${key})`,
+      );
+      continue;
+    }
+    assert.ok(
+      field in NON_OWNER_DISPLAY_FIELDS,
+      `listing.${field} is displayed but neither owner-mapped nor an explained exclusion`,
+    );
+  }
+});
+
+test("parity: every canonical displayed amenity key has an owner path", () => {
+  const payload = fullPayload();
+  for (const a of AMENITIES) {
+    if (a.key === "pets_allowed") {
+      // pets is the rent-terms tri-state; facts.pets_allowed='yes' merges
+      // into the amenity map inside listings_public — same rendered result
+      assert.equal(payload.pets_allowed, "yes");
+      continue;
+    }
+    assert.ok(
+      Array.isArray(payload.amenities) && payload.amenities.includes(a.key),
+      `amenity ${a.key} is displayed but has no owner payload path`,
+    );
+  }
+});
+
+test("parity: every rental term the page renders from desc_facts has an owner path", () => {
+  const termKeys = new Set(
+    [...PAGE.matchAll(/facts\.([a-z_]+)/g)].map((m) => m[1]),
+  );
+  assert.ok(termKeys.size >= 4, "terms renderer no longer parseable");
+  const payload = fullPayload();
+  for (const key of termKeys) {
+    assert.ok(
+      payload[key] !== undefined,
+      `rental term ${key} is rendered but has no owner payload path`,
+    );
+  }
+});
+
+test("parity: the amenity checkboxes render from the registry import, not a copied list", () => {
+  assert.match(COMPONENT, /import \{ AMENITIES \} from "@\/lib\/amenities"/);
+  assert.match(COMPONENT, /AMENITIES\.filter\(\(a\) => a\.key !== "pets_allowed"\)/);
+  assert.match(COMPONENT, /amenity_\$\{a\.key\}/);
+  for (const name of [
+    "building_status",
+    "project_type",
+    "build_year",
+    "bathrooms",
+    "balcony",
+    "deposit_required",
+    "utilities_included",
+    "min_months",
+    "pets_allowed",
+  ]) {
+    assert.match(
+      COMPONENT,
+      new RegExp(`name="${name}"`),
+      `form control ${name} missing`,
+    );
+  }
+});
+
+test("unchecked amenities stay unknown: no amenities key at all", () => {
+  const facts = { ...fullFacts(), amenities: [] };
+  const built = buildCreatePayload({
+    session: "s", phone: "5", facts, description: "d", declared: true, idem: "x".repeat(16),
+  });
+  assert.equal(built.ok, true);
+  assert.equal("amenities" in built.payload, false);
+});
+
+test("a checked subset sends exactly that subset — never false for the rest", () => {
+  const facts = { ...fullFacts(), amenities: ["elevator"] };
+  const built = buildCreatePayload({
+    session: "s", phone: "5", facts, description: "d", declared: true, idem: "x".repeat(16),
+  });
+  assert.deepEqual(built.payload.amenities, ["elevator"]);
+});
+
+test("rental terms never leak into a sale payload, even from stale state", () => {
+  const facts = { ...fullFacts(), deal_type: "sale", price_usd: "85000" };
+  const built = buildCreatePayload({
+    session: "s", phone: "5", facts, description: "d", declared: true, idem: "x".repeat(16),
+  });
+  assert.equal(built.ok, true);
+  for (const key of ["deposit_required", "utilities_included", "min_months", "pets_allowed"]) {
+    assert.equal(key in built.payload, false, key);
+  }
+  // structured building facts are deal-independent and stay
+  assert.equal(built.payload.building_status, OWNER_STATUSES[0]);
+});
+
+test("unknown numeric values fail closed instead of being coerced", () => {
+  for (const over of [
+    { min_months: "0" },
+    { min_months: "61" },
+    { build_year: "20" },
+    { build_year: "1799" },
+  ]) {
+    const built = buildCreatePayload({
+      session: "s", phone: "5", facts: { ...fullFacts(), ...over },
+      description: "d", declared: true, idem: "x".repeat(16),
+    });
+    assert.equal(built.ok, false, JSON.stringify(over));
+  }
+});
+
+test("unset parity fields are omitted — absent means unknown, not empty", () => {
+  const built = buildCreatePayload({
+    session: "s", phone: "5", facts: goodFacts(), description: "d",
+    declared: true, idem: "x".repeat(16),
+  });
+  assert.equal(built.ok, true);
+  for (const key of [
+    "bathrooms", "build_period", "building_status", "project_type",
+    "balcony", "amenities", "deposit_required", "utilities_included",
+    "min_months", "pets_allowed",
+  ]) {
+    assert.equal(key in built.payload, false, key);
+  }
+});
+
+test("an old saved draft (no parity fields) restores safely and still submits", () => {
+  // exactly what the pre-parity serializer wrote: v2, facts without the
+  // new keys — the version is NOT bumped so these drafts keep restoring
+  const oldFacts = {
+    deal_type: "rent", district_code: "gldani", street_display: "პეკინის ქ.",
+    rooms: "2", area: "65", floor: "", price_usd: "600",
+    condition: "ახალი რემონტით", portal_url: "",
+  };
+  const raw = JSON.stringify({
+    v: 2, session: "sess", email: "a@b.ge", phone: "5", step: "photos",
+    facts: oldFacts, description: "d", declared: true, submissionId: 12,
+    createIdem: "k".repeat(16), coverId: null, photos: [],
+  });
+  const restored = restoreState(raw);
+  assert.ok(restored, "old draft must restore");
+  assert.deepEqual(restored.facts.amenities, []);
+  assert.equal(restored.facts.building_status, "");
+  assert.equal(restored.facts.pets_allowed, "");
+  const built = buildCreatePayload({
+    session: restored.session, phone: restored.phone, facts: restored.facts,
+    description: restored.description, declared: restored.declared,
+    idem: restored.createIdem,
+  });
+  assert.equal(built.ok, true);
+});
+
+test("corrupted stored parity fields reset to unknown rather than poisoning the payload", () => {
+  const raw = JSON.stringify({
+    v: 2, session: "sess", email: "", phone: "", step: "facts",
+    facts: { amenities: "elevator", min_months: 6, balcony: ["yes"] },
+    description: "", declared: false, submissionId: null,
+    createIdem: "", coverId: null, photos: [],
+  });
+  const restored = restoreState(raw);
+  assert.ok(restored);
+  assert.deepEqual(restored.facts.amenities, []);
+  assert.equal(restored.facts.min_months, "");
+  assert.equal(restored.facts.balcony, "");
+});

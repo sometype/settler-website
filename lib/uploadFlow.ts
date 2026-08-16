@@ -46,6 +46,34 @@ export type Facts = {
   /** Raw Georgian spelling from labels.ts OWNER_CONDITIONS; required. */
   condition: string;
   portal_url: string;
+  /* ---- attribute parity (2026-08-16). ALL optional: "" / [] mean UNKNOWN
+     and are omitted from the payload — the server stores NULL and the card
+     hides the row. Enum values are the closed vocabularies in labels.ts /
+     lib/amenities.ts, mirrored by the API's fail-closed validation. ---- */
+  /** "1".."5" — the numeric strings both portals already store. */
+  bathrooms: string;
+  /** Bare construction year, e.g. "2015" (listings.build_period). */
+  build_year: string;
+  /** labels.ts OWNER_STATUSES; maps to listings.status (the BUILDING axis —
+   *  named build**ing**_status end-to-end so it can never collide with the
+   *  submission's workflow status). */
+  building_status: string;
+  /** labels.ts OWNER_PROJECT_TYPES. */
+  project_type: string;
+  /** "yes" | "0" (ss's committed vocabulary) | "" unknown. */
+  balcony: string;
+  /** Checked amenity keys from lib/amenities.ts AMENITIES (presence map:
+   *  unchecked = unknown, never false). pets_allowed is not an entry here —
+   *  it is the rent-terms tri-state below. */
+  amenities: string[];
+  /** Rent only. "yes" | "no" | "" unknown. */
+  deposit_required: string;
+  /** Rent only. "yes" | "" unknown (a public "no" is never rendered). */
+  utilities_included: string;
+  /** Rent only. Months as typed, "" unknown. */
+  min_months: string;
+  /** Rent only. "yes" | "no" | "" unknown. */
+  pets_allowed: string;
 };
 
 export type SlotState = "pending" | "uploading" | "done" | "failed";
@@ -82,6 +110,16 @@ export function emptyFacts(): Facts {
     price_usd: "",
     condition: "",
     portal_url: "",
+    bathrooms: "",
+    build_year: "",
+    building_status: "",
+    project_type: "",
+    balcony: "",
+    amenities: [],
+    deposit_required: "",
+    utilities_included: "",
+    min_months: "",
+    pets_allowed: "",
   };
 }
 
@@ -203,25 +241,56 @@ export function buildCreatePayload(
   if (!input.facts.condition.trim()) {
     return { ok: false, reason: "condition_required" };
   }
-  return {
-    ok: true,
-    payload: {
-      session,
-      phone: input.phone.trim(),
-      deal_type: input.facts.deal_type,
-      district_code: input.facts.district_code,
-      street_display: input.facts.street_display.trim(),
-      rooms: input.facts.rooms,
-      area: Number(input.facts.area),
-      floor: input.facts.floor.trim(),
-      price_usd: Number(input.facts.price_usd),
-      condition: input.facts.condition,
-      description,
-      portal_url: input.facts.portal_url.trim() || null,
-      owner_declared: true,
-      idem: input.idem,
-    },
+  const payload: Record<string, unknown> = {
+    session,
+    phone: input.phone.trim(),
+    deal_type: input.facts.deal_type,
+    district_code: input.facts.district_code,
+    street_display: input.facts.street_display.trim(),
+    rooms: input.facts.rooms,
+    area: Number(input.facts.area),
+    floor: input.facts.floor.trim(),
+    price_usd: Number(input.facts.price_usd),
+    condition: input.facts.condition,
+    description,
+    portal_url: input.facts.portal_url.trim() || null,
+    owner_declared: true,
+    idem: input.idem,
   };
+
+  // Attribute parity: an unknown ("") field is OMITTED, never sent as false
+  // or empty — the server stores NULL and the public card hides the row.
+  const f = input.facts;
+  if (f.bathrooms) payload.bathrooms = f.bathrooms;
+  if (f.build_year) {
+    if (!/^(18|19|20)\d{2}$/.test(f.build_year.trim())) {
+      return { ok: false, reason: "build_year_invalid" };
+    }
+    payload.build_period = f.build_year.trim();
+  }
+  if (f.building_status) payload.building_status = f.building_status;
+  if (f.project_type) payload.project_type = f.project_type;
+  if (f.balcony) payload.balcony = f.balcony;
+  if (f.amenities.length > 0) payload.amenities = f.amenities;
+
+  // Rent terms ride only on a rent deal. The section is hidden for sale, but
+  // state can survive a deal-type flip — the gate is here, in the payload
+  // rule, so a stale value can never leak into a sale submission (the API
+  // rejects it outright rather than dropping it).
+  if (f.deal_type === "rent") {
+    if (f.deposit_required) payload.deposit_required = f.deposit_required;
+    if (f.utilities_included) payload.utilities_included = f.utilities_included;
+    if (f.pets_allowed) payload.pets_allowed = f.pets_allowed;
+    if (f.min_months.trim()) {
+      const months = Number(f.min_months.trim());
+      if (!Number.isInteger(months) || months < 1 || months > 60) {
+        return { ok: false, reason: "min_months_invalid" };
+      }
+      payload.min_months = months;
+    }
+  }
+
+  return { ok: true, payload };
 }
 
 /* ------------------------------------------------------- persisted resume */
@@ -262,6 +331,27 @@ export function restoreState(raw: string | null): PersistedState | null {
   if (s.v !== STATE_VERSION) return null;
   if (typeof s.session !== "string" || !s.session.trim()) return null;
   const facts = { ...emptyFacts(), ...(typeof s.facts === "object" && s.facts ? s.facts : {}) };
+  // Old drafts predate the parity fields; the merge above fills them with
+  // unknowns. A draft that carries them must still restore into the exact
+  // shapes the payload builder assumes: amenities is a string array, every
+  // other parity field a string. Anything else resets to unknown rather
+  // than poisoning the later payload.
+  facts.amenities = Array.isArray((facts as Facts).amenities)
+    ? (facts as Facts).amenities.filter((k): k is string => typeof k === "string")
+    : [];
+  for (const key of [
+    "bathrooms",
+    "build_year",
+    "building_status",
+    "project_type",
+    "balcony",
+    "deposit_required",
+    "utilities_included",
+    "min_months",
+    "pets_allowed",
+  ] as const) {
+    if (typeof (facts as Facts)[key] !== "string") (facts as Facts)[key] = "";
+  }
   const photos = Array.isArray(s.photos)
     ? s.photos.filter(
         (p): p is PersistedState["photos"][number] =>

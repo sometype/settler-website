@@ -9,7 +9,12 @@ import {
   useSyncExternalStore,
 } from "react";
 import { DISTRICTS } from "@/lib/districts";
-import { OWNER_CONDITIONS } from "@/lib/labels";
+import { AMENITIES } from "@/lib/amenities";
+import {
+  OWNER_CONDITIONS,
+  OWNER_PROJECT_TYPES,
+  OWNER_STATUSES,
+} from "@/lib/labels";
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_CONCURRENT_UPLOADS,
@@ -1095,6 +1100,269 @@ export default function UploadFlow() {
               ))}
             </select>
           </div>
+          {/* Attribute parity (2026-08-16): every fact the listing page can
+              render has an owner path. All optional; unset stays UNKNOWN.
+              Progressive <details> sections keep the phone screen a form,
+              not a wall — the amenity grid alone is 24 checkboxes. */}
+          <details className="rounded-md border border-sand bg-card">
+            <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
+              შენობის დეტალები{" "}
+              <span className="font-normal text-faint">(არასავალდებულო)</span>
+            </summary>
+            <div className="grid gap-3 px-3 pb-3">
+              <div>
+                <label
+                  htmlFor="mp-building-status"
+                  className="mb-1 block text-sm font-medium text-ink"
+                >
+                  შენობის სტატუსი
+                </label>
+                <select
+                  id="mp-building-status"
+                  name="building_status"
+                  className={input}
+                  value={facts.building_status}
+                  onChange={(e) =>
+                    setFacts((f) => ({ ...f, building_status: e.target.value }))
+                  }
+                >
+                  <option value="">აირჩიე…</option>
+                  {OWNER_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label
+                  htmlFor="mp-project-type"
+                  className="mb-1 block text-sm font-medium text-ink"
+                >
+                  პროექტის ტიპი
+                </label>
+                <select
+                  id="mp-project-type"
+                  name="project_type"
+                  className={input}
+                  value={facts.project_type}
+                  onChange={(e) =>
+                    setFacts((f) => ({ ...f, project_type: e.target.value }))
+                  }
+                >
+                  <option value="">აირჩიე…</option>
+                  {OWNER_PROJECT_TYPES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label
+                    htmlFor="mp-build-year"
+                    className="mb-1 block text-sm font-medium text-ink"
+                  >
+                    აშენების წელი
+                  </label>
+                  <input
+                    id="mp-build-year"
+                    name="build_year"
+                    className={input}
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="2015"
+                    value={facts.build_year}
+                    onChange={(e) =>
+                      setFacts((f) => ({
+                        ...f,
+                        build_year: e.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="mp-bathrooms"
+                    className="mb-1 block text-sm font-medium text-ink"
+                  >
+                    სველი წერტილი
+                  </label>
+                  <select
+                    id="mp-bathrooms"
+                    name="bathrooms"
+                    className={input}
+                    value={facts.bathrooms}
+                    onChange={(e) =>
+                      setFacts((f) => ({ ...f, bathrooms: e.target.value }))
+                    }
+                  >
+                    <option value="">აირჩიე…</option>
+                    {["1", "2", "3", "4", "5"].map((b) => (
+                      <option key={b} value={b}>
+                        {b}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="mp-balcony"
+                  className="mb-1 block text-sm font-medium text-ink"
+                >
+                  აივანი
+                </label>
+                <select
+                  id="mp-balcony"
+                  name="balcony"
+                  className={input}
+                  value={facts.balcony}
+                  onChange={(e) =>
+                    setFacts((f) => ({ ...f, balcony: e.target.value }))
+                  }
+                >
+                  <option value="">აირჩიე…</option>
+                  {/* "yes"/"0" are the catalogue's committed balcony values */}
+                  <option value="yes">კი</option>
+                  <option value="0">არა</option>
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <details className="rounded-md border border-sand bg-card">
+            <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
+              კეთილმოწყობა{" "}
+              <span className="font-normal text-faint">(არასავალდებულო)</span>
+            </summary>
+            <p className="px-3 text-xs text-faint">
+              მონიშნე რაც ბინაშია. მოუნიშნავი = არ არის მითითებული.
+            </p>
+            <ul className="grid list-none grid-cols-2 gap-x-3 gap-y-2 p-3">
+              {/* Rendered straight from the display registry (lib/amenities):
+                  the checkbox list can never drift from what the card shows.
+                  pets_allowed is the rent-terms tri-state, not a checkbox —
+                  a negative there is publicly meaningful. */}
+              {AMENITIES.filter((a) => a.key !== "pets_allowed").map((a) => (
+                <li key={a.key} className="flex items-center gap-2">
+                  <input
+                    id={`mp-amenity-${a.key}`}
+                    name={`amenity_${a.key}`}
+                    type="checkbox"
+                    checked={facts.amenities.includes(a.key)}
+                    onChange={(e) =>
+                      setFacts((f) => ({
+                        ...f,
+                        amenities: e.target.checked
+                          ? [...f.amenities.filter((k) => k !== a.key), a.key]
+                          : f.amenities.filter((k) => k !== a.key),
+                      }))
+                    }
+                  />
+                  <label htmlFor={`mp-amenity-${a.key}`} className="text-sm text-ink">
+                    {a.ka}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </details>
+
+          {facts.deal_type === "rent" && (
+            <details className="rounded-md border border-sand bg-card">
+              <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
+                ქირაობის პირობები{" "}
+                <span className="font-normal text-faint">(არასავალდებულო)</span>
+              </summary>
+              <div className="grid gap-3 px-3 pb-3">
+                <div>
+                  <label
+                    htmlFor="mp-deposit"
+                    className="mb-1 block text-sm font-medium text-ink"
+                  >
+                    დეპოზიტი
+                  </label>
+                  <select
+                    id="mp-deposit"
+                    name="deposit_required"
+                    className={input}
+                    value={facts.deposit_required}
+                    onChange={(e) =>
+                      setFacts((f) => ({ ...f, deposit_required: e.target.value }))
+                    }
+                  >
+                    <option value="">არ არის მითითებული</option>
+                    <option value="yes">მოითხოვება</option>
+                    <option value="no">არ მოითხოვება</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="mp-pets"
+                    className="mb-1 block text-sm font-medium text-ink"
+                  >
+                    შინაური ცხოველები
+                  </label>
+                  <select
+                    id="mp-pets"
+                    name="pets_allowed"
+                    className={input}
+                    value={facts.pets_allowed}
+                    onChange={(e) =>
+                      setFacts((f) => ({ ...f, pets_allowed: e.target.value }))
+                    }
+                  >
+                    <option value="">არ არის მითითებული</option>
+                    <option value="yes">დასაშვებია</option>
+                    <option value="no">არა</option>
+                  </select>
+                </div>
+                <div>
+                  <label
+                    htmlFor="mp-min-months"
+                    className="mb-1 block text-sm font-medium text-ink"
+                  >
+                    მინიმალური ვადა (თვე)
+                  </label>
+                  <input
+                    id="mp-min-months"
+                    name="min_months"
+                    className={input}
+                    inputMode="numeric"
+                    maxLength={2}
+                    placeholder="6"
+                    value={facts.min_months}
+                    onChange={(e) =>
+                      setFacts((f) => ({
+                        ...f,
+                        min_months: e.target.value.replace(/\D/g, ""),
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    id="mp-utilities"
+                    name="utilities_included"
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={facts.utilities_included === "yes"}
+                    onChange={(e) =>
+                      setFacts((f) => ({
+                        ...f,
+                        utilities_included: e.target.checked ? "yes" : "",
+                      }))
+                    }
+                  />
+                  <label htmlFor="mp-utilities" className="text-sm text-ink">
+                    კომუნალურები ფასშია
+                  </label>
+                </div>
+              </div>
+            </details>
+          )}
+
           <div>
             <label htmlFor="mp-portal" className="mb-1 block text-sm font-medium text-ink">
               თუ უკვე გაქვს ბმული myhome/ss-ზე — ჩასვი{" "}

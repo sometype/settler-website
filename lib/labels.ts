@@ -87,6 +87,20 @@ const STATUS: Record<string, string> = {
   "მშენებარე": "მშენებარე",
 };
 
+/**
+ * Closed choices for the owner upload form, same pattern and same law as
+ * OWNER_CONDITIONS above: this file is the one place raw spellings live, and
+ * the stored value is the Georgian spelling the label maps already recognise.
+ * Mirrored in the backend's normalize_lib.py OWNER_BUILDING_STATUSES /
+ * OWNER_PROJECT_TYPES, which fail closed on anything outside these sets.
+ */
+export const OWNER_STATUSES = [
+  "ახალი აშენებული",
+  "ძველი აშენებული",
+  "მშენებარე",
+] as const;
+export type OwnerStatus = (typeof OWNER_STATUSES)[number];
+
 const PROJECT_TYPE: Record<string, string> = {
   "Non-standard": "არასტანდარტული",
   "არასტანდარტული": "არასტანდარტული",
@@ -112,6 +126,31 @@ const PROJECT_TYPE: Record<string, string> = {
   "Dormitory": "საერთო საცხოვრებელი",
   // developer/brand names stay as-is: "m2 Development", "OPTIMA by m2", "Metra park"
 };
+
+/**
+ * Owner-form project types: the distinct Georgian display values of
+ * PROJECT_TYPE above (developer/brand names stay out — an owner picks a
+ * building era/shape, not a marketing name). Values not present as their own
+ * key in the map (ტუხარელის, დუპლექსი…) still render verbatim through
+ * `lookup`'s raw fallback, so form and page cannot disagree.
+ */
+export const OWNER_PROJECT_TYPES = [
+  "ქალაქური",
+  "არასტანდარტული",
+  "იტალიური ეზო",
+  "თბილისური ეზო",
+  "ხრუშჩოვის",
+  "ჩეხური",
+  "მოსკოვის",
+  "ლვოვის",
+  "ყავლაშვილის",
+  "ლენინგრადის",
+  "ტუხარელის",
+  "დუპლექსი",
+  "ტრიპლექსი",
+  "საერთო საცხოვრებელი",
+] as const;
+export type OwnerProjectType = (typeof OWNER_PROJECT_TYPES)[number];
 
 function lookup(map: Record<string, string>, raw: string | null | undefined): string | null {
   if (!raw) return null;
