@@ -474,3 +474,99 @@ export function releasePosition(slots: PhotoSlot[], id: string): PhotoSlot[] {
     s.id === id ? { ...s, state: "failed", position: null, hold: false } : s,
   );
 }
+
+/* ------------------------------------------------ uncertain-upload recovery */
+
+export type SubmissionStatus = {
+  submissionId: number;
+  status: string;
+  positions: number[];
+};
+
+/**
+ * Validate a /submission/status response before trusting it to settle a slot.
+ *
+ * This is the authority that decides whether an uncertain photo landed, so a
+ * malformed, duplicated or foreign answer must be refused rather than guessed
+ * at: acting on the wrong submission's positions is exactly the failure the
+ * endpoint exists to prevent.
+ */
+export function parseStatusResponse(
+  data: unknown,
+  expectedId: number,
+): SubmissionStatus | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const id = coerceIdentifier(d.submission_id);
+  if (id === null || id !== expectedId) return null;
+  if (typeof d.status !== "string" || !d.status) return null;
+  if (!Array.isArray(d.positions)) return null;
+  const positions: number[] = [];
+  for (const raw of d.positions) {
+    if (typeof raw !== "number" || !Number.isSafeInteger(raw)) return null;
+    if (raw < 0 || raw >= MAX_PHOTOS) return null;
+    if (positions.includes(raw)) return null; // duplicates are not a gallery
+    positions.push(raw);
+  }
+  return { submissionId: id, status: d.status, positions: positions.sort((a, b) => a - b) };
+}
+
+export type Reconciliation =
+  | { ok: true; slots: PhotoSlot[] }
+  | { ok: false; reason: "server_position_without_slot" };
+
+/**
+ * Settle local state against the server's filled positions.
+ *
+ * A held slot is settled only against the position it already claimed, so a
+ * newly selected file can never inherit an earlier photo's success.
+ */
+export function reconcileSlots(
+  slots: PhotoSlot[],
+  status: SubmissionStatus,
+): Reconciliation {
+  const filled = new Set(status.positions);
+  const next = slots.map((s) => {
+    if (s.position !== null && filled.has(s.position)) {
+      // The server holds an image at this slot's own position.
+      return { ...s, state: "done" as SlotState, hold: false, permanent: false };
+    }
+    if (s.state === "done" || s.hold) {
+      // Local believed it landed, or could not tell, and the server says no.
+      return { ...s, state: "failed" as SlotState, position: null, hold: false, permanent: false };
+    }
+    return s;
+  });
+  const claimed = new Set(
+    next.filter((s) => s.position !== null).map((s) => s.position as number),
+  );
+  for (const p of status.positions) {
+    // An image nothing local references would break contiguity at finalize and
+    // cannot be re-bound safely, so recovery stops rather than guessing.
+    if (!claimed.has(p)) return { ok: false, reason: "server_position_without_slot" };
+  }
+  return { ok: true, slots: next };
+}
+
+/** Reconciliation is owed while any slot's fate is unknown. */
+export function needsReconcile(slots: PhotoSlot[]): boolean {
+  return slots.some((s) => s.hold);
+}
+
+/**
+ * A ticket request that fails before any uncertain PUT may release its
+ * position. A retry of an already-held slot may not: its position may still be
+ * occupied server-side, and that authority must survive re-verification.
+ */
+export function onTicketFailure(slots: PhotoSlot[], id: string): PhotoSlot[] {
+  const slot = slots.find((s) => s.id === id);
+  if (slot?.hold) {
+    return slots.map((s) => (s.id === id ? { ...s, state: "failed" as SlotState } : s));
+  }
+  return releasePosition(slots, id);
+}
+
+/** Slots worth restoring after a refresh: settled ones and unresolved ones. */
+export function restorableSlots(slots: PhotoSlot[]): PhotoSlot[] {
+  return slots.filter((s) => s.state === "done" || s.hold);
+}

@@ -19,6 +19,7 @@ const ACTIONS: Record<string, string> = {
   create: "/submission/create",
   ticket: "/submission/ticket",
   finalize: "/submission/finalize",
+  status: "/submission/status",
 };
 
 // Grok's Georgian copy, as amended by the 2026-08-16 product acceptance

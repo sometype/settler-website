@@ -30,6 +30,11 @@ import {
   resolveUploadBase,
   restoreState,
   serializeState,
+  needsReconcile,
+  onTicketFailure,
+  parseStatusResponse,
+  reconcileSlots,
+  restorableSlots,
   turnstileRequirement,
   uploadedPositions,
   turnstileSiteKeyRequirement,
@@ -586,4 +591,131 @@ test("copy: JPEG/PNG only, ქუჩა label, spaced countdown units", () => {
   assert.ok(!/ქუჩა \/ უბანი/.test(COMPONENT), "label is just ქუჩა");
   assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "countdown needs a space before წმ");
   assert.ok(!/\$\{resendIn\}წმ/.test(COMPONENT));
+});
+
+/* ------------- recovery contract: authoritative reconciliation ----------- */
+
+const STATUS_OK = { submission_id: 42, status: "draft", positions: [0] };
+
+test("recovery: a lost response where the server DID store settles the same slot", () => {
+  const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
+  // The held slot survives a refresh; that is what stops a new file inheriting it.
+  assert.deepEqual(restorableSlots(held).map((s) => s.id), ["x"]);
+  const status = parseStatusResponse(STATUS_OK, 42);
+  const out = reconcileSlots(restorableSlots(held), status);
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].id, "x", "the original slot is settled, not a new one");
+  assert.equal(out.slots[0].state, "done");
+  assert.equal(out.slots[0].position, 0);
+  assert.equal(out.slots[0].hold, false);
+});
+
+test("recovery: a lost response where the server did NOT store releases it", () => {
+  const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
+  const status = parseStatusResponse({ ...STATUS_OK, positions: [] }, 42);
+  const out = reconcileSlots(held, status);
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].state, "failed");
+  assert.equal(out.slots[0].position, null, "the position is released for reuse");
+  assert.equal(out.slots[0].hold, false);
+  assert.equal(canRemove(out.slots[0]), true, "and it can now be retried or removed");
+});
+
+test("recovery: a new file can never inherit an old held position", () => {
+  const held = slot({ id: "old", position: 0, state: "failed", hold: true });
+  const fresh = slot({ id: "new" });
+  // While the hold stands, the fresh file cannot start at all.
+  assert.deepEqual(nextUploadBatch([held, fresh]), []);
+  // Reconciliation settles the ORIGINAL slot; the new one stays pending.
+  const out = reconcileSlots([held, fresh], parseStatusResponse(STATUS_OK, 42));
+  assert.equal(out.slots.find((s) => s.id === "old").state, "done");
+  assert.equal(out.slots.find((s) => s.id === "new").state, "pending");
+  assert.equal(out.slots.find((s) => s.id === "new").position, null);
+});
+
+test("recovery: held slots survive restoration; unstartable ones do not", () => {
+  const stored = [
+    slot({ id: "done", position: 0, state: "done" }),
+    slot({ id: "held", position: 1, state: "failed", hold: true }),
+    slot({ id: "never", state: "failed" }),
+    slot({ id: "pending" }),
+  ];
+  assert.deepEqual(restorableSlots(stored).map((s) => s.id), ["done", "held"]);
+  assert.equal(needsReconcile(restorableSlots(stored)), true);
+  assert.equal(needsReconcile([slot({ id: "d", state: "done", position: 0 })]), false);
+});
+
+test("recovery: session expiry during a held retry keeps position and hold", () => {
+  const held = [slot({ id: "x", position: 0, state: "uploading", hold: true })];
+  const after = onTicketFailure(held, "x");
+  assert.equal(after[0].position, 0, "the uncertain authority survives");
+  assert.equal(after[0].hold, true);
+  assert.equal(canRemove(after[0]), false);
+
+  // A ticket failure before any uncertain PUT may release.
+  const plain = onTicketFailure([slot({ id: "y", position: 0, state: "uploading" })], "y");
+  assert.equal(plain[0].position, null);
+  assert.equal(plain[0].hold, false);
+});
+
+test("recovery: malformed, foreign or duplicated status responses are refused", () => {
+  assert.equal(parseStatusResponse(null, 42), null, "endpoint unavailable");
+  assert.equal(parseStatusResponse({}, 42), null);
+  assert.equal(parseStatusResponse({ ...STATUS_OK, submission_id: 43 }, 42), null,
+    "another submission's status must never be applied");
+  assert.equal(parseStatusResponse({ ...STATUS_OK, positions: [0, 0] }, 42), null, "duplicates");
+  assert.equal(parseStatusResponse({ ...STATUS_OK, positions: ["0"] }, 42), null, "nonnumeric");
+  assert.equal(parseStatusResponse({ ...STATUS_OK, positions: [-1] }, 42), null);
+  assert.equal(parseStatusResponse({ ...STATUS_OK, positions: [MAX_PHOTOS] }, 42), null);
+  assert.equal(parseStatusResponse({ ...STATUS_OK, status: "" }, 42), null);
+  assert.equal(parseStatusResponse({ ...STATUS_OK, positions: "0,1" }, 42), null);
+  // Sorted, deterministic output.
+  assert.deepEqual(parseStatusResponse({ ...STATUS_OK, positions: [2, 0, 1] }, 42).positions, [0, 1, 2]);
+});
+
+test("recovery: a server position with no local slot stops rather than guessing", () => {
+  const local = [slot({ id: "a", position: 0, state: "done" })];
+  const status = parseStatusResponse({ ...STATUS_OK, positions: [0, 1] }, 42);
+  const out = reconcileSlots(local, status);
+  assert.equal(out.ok, false);
+  assert.equal(out.reason, "server_position_without_slot");
+});
+
+test("recovery: local claims done but the server lacks the position", () => {
+  const local = [slot({ id: "a", position: 0, state: "done" })];
+  const out = reconcileSlots(local, parseStatusResponse({ ...STATUS_OK, positions: [] }, 42));
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].state, "failed", "a false local success is corrected");
+  assert.equal(out.slots[0].position, null);
+});
+
+test("recovery: three completed uploads refresh and finalize unchanged", () => {
+  const done = [0, 1, 2].map((p) => slot({ id: `s${p}`, position: p, state: "done" }));
+  assert.deepEqual(restorableSlots(done).map((s) => s.id), ["s0", "s1", "s2"]);
+  assert.equal(needsReconcile(done), false, "settled galleries need no reconciliation");
+  assert.equal(galleryReady(done), true);
+  const out = reconcileSlots(done, parseStatusResponse({ ...STATUS_OK, positions: [0, 1, 2] }, 42));
+  assert.equal(out.ok, true);
+  assert.equal(galleryReady(out.slots), true);
+});
+
+test("recovery: a gallery with an unresolved hold can never finalize", () => {
+  const slots = [
+    slot({ id: "a", position: 0, state: "done" }),
+    slot({ id: "b", position: 1, state: "done" }),
+    slot({ id: "c", position: 2, state: "done" }),
+    slot({ id: "u", position: 3, state: "failed", hold: true }),
+  ];
+  assert.equal(galleryReady(slots), false);
+  // Only reconciliation can clear it, one way or the other.
+  const kept = reconcileSlots(slots, parseStatusResponse({ ...STATUS_OK, positions: [0, 1, 2] }, 42));
+  assert.equal(kept.ok, true);
+  const released = kept.slots.find((s) => s.id === "u");
+  assert.equal(released.state, "failed");
+  assert.equal(released.position, null);
+  assert.equal(released.hold, false);
+  // It is now an ordinary removable failure, and removing it finalizes.
+  assert.equal(galleryReady(kept.slots), false, "a failed slot still blocks until removed");
+  assert.equal(canRemove(released), true);
+  assert.equal(galleryReady(removeSlot(kept.slots, "u")), true);
 });

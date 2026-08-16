@@ -25,7 +25,12 @@ import {
   factsComplete,
   galleryReady,
   positionOutcome,
+  needsReconcile,
+  onTicketFailure,
+  parseStatusResponse,
+  reconcileSlots,
   releasePosition,
+  restorableSlots,
   nextUploadBatch,
   planAddFiles,
   readOpaqueToken,
@@ -255,10 +260,14 @@ export default function UploadFlow() {
   const [facts, setFacts] = useState<Facts>(() => saved?.facts ?? emptyFacts());
   const [description, setDescription] = useState(() => saved?.description ?? "");
   const [declared, setDeclared] = useState(() => saved?.declared ?? false);
-  // Slots whose bytes never uploaded cannot resume without the File, so they
-  // are dropped rather than shown as resumable ghosts.
+  // Settled slots and unresolved (held) ones both survive a refresh. Dropping
+  // a held slot is what let a new file inherit its position and be marked done
+  // off the earlier photo's success.
   const [photos, setPhotos] = useState<PhotoSlot[]>(
-    () => saved?.photos.filter((p) => p.state === "done") ?? [],
+    () => restorableSlots(saved?.photos ?? []),
+  );
+  const [reconciled, setReconciled] = useState(
+    () => !needsReconcile(restorableSlots(saved?.photos ?? [])),
   );
   const [coverId, setCoverId] = useState<string | null>(() => saved?.coverId ?? null);
   const [createIdem, setCreateIdem] = useState(() => saved?.createIdem ?? "");
@@ -308,6 +317,16 @@ export default function UploadFlow() {
   useEffect(() => {
     previewsMirror.current = previews;
   }, [previews]);
+
+  // Snapshot for the async reconciliation, which must not read stale props.
+  const photosRef = useRef(photos);
+  useEffect(() => {
+    photosRef.current = photos;
+  }, [photos]);
+  const reconciledRef = useRef(reconciled);
+  useEffect(() => {
+    reconciledRef.current = reconciled;
+  }, [reconciled]);
 
   useEffect(() => {
     if (!hydrated || !session) return;
@@ -437,8 +456,9 @@ export default function UploadFlow() {
     }
     setSession(s);
     // Re-verification returns to the draft that is already in progress.
+    setReconciled(!needsReconcile(photos));
     setStep(submissionId ? "photos" : "phone");
-  }, [codeToken, code, submissionId]);
+  }, [codeToken, code, submissionId, photos]);
 
   const createSubmission = useCallback(async () => {
     // The key is minted and persisted BEFORE the request, so a lost response
@@ -481,8 +501,8 @@ export default function UploadFlow() {
       if (!submissionId || "error" in uploadBase) return;
       const file = filesRef.current.get(id);
       if (!file) {
-        // Nothing was sent, so the position was never used.
-        setPhotos((p) => releasePosition(p, id));
+        // A held slot has no File after a refresh; the server decides its fate.
+        setPhotos((p) => onTicketFailure(p, id));
         return;
       }
       let position: number | null = null;
@@ -503,13 +523,13 @@ export default function UploadFlow() {
       });
       if (tk.error) {
         // §2: an expired session keeps the whole draft and returns to email.
+        // §6/§7: a held retry keeps its position through re-verification; a
+        // ticket failure before any uncertain PUT releases it.
+        setPhotos((p) => onTicketFailure(p, id));
         if (tk.error.code === "session_expired") {
-          setPhotos((p) => releasePosition(p, id));
-          setError(tk.error);
+          setReconciled(false);
           setStep("email");
-          return;
         }
-        setPhotos((p) => releasePosition(p, id));
         setError(tk.error);
         return;
       }
@@ -556,20 +576,61 @@ export default function UploadFlow() {
     [session, submissionId, uploadBase, releasePreview],
   );
 
+  /**
+   * Ask the server which positions it actually holds before anything else
+   * touches the gallery. Until this answers, an uncertain slot's fate is
+   * unknown and no later upload may claim a position.
+   */
+  const reconcile = useCallback(async () => {
+    if (!submissionId) return;
+    const r = await call("status", { session, submission_id: submissionId });
+    if (r.error) {
+      if (r.error.code === "session_expired") setStep("email");
+      setError(r.error);
+      return;
+    }
+    const status = parseStatusResponse(r.data, submissionId);
+    if (!status) {
+      setError({
+        code: "gallery",
+        ka: "ვერ შევამოწმეთ ატვირთული ფოტოები. თავიდან სცადე.",
+      });
+      return;
+    }
+    // The updater stays pure: reconcile against a snapshot, then commit.
+    const out = reconcileSlots(photosRef.current, status);
+    if (!out.ok) {
+      setError({
+        code: "gallery",
+        ka: "ატვირთულ ფოტოებში შეუსაბამობაა. თავიდან სცადე.",
+      });
+      return;
+    }
+    setPhotos(out.slots);
+    reconciledRef.current = true;
+    setReconciled(true);
+  }, [session, submissionId]);
+
   // At most MAX_CONCURRENT_UPLOADS run at once, whatever the owner selected.
   const startingRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (step !== "photos") return;
+    // Nothing starts while an uncertain position is still unsettled.
+    if (step !== "photos" || !reconciled) return;
     for (const id of nextUploadBatch(photos, MAX_CONCURRENT_UPLOADS)) {
       if (startingRef.current.has(id)) continue;
       startingRef.current.add(id);
       void uploadOne(id).finally(() => startingRef.current.delete(id));
     }
-  }, [photos, step, uploadOne]);
+  }, [photos, step, reconciled, uploadOne]);
 
   const addFiles = useCallback(
-    (list: FileList | null) => {
+    async (list: FileList | null) => {
       if (!list) return;
+      // Requirement 2: nothing new starts until the uncertain slots are settled.
+      if (!reconciled) {
+        await reconcile();
+        if (!reconciledRef.current) return;
+      }
       const incoming = Array.from(list);
       const plan = planAddFiles(photos.length, incoming);
       const messages: string[] = [];
@@ -606,7 +667,7 @@ export default function UploadFlow() {
         setPhotos((p) => [...p, ...added]);
       }
     },
-    [photos.length],
+    [photos.length, reconciled, reconcile],
   );
 
   const removePhoto = useCallback(
@@ -738,6 +799,25 @@ export default function UploadFlow() {
         <p role="alert" className="mb-3 rounded-md bg-clay/10 px-3 py-2 text-sm text-clay-deep">
           {configError}
         </p>
+      )}
+      {step === "photos" && !reconciled && (
+        <div className="mb-3 rounded-md bg-clay/10 px-3 py-2 text-sm text-clay-deep" role="alert">
+          <p>
+            ვერ დავადგინეთ, რომელი ფოტოები აიტვირთა. სანამ არ შემოწმდება, ახალი
+            ფოტო არ იტვირთება და გაგზავნა არ ხდება.
+          </p>
+          <button
+            type="button"
+            className="mt-2 underline"
+            disabled={busy}
+            onClick={() => {
+                        setError(null);
+              void reconcile();
+            }}
+          >
+            ფოტოების შემოწმება
+          </button>
+        </div>
       )}
       {notice && (
         <p role="status" aria-live="polite" className="mb-3 text-xs text-faint">
@@ -1188,7 +1268,7 @@ export default function UploadFlow() {
                   multiple
                   className="sr-only"
                   onChange={(e) => {
-                    addFiles(e.target.files);
+                    void addFiles(e.target.files);
                     e.target.value = "";
                   }}
                 />
@@ -1203,7 +1283,7 @@ export default function UploadFlow() {
           <button
             type="button"
             className={`${btn} mt-4 w-full`}
-            disabled={busy || !galleryReady(photos)}
+            disabled={busy || !reconciled || !galleryReady(photos)}
             onClick={() => void finalize()}
           >
             {busy ? "იგზავნება…" : "გაგზავნა"}
