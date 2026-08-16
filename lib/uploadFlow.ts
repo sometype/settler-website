@@ -334,6 +334,29 @@ export function claimPosition(slots: PhotoSlot[]): number {
 }
 
 /**
+ * Reserve a server position before an upload performs its first await.
+ *
+ * React state updaters are not synchronous return-value channels. The caller
+ * therefore needs both the reserved position and the next slot snapshot as a
+ * plain value, so it can publish that snapshot to its ref before another
+ * upload starts in the same effect pass.
+ */
+export function reserveUploadSlot(
+  slots: PhotoSlot[],
+  id: string,
+): { slots: PhotoSlot[]; position: number } | null {
+  const slot = slots.find((s) => s.id === id);
+  if (!slot) return null;
+  const position = slot.position ?? claimPosition(slots);
+  return {
+    position,
+    slots: slots.map((s) =>
+      s.id === id ? { ...s, state: "uploading", position } : s,
+    ),
+  };
+}
+
+/**
  * Removal is permitted while the slot demonstrably holds no server image. An
  * unresolved (held) slot must be retried instead: removing it could leave an
  * ingested image at a position nothing references.

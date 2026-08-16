@@ -18,7 +18,6 @@ import {
   STORAGE_KEY,
   buildCreatePayload,
   canRemove,
-  claimPosition,
   applyUploadOutcome,
   createIdemFor,
   emptyFacts,
@@ -38,6 +37,7 @@ import {
   readOpaqueToken,
   readSubmissionId,
   removeSlot,
+  reserveUploadSlot,
   resolveCover,
   resolveUploadBase,
   restoreState,
@@ -507,16 +507,14 @@ export default function UploadFlow() {
         setPhotos((p) => onTicketFailure(p, id));
         return;
       }
-      let position: number | null = null;
-      setPhotos((p) => {
-        const slot = p.find((s) => s.id === id);
-        if (!slot) return p;
-        position = slot.position ?? claimPosition(p);
-        return p.map((s) =>
-          s.id === id ? { ...s, state: "uploading", position } : s,
-        );
-      });
-      if (position === null) return;
+      // Reserve synchronously. Two uploads may start in one effect pass, so
+      // relying on a setState updater to assign `position` lets both async
+      // functions continue before React has run either updater.
+      const reserved = reserveUploadSlot(photosRef.current, id);
+      if (!reserved) return;
+      const { position } = reserved;
+      photosRef.current = reserved.slots;
+      setPhotos(reserved.slots);
 
       const tk = await call("ticket", {
         session,

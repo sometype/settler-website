@@ -26,6 +26,7 @@ import {
   readOpaqueToken,
   readSubmissionId,
   removeSlot,
+  reserveUploadSlot,
   resolveCover,
   resolveUploadBase,
   restoreState,
@@ -216,6 +217,44 @@ test("wrong state 5b: positions are reused so removal never leaves a hole", () =
   assert.equal(isPermanentUploadFailure(415), true);
   assert.equal(isPermanentUploadFailure(429), false);
   assert.equal(isPermanentUploadFailure(503), false);
+});
+
+test("photo workers reserve distinct positions synchronously before their first await", () => {
+  const initial = [slot({ id: "a" }), slot({ id: "b" }), slot({ id: "c" })];
+  const first = reserveUploadSlot(initial, "a");
+  assert.ok(first);
+  assert.equal(first.position, 0);
+  assert.equal(first.slots.find((s) => s.id === "a")?.state, "uploading");
+
+  // This is the second worker starting in the same effect pass. It must read
+  // the synchronously published snapshot and receive a different position.
+  const second = reserveUploadSlot(first.slots, "b");
+  assert.ok(second);
+  assert.equal(second.position, 1);
+  assert.deepEqual(
+    second.slots.map((s) => [s.id, s.position, s.state]),
+    [
+      ["a", 0, "uploading"],
+      ["b", 1, "uploading"],
+      ["c", null, "pending"],
+    ],
+  );
+  assert.equal(initial.every((s) => s.position === null), true, "the input snapshot stays immutable");
+});
+
+test("a held retry reserves its original position", () => {
+  const held = [slot({ id: "x", position: 3, state: "pending", hold: true })];
+  const reserved = reserveUploadSlot(held, "x");
+  assert.ok(reserved);
+  assert.equal(reserved.position, 3);
+  assert.equal(reserved.slots[0].hold, true);
+  assert.equal(reserveUploadSlot(held, "missing"), null);
+});
+
+test("UploadFlow publishes the reserved snapshot before requesting a ticket", () => {
+  assert.match(COMPONENT, /reserveUploadSlot\(photosRef\.current, id\)/);
+  assert.match(COMPONENT, /photosRef\.current = reserved\.slots;\s*setPhotos\(reserved\.slots\);/);
+  assert.doesNotMatch(COMPONENT, /let position: number \| null = null;\s*setPhotos/);
 });
 
 test("cover identity survives retry and removal", () => {
