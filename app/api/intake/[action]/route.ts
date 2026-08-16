@@ -104,12 +104,21 @@ function mapError(status: number, detail: string) {
   return ERRORS.field;
 }
 
+const TURNSTILE_TIMEOUT_MS = 5_000;
+/** Largest command body we will read before parsing. Commands are small JSON
+ *  objects; anything larger is rejected without buffering it. */
+const MAX_BODY_BYTES = 16 * 1024;
+
 async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
-  const secret = process.env.TURNSTILE_SECRET;
-  // Not configured (local dev / pre-exposure): skip, don't block the build.
-  // The exposure checklist (§Caddy probes) requires this to be set in prod.
-  if (!secret) return true;
+  const secret = (process.env.TURNSTILE_SECRET || "").trim();
+  if (!secret) {
+    // Production must be configured: an unconfigured bot gate that returns
+    // true is an open door, not a convenience. Development still runs.
+    return process.env.NODE_ENV !== "production";
+  }
   if (!token) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TURNSTILE_TIMEOUT_MS);
   try {
     const res = await fetch(
       "https://challenges.cloudflare.com/turnstile/v0/siteverify",
@@ -117,12 +126,16 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ secret, response: token, remoteip: ip }),
+        signal: ctrl.signal,
+        cache: "no-store",
       },
     );
     const data = (await res.json()) as { success?: boolean };
     return data.success === true;
   } catch {
-    return false; // Turnstile down = fail closed on the bot gate
+    return false; // Turnstile down or slow = fail closed on the bot gate
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -134,9 +147,24 @@ export async function POST(
   const path = ACTIONS[action];
   if (!path) return NextResponse.json({ error: "unknown" }, { status: 404 });
 
+  const declared = Number(req.headers.get("content-length") || "0");
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return NextResponse.json({ error: ERRORS.field }, { status: 413 });
+  }
+
   let body: Record<string, unknown>;
   try {
-    body = (await req.json()) as Record<string, unknown>;
+    const raw = await req.text();
+    // Content-Length can lie or be absent under chunked encoding; the decoded
+    // length is the one that actually bounds what we parse.
+    if (raw.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: ERRORS.field }, { status: 413 });
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json({ error: ERRORS.field }, { status: 400 });
+    }
+    body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ error: ERRORS.field }, { status: 400 });
   }

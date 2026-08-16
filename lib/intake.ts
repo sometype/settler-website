@@ -13,7 +13,13 @@ import crypto from "crypto";
  *   HMAC_SHA256(key, `${ts}|${nonce}|${method}|${path}|${sha256hex(body)}`)
  */
 
-const API_URL = process.env.INTAKE_API_URL || "https://api.mepatrone.com";
+// A production build with no configured origin must not quietly sign requests
+// to a hardcoded host: an unconfigured deploy fails closed instead of talking
+// to whatever happens to answer at that name.
+const CONFIGURED_API_URL = (process.env.INTAKE_API_URL || "").trim();
+const API_URL =
+  CONFIGURED_API_URL ||
+  (process.env.NODE_ENV === "production" ? "" : "http://127.0.0.1:8000");
 const REQUEST_KEY = process.env.INTAKE_REQUEST_KEY || "";
 
 export type IntakeResult =
@@ -25,7 +31,7 @@ export async function signedIntakeCall(
   payload: Record<string, unknown>,
   opts: { idemKey?: string; timeoutMs?: number } = {},
 ): Promise<IntakeResult> {
-  if (!REQUEST_KEY) {
+  if (!REQUEST_KEY || !API_URL) {
     // Fail closed and loudly — a page silently talking to nothing is how a
     // whole cohort of owners would type a form into the void.
     return { ok: false, status: 503, detail: "intake not configured" };
@@ -58,16 +64,27 @@ export async function signedIntakeCall(
       cache: "no-store",
     });
     const text = await res.text();
-    let data: Record<string, unknown> = {};
+    let data: Record<string, unknown> | null = null;
     try {
-      data = JSON.parse(text) as Record<string, unknown>;
+      const parsed = JSON.parse(text) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        data = parsed as Record<string, unknown>;
+      }
     } catch {
-      /* non-JSON error body — keep {} */
+      /* non-JSON body — `data` stays null and is never faked into {} */
     }
     if (!res.ok) {
       const detail =
-        typeof data.detail === "string" ? data.detail : `http ${res.status}`;
+        data && typeof data.detail === "string"
+          ? data.detail
+          : `http ${res.status}`;
       return { ok: false, status: res.status, detail };
+    }
+    // A 200 carrying HTML (a proxy error page, a captive portal) is not an
+    // empty success. Treating it as {} is how a caller reads a missing
+    // submission_id as "fine" and walks the owner into the next step.
+    if (data === null) {
+      return { ok: false, status: 502, detail: "intake malformed response" };
     }
     return { ok: true, status: res.status, data };
   } catch {
