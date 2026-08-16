@@ -29,8 +29,10 @@ import {
   onTicketFailure,
   parseStatusResponse,
   reconcileSlots,
+  rejectedTypeNotice,
   releasePosition,
   restorableSlots,
+  uploadOutcomeMessage,
   nextUploadBatch,
   planAddFiles,
   readOpaqueToken,
@@ -558,19 +560,15 @@ export default function UploadFlow() {
           releasePreview(id);
           setCoverId((c) => c ?? id);
         } else {
-          setError({
-            code: "photo",
-            ka: "ეს ფოტო ვერ აიტვირთა. თავიდან სცადე ან წაშალე.",
-          });
+          // A 5xx yields hold, not release: the message follows the outcome so
+          // it can never offer წაშლა while the control is withheld.
+          setError({ code: "photo", ka: uploadOutcomeMessage(outcome) ?? "" });
         }
       } catch {
         // Transport failure after the PUT began: it is unknown whether the
         // image landed, so the position is held and only retry can settle it.
         setPhotos((p) => applyUploadOutcome(p, id, "hold"));
-        setError({
-          code: "photo",
-          ka: "ვერ დავადგინეთ, აიტვირთა თუ არა. თავიდან სცადე ამავე ფოტოზე.",
-        });
+        setError({ code: "photo", ka: uploadOutcomeMessage("hold") ?? "" });
       }
     },
     [session, submissionId, uploadBase, releasePreview],
@@ -638,9 +636,7 @@ export default function UploadFlow() {
         messages.push(`${MAX_PHOTOS} ფოტოზე მეტი არ ჩაიტვირთა (${plan.excess} დარჩა).`);
       }
       if (plan.rejectedType.length > 0) {
-        messages.push(
-          `${plan.rejectedType.length} ფაილი არ არის მხარდაჭერილი (JPEG/PNG). iPhone-ზე HEIC გამორთე ან გადაიყვანე.`,
-        );
+        messages.push(rejectedTypeNotice(plan.rejectedType.length));
       }
       setNotice(messages.join(" "));
       const accepted = plan.accepted

@@ -570,3 +570,26 @@ export function onTicketFailure(slots: PhotoSlot[], id: string): PhotoSlot[] {
 export function restorableSlots(slots: PhotoSlot[]): PhotoSlot[] {
   return slots.filter((s) => s.state === "done" || s.hold);
 }
+
+/* ------------------------------------------------- state-dependent copy */
+
+/**
+ * The failure message must agree with the controls actually offered.
+ *
+ * Telling an owner to remove a photo whose წაშლა control is deliberately
+ * absent — because the server may already hold that position — is the copy
+ * equivalent of the false-success defect: it describes a state the UI is not in.
+ */
+export const UPLOAD_FAILURE_MESSAGES = {
+  release: "ეს ფოტო ვერ აიტვირთა. თავიდან სცადე ან წაშალე.",
+  hold: "ვერ დავადგინეთ, აიტვირთა თუ არა. თავიდან სცადე ამავე ფოტოზე.",
+} as const;
+
+export function uploadOutcomeMessage(outcome: PositionOutcome): string | null {
+  return outcome === "done" ? null : UPLOAD_FAILURE_MESSAGES[outcome];
+}
+
+/** "N ფაილი არ აიტვირთა…" — states the rule, never phone settings advice. */
+export function rejectedTypeNotice(count: number): string {
+  return `${count} ფაილი არ აიტვირთა. მხოლოდ JPEG ან PNG — iPhone-ის HEIC არ მიიღება.`;
+}

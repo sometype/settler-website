@@ -35,6 +35,9 @@ import {
   parseStatusResponse,
   reconcileSlots,
   restorableSlots,
+  rejectedTypeNotice,
+  UPLOAD_FAILURE_MESSAGES,
+  uploadOutcomeMessage,
   turnstileRequirement,
   uploadedPositions,
   turnstileSiteKeyRequirement,
@@ -587,7 +590,9 @@ test("copy: existing-draft message is actionable and honest", () => {
 
 test("copy: JPEG/PNG only, ქუჩა label, spaced countdown units", () => {
   assert.ok(!/JPEG\/PNG\/WebP/.test(COMPONENT), "WebP removed from the message");
-  assert.ok(/\(JPEG\/PNG\)/.test(COMPONENT));
+  // The rule now reads as prose in both places, not a parenthesised list.
+  assert.ok(/მხოლოდ JPEG და PNG/.test(COMPONENT), "static photos copy states the rule");
+  assert.match(rejectedTypeNotice(1), /მხოლოდ JPEG ან PNG/, "the notice states it too");
   assert.ok(!/ქუჩა \/ უბანი/.test(COMPONENT), "label is just ქუჩა");
   assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "countdown needs a space before წმ");
   assert.ok(!/\$\{resendIn\}წმ/.test(COMPONENT));
@@ -718,4 +723,92 @@ test("recovery: a gallery with an unresolved hold can never finalize", () => {
   assert.equal(galleryReady(kept.slots), false, "a failed slot still blocks until removed");
   assert.equal(canRemove(released), true);
   assert.equal(galleryReady(removeSlot(kept.slots, "u")), true);
+});
+
+/* ------------------- copy addendum: message / control agreement ---------- */
+
+test("copy: every outcome's message agrees with the controls it offers", () => {
+  const cases = [
+    { outcome: "done", status: 201, detail: "" },
+    { outcome: "release", status: 415, detail: "unsupported media type" },
+    { outcome: "release", status: 409, detail: "submission is not accepting images" },
+    { outcome: "hold", status: 503, detail: "upstream unavailable" },
+    { outcome: "hold", status: 500, detail: "" },
+  ];
+  for (const c of cases) {
+    assert.equal(positionOutcome(c.status, c.detail), c.outcome, `${c.status} ${c.detail}`);
+    const after = applyUploadOutcome(
+      [slot({ id: "x", position: 0, state: "uploading" })],
+      "x", c.outcome, c.status, c.detail,
+    )[0];
+    const message = uploadOutcomeMessage(c.outcome);
+
+    if (c.outcome === "done") {
+      assert.equal(message, null, "a success shows no failure message");
+      assert.equal(after.state, "done");
+      continue;
+    }
+    if (c.outcome === "release") {
+      // Proven empty: the remove control is available, so the copy may offer it.
+      assert.equal(canRemove(after), true, `${c.status} must be removable`);
+      assert.equal(message, UPLOAD_FAILURE_MESSAGES.release);
+      assert.match(message, /წაშალე/, "removable failures may say წაშალე");
+      continue;
+    }
+    // Unknown: no remove control, so the copy must not mention წაშლა at all.
+    assert.equal(canRemove(after), false, `${c.status} must not be removable`);
+    assert.equal(message, UPLOAD_FAILURE_MESSAGES.hold);
+    assert.ok(!/წაშალე|წაშლა/.test(message), "a held photo must not be told to delete it");
+    assert.match(message, /ამავე ფოტოზე/, "it must point at the same photo");
+  }
+});
+
+test("copy: the removable-failure sentence never reaches a held slot", () => {
+  assert.ok(
+    !/ეს ფოტო ვერ აიტვირთა\. თავიდან სცადე ან წაშალე\./.test(COMPONENT),
+    "the component must not hardcode the removable sentence; it comes from the outcome",
+  );
+  assert.ok(/uploadOutcomeMessage\(outcome\)/.test(COMPONENT), "the message follows the outcome");
+  assert.ok(/uploadOutcomeMessage\("hold"\)/.test(COMPONENT), "transport failure uses the held copy");
+});
+
+test("copy: rejected file types state the rule, not phone settings advice", () => {
+  const notice = rejectedTypeNotice(2);
+  assert.equal(notice, "2 ფაილი არ აიტვირთა. მხოლოდ JPEG ან PNG — iPhone-ის HEIC არ მიიღება.");
+  assert.ok(!/გამორთე|გადაიყვანე/.test(notice), "never tell the owner to change phone settings");
+  assert.ok(!/მხარდაჭერილი/.test(COMPONENT), "the old unsupported-file wording is gone");
+  assert.ok(!/WebP/i.test(COMPONENT), "no WebP promise anywhere");
+});
+
+test("copy: Grok-approved strings survive verbatim", () => {
+  for (const approved of [
+    "დაუსრულებელი განცხადება გაქვს",
+    "ბრაუზერში არჩეული ფაილები არ ინახება",
+    "განაგრძე",
+    "თავიდან დაწყება",
+    "ატვირთვის დროს გაწყვეტილი ფოტოები თავიდან აირჩიე.",
+    "წაშლა",
+    "მხოლოდ JPEG და PNG. iPhone-ის HEIC ჯერ არ მიიღება.",
+    "უკან",
+    "მდგომარეობა",
+    "მიღებულია. გამოქვეყნებული ჯერ არ არის. მალე დაგირეკავთ.",
+  ]) {
+    assert.ok(COMPONENT.includes(approved), `approved string lost: ${approved}`);
+  }
+  assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "ხელახლა გაგზავნა (54 წმ)");
+  assert.ok(/იმავე ბრაუზერიდან განაგრძე/.test(ROUTE), "same-browser existing-draft message");
+});
+
+test("copy: forbidden promises stay absent", () => {
+  for (const [banned, why] of [
+    [/WebP/i, "WebP support"],
+    [/სხვა მოწყობილობიდან/, "cross-device resume"],
+    [/არაფერი დაიკარგა|ადგილზეა/, "no-data-loss promise"],
+    [/24 სთ/, "24-hour publication"],
+  ]) {
+    assert.ok(!banned.test(COMPONENT), `component promises ${why}`);
+    assert.ok(!banned.test(ROUTE), `route promises ${why}`);
+  }
+  // Nothing may imply the listing is already public.
+  assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
 });
