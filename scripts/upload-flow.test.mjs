@@ -600,7 +600,7 @@ test("copy: JPEG/PNG only, ქუჩა label, spaced countdown units", () => {
 
 /* ------------- recovery contract: authoritative reconciliation ----------- */
 
-const STATUS_OK = { submission_id: 42, status: "draft", positions: [0] };
+const STATUS_OK = { submission_id: 42, status: "draft", positions: [0], pending_positions: [] };
 
 test("recovery: a lost response where the server DID store settles the same slot", () => {
   const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
@@ -811,4 +811,102 @@ test("copy: forbidden promises stay absent", () => {
   }
   // Nothing may imply the listing is already public.
   assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
+});
+
+/* ------------------ pending-position race: bounded correction ------------ */
+
+const PENDING = (over = {}) => ({
+  submission_id: 42, status: "draft", positions: [], pending_positions: [], ...over,
+});
+
+test("race 1: a 503 then status before the worker finishes keeps the hold", () => {
+  // 503 -> hold, position retained.
+  let slots = applyUploadOutcome(
+    [slot({ id: "x", position: 0, state: "uploading" })], "x", "hold", 503, "");
+  assert.equal(slots[0].hold, true);
+  assert.equal(slots[0].position, 0);
+
+  // Status: nothing committed, but position 0 is still in flight.
+  const status = parseStatusResponse(PENDING({ pending_positions: [0] }), 42);
+  assert.ok(status);
+  const out = reconcileSlots(slots, status);
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].hold, true, "a pending position must NOT be released");
+  assert.equal(out.slots[0].position, 0);
+  assert.equal(canRemove(out.slots[0]), false);
+  assert.equal(galleryReady(out.slots), false, "finalization stays blocked");
+});
+
+test("race 2: a new file cannot claim a pending position", () => {
+  const held = slot({ id: "old", position: 0, state: "failed", hold: true });
+  const fresh = slot({ id: "new" });
+  const out = reconcileSlots([held, fresh], parseStatusResponse(PENDING({ pending_positions: [0] }), 42));
+  assert.equal(out.ok, true);
+  // The old slot still owns 0, so the next claim is 1 — never 0.
+  assert.equal(claimPosition(out.slots), 1);
+  // And nothing may start while the hold stands.
+  assert.deepEqual(nextUploadBatch(out.slots), []);
+  assert.equal(out.slots.find((s) => s.id === "new").position, null);
+});
+
+test("race 3: if the old worker commits, status settles the original slot", () => {
+  const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
+  const out = reconcileSlots(held, parseStatusResponse(PENDING({ positions: [0] }), 42));
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].id, "x", "the original slot, not a later one");
+  assert.equal(out.slots[0].state, "done");
+  assert.equal(out.slots[0].hold, false);
+  assert.equal(out.slots[0].position, 0);
+});
+
+test("race 4: once the horizon expires with no commit, the position releases", () => {
+  const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
+  // Neither committed nor pending: the server has stopped expecting it.
+  const out = reconcileSlots(held, parseStatusResponse(PENDING(), 42));
+  assert.equal(out.ok, true);
+  assert.equal(out.slots[0].state, "failed");
+  assert.equal(out.slots[0].position, null);
+  assert.equal(out.slots[0].hold, false);
+  assert.equal(canRemove(out.slots[0]), true);
+  assert.equal(claimPosition(out.slots), 0, "the position is genuinely free again");
+});
+
+test("race 6: overlapping, duplicate, foreign or missing sets fail closed", () => {
+  // Overlap between committed and pending is not an answer we can reason about.
+  assert.equal(parseStatusResponse(PENDING({ positions: [0], pending_positions: [0] }), 42), null);
+  // A server that cannot report pending positions at all is refused.
+  assert.equal(parseStatusResponse({ submission_id: 42, status: "draft", positions: [] }, 42), null);
+  assert.equal(parseStatusResponse(PENDING({ pending_positions: [0, 0] }), 42), null);
+  assert.equal(parseStatusResponse(PENDING({ pending_positions: ["0"] }), 42), null);
+  assert.equal(parseStatusResponse(PENDING({ pending_positions: [-1] }), 42), null);
+  assert.equal(parseStatusResponse(PENDING({ pending_positions: [MAX_PHOTOS] }), 42), null);
+  assert.equal(parseStatusResponse(PENDING({ submission_id: 43 }), 42), null);
+  assert.equal(parseStatusResponse(null, 42), null);
+
+  // Failing closed means the hold is preserved: no reconciliation is applied.
+  const held = [slot({ id: "x", position: 0, state: "failed", hold: true })];
+  assert.equal(needsReconcile(held), true);
+  assert.equal(galleryReady(held), false);
+});
+
+test("race 6b: a pending position with no local slot stops rather than guessing", () => {
+  const local = [slot({ id: "a", position: 0, state: "done" })];
+  const out = reconcileSlots(local, parseStatusResponse(PENDING({ positions: [0], pending_positions: [1] }), 42));
+  assert.equal(out.ok, false);
+  assert.equal(out.reason, "server_position_without_slot");
+});
+
+test("race 7: finalization is blocked while any pending hold exists", () => {
+  const slots = [
+    slot({ id: "a", position: 0, state: "done" }),
+    slot({ id: "b", position: 1, state: "done" }),
+    slot({ id: "c", position: 2, state: "done" }),
+    slot({ id: "p", position: 3, state: "failed", hold: true }),
+  ];
+  const out = reconcileSlots(slots, parseStatusResponse(
+    PENDING({ positions: [0, 1, 2], pending_positions: [3] }), 42));
+  assert.equal(out.ok, true);
+  assert.equal(out.slots.find((s) => s.id === "p").hold, true);
+  assert.equal(galleryReady(out.slots), false, "three good photos are not enough while one is in flight");
+  assert.equal(needsReconcile(out.slots), true, "reconciliation stays owed");
 });

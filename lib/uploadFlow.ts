@@ -480,8 +480,28 @@ export function releasePosition(slots: PhotoSlot[], id: string): PhotoSlot[] {
 export type SubmissionStatus = {
   submissionId: number;
   status: string;
+  /** Committed images. */
   positions: number[];
+  /**
+   * Positions whose ticket was consumed inside the server's pending horizon
+   * with nothing committed yet: empty right now, but the original upload may
+   * still land there. Treating these as free is what let a second file claim a
+   * position the first worker could still take.
+   */
+  pendingPositions: number[];
 };
+
+function boundedPositionList(raw: unknown): number[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: number[] = [];
+  for (const value of raw) {
+    if (typeof value !== "number" || !Number.isSafeInteger(value)) return null;
+    if (value < 0 || value >= MAX_PHOTOS) return null;
+    if (out.includes(value)) return null; // duplicates are not a gallery
+    out.push(value);
+  }
+  return out.sort((a, b) => a - b);
+}
 
 /**
  * Validate a /submission/status response before trusting it to settle a slot.
@@ -500,15 +520,17 @@ export function parseStatusResponse(
   const id = coerceIdentifier(d.submission_id);
   if (id === null || id !== expectedId) return null;
   if (typeof d.status !== "string" || !d.status) return null;
-  if (!Array.isArray(d.positions)) return null;
-  const positions: number[] = [];
-  for (const raw of d.positions) {
-    if (typeof raw !== "number" || !Number.isSafeInteger(raw)) return null;
-    if (raw < 0 || raw >= MAX_PHOTOS) return null;
-    if (positions.includes(raw)) return null; // duplicates are not a gallery
-    positions.push(raw);
-  }
-  return { submissionId: id, status: d.status, positions: positions.sort((a, b) => a - b) };
+  const positions = boundedPositionList(d.positions);
+  if (positions === null) return null;
+  // An older server that cannot report pending positions is refused rather
+  // than trusted: its silence is indistinguishable from "nothing pending",
+  // which is exactly the wrong answer during the race.
+  const pendingPositions = boundedPositionList(d.pending_positions);
+  if (pendingPositions === null) return null;
+  // The server makes these disjoint by construction; an overlap means the
+  // answer is not one this client can reason about.
+  if (pendingPositions.some((p) => positions.includes(p))) return null;
+  return { submissionId: id, status: d.status, positions, pendingPositions };
 }
 
 export type Reconciliation =
@@ -526,13 +548,20 @@ export function reconcileSlots(
   status: SubmissionStatus,
 ): Reconciliation {
   const filled = new Set(status.positions);
+  const pending = new Set(status.pendingPositions);
   const next = slots.map((s) => {
     if (s.position !== null && filled.has(s.position)) {
       // The server holds an image at this slot's own position.
       return { ...s, state: "done" as SlotState, hold: false, permanent: false };
     }
+    if (s.position !== null && pending.has(s.position)) {
+      // Empty now, but the original upload may still commit here. The slot
+      // keeps its hold, so it can neither be inherited nor finalized.
+      return { ...s, state: "failed" as SlotState, hold: true, permanent: false };
+    }
     if (s.state === "done" || s.hold) {
-      // Local believed it landed, or could not tell, and the server says no.
+      // Local believed it landed, or could not tell, and the server says the
+      // position is neither filled nor still in flight: safe to release.
       return { ...s, state: "failed" as SlotState, position: null, hold: false, permanent: false };
     }
     return s;
@@ -540,9 +569,10 @@ export function reconcileSlots(
   const claimed = new Set(
     next.filter((s) => s.position !== null).map((s) => s.position as number),
   );
-  for (const p of status.positions) {
-    // An image nothing local references would break contiguity at finalize and
-    // cannot be re-bound safely, so recovery stops rather than guessing.
+  for (const p of [...status.positions, ...status.pendingPositions]) {
+    // A committed or in-flight position nothing local references would break
+    // contiguity at finalize and cannot be re-bound safely, so recovery stops
+    // rather than guessing.
     if (!claimed.has(p)) return { ok: false, reason: "server_position_without_slot" };
   }
   return { ok: true, slots: next };
