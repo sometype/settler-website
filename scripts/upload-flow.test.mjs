@@ -3,7 +3,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { OWNER_CONDITIONS } from "../lib/labels.ts";
 import {
+  ACCEPTED_IMAGE_TYPES,
   MAX_CONCURRENT_UPLOADS,
   MAX_PHOTOS,
   buildCreatePayload,
@@ -12,6 +14,7 @@ import {
   classifyUploadResponse,
   createIdemFor,
   emptyFacts,
+  factsComplete,
   galleryReady,
   isPermanentUploadFailure,
   nextUploadBatch,
@@ -47,8 +50,20 @@ function slot(over = {}) {
 }
 
 function goodFacts() {
-  return { ...emptyFacts(), district_code: "gldani", street_display: "პეკინის ქ.", area: "65", price_usd: "85000" };
+  return {
+    ...emptyFacts(),
+    district_code: "gldani",
+    street_display: "პეკინის ქ.",
+    area: "65",
+    price_usd: "85000",
+    condition: "ახალი რემონტით",
+  };
 }
+
+const ROUTE = readFileSync(
+  fileURLToPath(new URL("../app/api/intake/[action]/route.ts", import.meta.url)),
+  "utf8",
+);
 
 /* 1. description=null and owner_declared=true before consent */
 
@@ -303,4 +318,132 @@ test("excess files and unsupported types are reported", () => {
   assert.equal(heic.rejectedType.length, 1, "HEIC is named, not silently dropped");
 
   assert.equal(planAddFiles(MAX_PHOTOS, [{ name: "x.jpg", size: 1, type: "image/jpeg" }]).excess, 1);
+});
+
+
+/* ---------------------- product acceptance addendum ---------------------- */
+
+test("product 1+6: an unchecked declaration cannot create or finalize", () => {
+  const base = { session: "s", phone: "555111222", facts: goodFacts(), description: "ტ", idem: "i-1" };
+  assert.equal(buildCreatePayload({ ...base, declared: false }).reason, "declaration_required");
+  // Nothing in the component asserts the declaration on the owner's behalf.
+  assert.ok(!/owner_declared:\s*true/.test(COMPONENT));
+  assert.ok(/checked=\{declared\}/.test(COMPONENT), "the box drives the value");
+  assert.ok(
+    /disabled=\{busy \|\| !declared/.test(COMPONENT),
+    "create stays disabled until the owner checks the box",
+  );
+});
+
+test("product 2+5: description is required and reaches the stored submission", () => {
+  const base = { session: "s", phone: "555111222", facts: goodFacts(), declared: true, idem: "i-1" };
+  assert.equal(buildCreatePayload({ ...base, description: "" }).reason, "description_required");
+  assert.equal(buildCreatePayload({ ...base, description: "   " }).reason, "description_required");
+  const ok = buildCreatePayload({ ...base, description: "  ორსართულიანი  " });
+  assert.equal(ok.payload.description, "ორსართულიანი");
+});
+
+test("product 7: a missing property condition blocks the step and the request", () => {
+  const without = { ...goodFacts(), condition: "" };
+  assert.equal(factsComplete(without), false);
+  assert.equal(factsComplete(goodFacts()), true);
+
+  const built = buildCreatePayload({
+    session: "s", phone: "555111222", facts: without,
+    description: "ტ", declared: true, idem: "i-1",
+  });
+  assert.equal(built.reason, "condition_required");
+
+  // The offered vocabulary comes from labels.ts, not a third copy in the form.
+  assert.ok(
+    /OWNER_CONDITIONS.map\(/.test(COMPONENT),
+    "the select must be driven by labels.ts OWNER_CONDITIONS",
+  );
+  assert.ok(
+    !/ახალი რემონტით/.test(readFileSync(fileURLToPath(new URL("../lib/uploadFlow.ts", import.meta.url)), "utf8")),
+    "uploadFlow must not restate the condition vocabulary",
+  );
+  assert.equal(OWNER_CONDITIONS.length, 6);
+  // Every offered option is a canonical value the backend already normalises.
+  for (const c of OWNER_CONDITIONS) {
+    assert.equal(factsComplete({ ...goodFacts(), condition: c }), true, c);
+    const b = buildCreatePayload({
+      session: "s", phone: "555111222", facts: { ...goodFacts(), condition: c },
+      description: "ტ", declared: true, idem: "i-1",
+    });
+    assert.equal(b.payload.condition, c);
+  }
+});
+
+test("product 3: no blanket claim that nothing was lost", () => {
+  for (const banned of ["არაფერი დაიკარგა", "ადგილზეა"]) {
+    assert.ok(!COMPONENT.includes(banned), `component still promises: ${banned}`);
+    assert.ok(!ROUTE.includes(banned), `route still promises: ${banned}`);
+  }
+  // Resume is offered explicitly and names what cannot survive a refresh.
+  assert.ok(/განაგრძე/.test(COMPONENT), "an explicit resume action is required");
+  assert.ok(
+    /ბრაუზერში არჩეული ფაილები არ ინახება/.test(COMPONENT),
+    "resume must say photos need re-selecting",
+  );
+});
+
+test("product 4: a failed HEIC or corrupt photo is rejected and removable", () => {
+  const heic = planAddFiles(0, [{ name: "IMG_1.HEIC", size: 1, type: "image/heic" }]);
+  assert.equal(heic.accepted.length, 0);
+  assert.equal(heic.rejectedType.length, 1);
+  // JPEG and PNG only in this version.
+  assert.deepEqual([...ACCEPTED_IMAGE_TYPES], ["image/jpeg", "image/png"]);
+  assert.equal(planAddFiles(0, [{ name: "a.webp", size: 1, type: "image/webp" }]).accepted.length, 0);
+
+  const stuck = [
+    slot({ id: "a", state: "done", position: 0 }),
+    slot({ id: "b", state: "done", position: 1 }),
+    slot({ id: "c", state: "done", position: 2 }),
+    slot({ id: "bad", state: "failed", permanent: true }),
+  ];
+  assert.equal(galleryReady(stuck), false);
+  assert.equal(canRemove(stuck[3]), true);
+  assert.equal(galleryReady(removeSlot(stuck, "bad")), true, "a bad image must not trap the submission");
+});
+
+test("product 5b: no raw internal status is ever rendered", () => {
+  for (const raw of ["promoted", "rejected_spam", "pending_review", "finalStatus"]) {
+    assert.ok(!COMPONENT.includes(raw), `internal status leaked to the owner: ${raw}`);
+  }
+  assert.ok(!/სტატუსი:/.test(COMPONENT), "no status line on the done screen");
+});
+
+test("product 8+9: no two-card absolute and no 24-hour promise", () => {
+  assert.ok(!/ორ ბარათს არ ვაჩვენებთ/.test(COMPONENT), "absolute two-card promise removed");
+  assert.ok(!/24 სთ/.test(COMPONENT), "24-hour promise removed");
+  assert.ok(
+    /ერთ ბინას ერთ განცხადებად ვაჩვენებთ/.test(COMPONENT),
+    "the honest one-listing wording is required",
+  );
+  assert.ok(
+    /შენი myhome\/ss განცხადება ამით\s+არ იშლება/.test(COMPONENT),
+    "must say we do not delete the owner's portal listing",
+  );
+  assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
+  assert.ok(/უპასუხე უცნობ ნომერს/.test(COMPONENT), "unknown-number reminder kept");
+});
+
+test("product 10: main-photo selection is keyboard operable and labelled", () => {
+  assert.ok(/aria-pressed=\{isCover\}/.test(COMPONENT));
+  assert.ok(/მთავარი ფოტო/.test(COMPONENT), "cover is renamed to მთავარი ფოტო");
+  assert.ok(!/გარეკანი/.test(COMPONENT), "old გარეკანი wording removed");
+  assert.ok(/ფოტოს დამატება/.test(COMPONENT), "the + control is replaced by words");
+  assert.ok(!/<img[^>]*onClick/.test(COMPONENT));
+});
+
+test("product 10b: five numbered steps, never n/6", () => {
+  assert.ok(!/\/6/.test(COMPONENT), "step count must not claim six steps");
+  assert.ok(/ნაბიჯი \{n\}\/5/.test(COMPONENT));
+});
+
+test("product 9b: informal email copy without English Promotions", () => {
+  assert.ok(!/Promotions/.test(COMPONENT));
+  assert.ok(/გახსენი სპამის საქაღალდე/.test(COMPONENT));
+  assert.ok(/გახსენი წერილი/.test(COMPONENT), "informal second person");
 });

@@ -42,6 +42,28 @@ const CONDITION: Record<string, string> = {
  * would put listings behind a label their own page contradicts. Accepted cost:
  * those listings are reachable by no chip at all.
  */
+/**
+ * The closed condition choice an owner picks when adding a listing.
+ *
+ * Lives here, not in the upload flow, because this file is already one of the
+ * two places allowed to know raw condition spellings. A list inside the form
+ * would be the third map the rule above forbids. The stored value is the raw
+ * Georgian spelling, which `normalize_lib.condition_code()` already recognises.
+ */
+export const OWNER_CONDITIONS = [
+  "ახალი რემონტით",
+  "ძველი რემონტით",
+  "მწვანე კარკასი",
+  "თეთრი კარკასი",
+  "შავი კარკასი",
+  "სარემონტო",
+] as const;
+export type OwnerCondition = (typeof OWNER_CONDITIONS)[number];
+
+export function isOwnerCondition(v: string): v is OwnerCondition {
+  return (OWNER_CONDITIONS as readonly string[]).includes(v);
+}
+
 export const CONDITION_CODES = ["black", "white", "green"] as const;
 export type ConditionCode = (typeof CONDITION_CODES)[number];
 

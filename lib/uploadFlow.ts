@@ -23,7 +23,8 @@ export const MAX_CONCURRENT_UPLOADS = 2;
 export const STORAGE_KEY = "mp_upload";
 export const STATE_VERSION = 2;
 
-export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+/** JPEG and PNG only. iPhone HEIC is explicitly not accepted in this version. */
+export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 export type Step =
   | "email"
@@ -42,6 +43,8 @@ export type Facts = {
   area: string;
   floor: string;
   price_usd: string;
+  /** Raw Georgian spelling from labels.ts OWNER_CONDITIONS; required. */
+  condition: string;
   portal_url: string;
 };
 
@@ -70,8 +73,26 @@ export function emptyFacts(): Facts {
     area: "",
     floor: "",
     price_usd: "",
+    condition: "",
     portal_url: "",
   };
+}
+
+/**
+ * The facts step is complete only once a condition has been chosen.
+ *
+ * The vocabulary itself stays in labels.ts (the two-places rule) and reaches
+ * the user through a closed <select>, so this layer requires presence rather
+ * than restating the list a third time.
+ */
+export function factsComplete(f: Facts): boolean {
+  return Boolean(
+    f.district_code &&
+      f.street_display.trim().length >= 2 &&
+      f.area.trim() &&
+      f.price_usd.trim() &&
+      f.condition.trim(),
+  );
 }
 
 /* ------------------------------------------------------------------ config */
@@ -168,7 +189,13 @@ export function buildCreatePayload(
   const session = input.session.trim();
   if (!session) return { ok: false, reason: "session_required" };
   if (!input.idem.trim()) return { ok: false, reason: "idem_required" };
+  // Description is required in this version: a textarea whose text never
+  // reaches the submission is worse than no textarea.
   const description = input.description.trim();
+  if (!description) return { ok: false, reason: "description_required" };
+  if (!input.facts.condition.trim()) {
+    return { ok: false, reason: "condition_required" };
+  }
   return {
     ok: true,
     payload: {
@@ -181,7 +208,8 @@ export function buildCreatePayload(
       area: Number(input.facts.area),
       floor: input.facts.floor.trim(),
       price_usd: Number(input.facts.price_usd),
-      description: description || null,
+      condition: input.facts.condition,
+      description,
       portal_url: input.facts.portal_url.trim() || null,
       owner_declared: true,
       idem: input.idem,

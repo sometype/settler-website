@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { DISTRICTS } from "@/lib/districts";
+import { OWNER_CONDITIONS } from "@/lib/labels";
 import {
   ACCEPTED_IMAGE_TYPES,
   MAX_CONCURRENT_UPLOADS,
@@ -21,6 +22,7 @@ import {
   classifyUploadResponse,
   createIdemFor,
   emptyFacts,
+  factsComplete,
   galleryReady,
   isPermanentUploadFailure,
   nextUploadBatch,
@@ -48,10 +50,14 @@ import {
  * per-photo retry (never restart the gallery). Polish is allowed; reversing
  * any of those is not.
  *
- * ORDER NOTE: text+declare now runs BEFORE photos because /submission/create
+ * ORDER NOTE: text+declare runs BEFORE photos because /submission/create
  * requires owner_declared === true and there is no update endpoint. Collecting
  * the declaration afterwards would mean asserting it on the owner's behalf.
- * Every string below is unchanged.
+ *
+ * The 2026-08-16 product acceptance addendum supersedes the earlier copy: no
+ * 24-hour promise, no absolute two-card claim, no blanket "nothing was lost",
+ * owner-only declaration, required condition and description, and five
+ * numbered steps.
  */
 
 type ApiError = { code: string; ka: string; retry_after_s?: number };
@@ -88,7 +94,7 @@ async function call(
       return {
         error: err ?? {
           code: "busy",
-          ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე. არაფერი დაიკარგა.",
+          ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე.",
         },
       };
     }
@@ -97,7 +103,7 @@ async function call(
     return {
       error: {
         code: "network",
-        ka: "კავშირი გაწყდა. ინტერნეტი შეამოწმე და თავიდან სცადე — არაფერი დაიკარგა.",
+        ka: "კავშირი გაწყდა. ინტერნეტი შეამოწმე და თავიდან სცადე.",
       },
     };
   }
@@ -152,7 +158,7 @@ function Err({ error, id }: { error: ApiError | null; id: string }) {
 function StepTag({ n }: { n: number }) {
   return (
     <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">
-      ნაბიჯი {n}/6
+      ნაბიჯი {n}/5
     </p>
   );
 }
@@ -196,20 +202,24 @@ function Manifesto({ compact }: { compact?: boolean }) {
           <span className="font-semibold text-moss-deep">
             თუ ბინა უკვე გაქვს myhome-ზე ან ss-ზე — აქაც შეგიძლია დაამატო.
           </span>{" "}
-          შენი პირდაპირი განცხადება იქნება <b>მთავარი</b> ბარათი Mepatrone-ზე.
-          ერთ ბინაზე <b>ორ ბარათს არ ვაჩვენებთ</b>.
+          Mepatrone-ზე ერთ ბინას ერთ განცხადებად ვაჩვენებთ. თუ ეს ბინა უკვე
+          გვაქვს, დავტოვებთ შენს პირდაპირ ვერსიას.
         </div>
         <div className="rounded-lg border border-clay/40 bg-clay/5 p-3 text-sm leading-relaxed">
           <span className="font-semibold text-clay-deep">აკრძალულია</span>{" "}
-          სხვისი ბინის, აგენტის ან გადაკოპირებული განცხადების ატვირთვა.
-          აღმოჩენისას ვშლით — <b>დაკავშირებულ ასლებსაც</b>.
+          სხვისი ბინის, აგენტის ან მოპარული ფოტოების ატვირთვა. ასეთს ვშლით —
+          იმავე ხელის სხვა ყალბ განცხადებებსაც. შენი myhome/ss განცხადება ამით
+          არ იშლება.
         </div>
       </div>
       <p className="mt-3 text-xs text-faint">
-        ვამოწმებთ ფოტოების ანაბეჭდებით და სხვა წყაროებთან შედარებით.
-        გამოქვეყნებამდე <b>დაგირეკავთ</b> მითითებულ ნომერზე.
+        ფოტოებს ვადარებთ სხვა საიტებზე არსებულ განცხადებებს — გადაკოპირებული
+        სწრაფად ჩანს. გამოქვეყნებამდე <b>დაგირეკავთ</b> მითითებულ ნომერზე.
       </p>
-      <p className="mt-2 text-xs text-faint">დრაფტი ინახება 7 დღე.</p>
+      <p className="mt-2 text-xs text-faint">
+        დაუსრულებელი განცხადება 7 დღე ინახება. მერვე დღეს იშლება, ფოტოების
+        ჩათვლით.
+      </p>
     </header>
   );
 }
@@ -230,6 +240,8 @@ export default function UploadFlow() {
       : "",
   );
   const [busy, setBusy] = useState(false);
+  // §8: an unfinished draft is offered explicitly, never silently resumed.
+  const [resumePending, setResumePending] = useState(() => Boolean(saved));
 
   const [email, setEmail] = useState(() => saved?.email ?? "");
   const [codeToken, setCodeToken] = useState("");
@@ -252,7 +264,6 @@ export default function UploadFlow() {
   const [submissionId, setSubmissionId] = useState<number | null>(
     () => saved?.submissionId ?? null,
   );
-  const [finalStatus, setFinalStatus] = useState("");
 
   // Files are not serialisable and are never rendered, so they stay in a ref.
   // Preview URLs are rendered, so they are state: reading a ref during render
@@ -399,7 +410,7 @@ export default function UploadFlow() {
     }
     const token = readOpaqueToken(r.data, "token");
     if (!token) {
-      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე. არაფერი დაიკარგა." });
+      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
       return;
     }
     setCodeToken(token);
@@ -419,7 +430,7 @@ export default function UploadFlow() {
     }
     const s = readOpaqueToken(r.data, "session");
     if (!s) {
-      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე. არაფერი დაიკარგა." });
+      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
       return;
     }
     setSession(s);
@@ -456,7 +467,7 @@ export default function UploadFlow() {
     }
     const id = readSubmissionId(r.data);
     if (id === null) {
-      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე. არაფერი დაიკარგა." });
+      setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
       return;
     }
     setSubmissionId(id);
@@ -532,7 +543,7 @@ export default function UploadFlow() {
         } else {
           setError({
             code: "photo",
-            ka: "ეს ფოტო ვერ აიტვირთა — თავიდან სცადე. დანარჩენები ადგილზეა.",
+            ka: "ეს ფოტო ვერ აიტვირთა. თავიდან სცადე ან წაშალე.",
           });
         }
       } catch {
@@ -543,7 +554,7 @@ export default function UploadFlow() {
         );
         setError({
           code: "photo",
-          ka: "ეს ფოტო ვერ აიტვირთა — თავიდან სცადე. დანარჩენები ადგილზეა.",
+          ka: "ეს ფოტო ვერ აიტვირთა. თავიდან სცადე ან წაშალე.",
         });
       }
     },
@@ -637,7 +648,6 @@ export default function UploadFlow() {
       setError(r.error);
       return;
     }
-    setFinalStatus(String(r.data?.status ?? "checking"));
     sessionStorage.removeItem(STORAGE_KEY);
     setStep("done");
   }, [session, submissionId, photos, coverId]);
@@ -673,6 +683,43 @@ export default function UploadFlow() {
     return (
       <div className="mx-auto w-full max-w-md px-4 py-6">
         <Manifesto />
+      </div>
+    );
+  }
+
+  if (resumePending && saved) {
+    const restorable = saved.photos.filter((p) => p.state === "done").length;
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-6">
+        <Manifesto compact />
+        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-ink">
+          დაუსრულებელი განცხადება გაქვს
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink">
+          აღდგება: ელფოსტა, ტელეფონი, ბინის მონაცემები და აღწერა
+          {restorable > 0 ? ` და ${restorable} ატვირთული ფოტო` : ""}.
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-mink">
+          ბრაუზერში არჩეული ფაილები არ ინახება — ჯერ აუტვირთავი ფოტოები თავიდან
+          უნდა აირჩიო.
+        </p>
+        <button
+          type="button"
+          className={`${btn} mt-4 w-full`}
+          onClick={() => setResumePending(false)}
+        >
+          განაგრძე
+        </button>
+        <button
+          type="button"
+          className="mt-2 w-full text-center text-xs text-mink underline"
+          onClick={() => {
+            sessionStorage.removeItem(STORAGE_KEY);
+            window.location.reload();
+          }}
+        >
+          თავიდან დაწყება
+        </button>
       </div>
     );
   }
@@ -737,12 +784,12 @@ export default function UploadFlow() {
         <section>
           <StepTag n={1} />
           <p className="text-sm leading-relaxed text-ink">
-            კოდი გავუგზავნეთ <b>{maskEmail(email)}</b>. გახსენით წერილი — კოდი
+            კოდი გავუგზავნეთ <b>{maskEmail(email)}</b>. გახსენი წერილი — კოდი
             სათაურშიც წერია.
           </p>
           {spamHint && (
             <p className="mt-1 text-xs text-faint">
-              არ ჩანს? გახსენით სპამი / Promotions.
+              არ ჩანს? გახსენი სპამის საქაღალდე.
             </p>
           )}
           <label htmlFor="mp-code" className="sr-only">
@@ -952,6 +999,28 @@ export default function UploadFlow() {
             </div>
           </div>
           <div>
+            <label htmlFor="mp-condition" className="mb-1 block text-sm font-medium text-ink">
+              მდგომარეობა
+            </label>
+            <select
+              id="mp-condition"
+              name="condition"
+              className={input}
+              required
+              value={facts.condition}
+              onChange={(e) =>
+                setFacts((f) => ({ ...f, condition: e.target.value }))
+              }
+            >
+              <option value="">აირჩიე…</option>
+              {OWNER_CONDITIONS.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
             <label htmlFor="mp-portal" className="mb-1 block text-sm font-medium text-ink">
               თუ უკვე გაქვს ბმული myhome/ss-ზე — ჩასვი{" "}
               <span className="font-normal text-faint">(არასავალდებულო)</span>
@@ -971,13 +1040,7 @@ export default function UploadFlow() {
           <button
             type="button"
             className={`${btn} w-full`}
-            disabled={
-              busy ||
-              !facts.district_code ||
-              facts.street_display.trim().length < 2 ||
-              !facts.area ||
-              !facts.price_usd
-            }
+            disabled={busy || !factsComplete(facts)}
             onClick={() => {
               setError(null);
               setStep("describe");
@@ -994,7 +1057,7 @@ export default function UploadFlow() {
         <section>
           <StepTag n={4} />
           <label htmlFor="mp-description" className="mb-1 block text-sm font-medium text-ink">
-            აღწერა <span className="font-normal text-faint">(მოკლედ)</span>
+            აღწერა
           </label>
           <textarea
             id="mp-description"
@@ -1016,13 +1079,13 @@ export default function UploadFlow() {
               onChange={(e) => setDeclared(e.target.checked)}
             />
             <label htmlFor="mp-declared" className="text-sm text-ink">
-              ვადასტურებ, რომ პატრონი ვარ / უფლება მაქვს გამოვაქვეყნო
+              ვადასტურებ, რომ ამ ბინის პატრონი ვარ. აგენტი არ ვარ.
             </label>
           </div>
           <button
             type="button"
             className={`${btn} mt-4 w-full`}
-            disabled={busy || !declared}
+            disabled={busy || !declared || description.trim().length === 0}
             onClick={() => void createSubmission()}
           >
             {busy ? "ინახება…" : "გაგრძელება"}
@@ -1039,8 +1102,9 @@ export default function UploadFlow() {
             ფოტოები ({MIN_PHOTOS}–{MAX_PHOTOS})
           </p>
           <p className="mt-0.5 text-xs text-faint">
-            ატვირთულია {doneCount} / {photos.length || MIN_PHOTOS} · დრაფტი
-            ინახება 7 დღე
+            ატვირთულია {doneCount} / {photos.length || MIN_PHOTOS} ·
+            დაუსრულებელი განცხადება 7 დღე ინახება. მერვე დღეს იშლება, ფოტოების
+            ჩათვლით.
           </p>
           <ul className="mt-3 grid list-none grid-cols-3 gap-2 p-0">
             {photos.map((p, i) => {
@@ -1058,7 +1122,7 @@ export default function UploadFlow() {
                     type="button"
                     aria-pressed={isCover}
                     disabled={p.state !== "done"}
-                    aria-label={`გარეკნად აირჩიე ფოტო ${i + 1}`}
+                    aria-label={`მთავარ ფოტოდ აირჩიე ფოტო ${i + 1}`}
                     className="block h-full w-full"
                     onClick={() => p.state === "done" && setCoverId(p.id)}
                   >
@@ -1101,7 +1165,7 @@ export default function UploadFlow() {
                   )}
                   {isCover && p.state === "done" && (
                     <span className="absolute bottom-1 left-1 rounded bg-moss px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      გარეკანი
+                      მთავარი ფოტო
                     </span>
                   )}
                 </li>
@@ -1113,7 +1177,7 @@ export default function UploadFlow() {
                   htmlFor="mp-files"
                   className="grid aspect-square cursor-pointer place-items-center rounded-md border border-dashed border-sand-strong text-3xl text-mink"
                 >
-                  +<span className="sr-only">ფოტოების დამატება</span>
+                  <span className="text-sm font-medium">ფოტოს დამატება</span>
                 </label>
                 <input
                   id="mp-files"
@@ -1131,7 +1195,9 @@ export default function UploadFlow() {
             )}
           </ul>
           <p className="mt-2 text-xs text-faint">
-            აირჩიე გარეკანი ატვირთულ ფოტოზე დაჭერით.
+            მხოლოდ JPEG და PNG. iPhone-ის HEIC ჯერ არ მიიღება. მინიმუმ{" "}
+            {MIN_PHOTOS}, მაქსიმუმ {MAX_PHOTOS} ფოტო. ვერ აიტვირთა — თავიდან
+            სცადე ან წაშალე. მთავარი ფოტო ატვირთულზე დაჭერით აირჩიე.
           </p>
           <button
             type="button"
@@ -1149,7 +1215,7 @@ export default function UploadFlow() {
       {step === "done" && (
         <section className="py-8 text-center">
           <p className="text-lg font-semibold text-ink">
-            მიღებულია. განვიხილავთ (ჩვ. 24 სთ).
+            მიღებულია. გამოქვეყნებული ჯერ არ არის. მალე დაგირეკავთ.
           </p>
           {/* Grok D3: the call expectation is the largest type on this page */}
           <p className="mt-4 text-2xl font-bold text-moss-deep">
@@ -1158,9 +1224,6 @@ export default function UploadFlow() {
           <p className="mt-2 text-sm text-mink">
             უპასუხე უცნობ ნომერს — ეს ის შემოწმებაა, რაც აქ გიწერია.
           </p>
-          {finalStatus === "pending_review" || finalStatus === "checking" ? null : (
-            <p className="mt-3 text-xs text-faint">სტატუსი: {finalStatus}</p>
-          )}
         </section>
       )}
     </div>

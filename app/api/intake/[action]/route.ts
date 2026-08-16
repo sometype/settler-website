@@ -21,16 +21,17 @@ const ACTIONS: Record<string, string> = {
   finalize: "/submission/finalize",
 };
 
-// Frozen Georgian copy (Grok K1–K8 + street answer, OWNERUPLOADDISCUSSION).
+// Grok's Georgian copy, as amended by the 2026-08-16 product acceptance
+// addendum §8: no blanket "nothing was lost" reassurance survives here.
 // Keys are stable machine codes the client switches on; ka is shown verbatim.
 const ERRORS: Record<string, { code: string; ka: string }> = {
   busy: {
     code: "busy",
-    ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე. არაფერი დაიკარგა.",
+    ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე.",
   },
   too_fast: {
     code: "too_fast",
-    ka: "ცოტა დაიცადე და თავიდან დააჭირე. შენი განცხადება ადგილზეა.",
+    ka: "ცოტა დაიცადე და თავიდან დააჭირე.",
   },
   send_failed: {
     code: "send_failed",
@@ -43,7 +44,7 @@ const ERRORS: Record<string, { code: string; ka: string }> = {
   },
   session_expired: {
     code: "session_expired",
-    ka: "სესიის ვადა გავიდა — ელფოსტა თავიდან დაადასტურე. შენი მონაცემები ადგილზეა.",
+    ka: "სესიის ვადა გავიდა — ელფოსტა თავიდან დაადასტურე.",
   },
   bad_phone: {
     code: "bad_phone",
