@@ -62,6 +62,13 @@ export type PhotoSlot = {
   state: SlotState;
   /** Permanently failed slots may be removed; retryable ones may be retried. */
   permanent: boolean;
+  /**
+   * True when a failure left it unknown whether the server stored an image at
+   * this position. The position is retained, retry is required, and no later
+   * upload may advance past it — releasing it could orphan an ingested row and
+   * break the contiguity finalize demands.
+   */
+  hold: boolean;
 };
 
 export function emptyFacts(): Facts {
@@ -231,7 +238,7 @@ export type PersistedState = {
   submissionId: number | null;
   createIdem: string;
   coverId: string | null;
-  photos: Array<Pick<PhotoSlot, "id" | "name" | "size" | "type" | "position" | "state" | "permanent">>;
+  photos: Array<Pick<PhotoSlot, "id" | "name" | "size" | "type" | "position" | "state" | "permanent" | "hold">>;
 };
 
 export function serializeState(state: Omit<PersistedState, "v">): string {
@@ -326,8 +333,13 @@ export function claimPosition(slots: PhotoSlot[]): number {
   return p;
 }
 
-/** Removal is permitted while a slot holds no server image. */
+/**
+ * Removal is permitted while the slot demonstrably holds no server image. An
+ * unresolved (held) slot must be retried instead: removing it could leave an
+ * ingested image at a position nothing references.
+ */
 export function canRemove(slot: PhotoSlot): boolean {
+  if (slot.hold) return false;
   return slot.state === "pending" || slot.state === "failed";
 }
 
@@ -366,7 +378,11 @@ export function nextUploadBatch(slots: PhotoSlot[], limit = MAX_CONCURRENT_UPLOA
   const active = slots.filter((s) => s.state === "uploading").length;
   const room = Math.max(0, limit - active);
   if (room === 0) return [];
-  return slots
+  // An unresolved position blocks everything behind it; only its own retry may
+  // run, so later photos cannot skip past a position that may hold an image.
+  const unresolved = slots.filter((s) => s.hold && s.state !== "done");
+  const pool = unresolved.length > 0 ? unresolved : slots;
+  return pool
     .filter((s) => s.state === "pending")
     .slice(0, room)
     .map((s) => s.id);
@@ -384,21 +400,77 @@ export function resolveCover(
 }
 
 export function galleryReady(slots: PhotoSlot[]): boolean {
+  if (slots.some((s) => s.hold)) return false;
   const done = uploadedPositions(slots);
   if (done.length < MIN_PHOTOS) return false;
   if (!positionsContiguous(slots)) return false;
   return slots.every((s) => s.state === "done");
 }
 
-/** A 409 means our bytes are already ingested at that position: not a failure. */
-export function classifyUploadResponse(status: number): SlotState {
-  if (status === 409) return "done";
+/**
+ * The only 409 that means "our bytes are already there". The same endpoint also
+ * returns 409 "submission is not accepting images", which is an error, so a
+ * bare status is never enough to settle a slot as done.
+ */
+export const ALREADY_INGESTED_DETAIL = "position already has an image";
+
+export type PositionOutcome = "done" | "release" | "hold";
+
+/**
+ * What a PUT result means for the server position this slot holds.
+ *   done    - an image exists at this position (2xx, or the exact 409)
+ *   release - the server definitely stored nothing (4xx): reuse the position
+ *   hold    - unknown (5xx, transport, abort): keep it and require a retry
+ */
+export function positionOutcome(status: number, detail = ""): PositionOutcome {
   if (status >= 200 && status < 300) return "done";
-  return "failed";
+  if (status === 409) {
+    return detail.includes(ALREADY_INGESTED_DETAIL) ? "done" : "release";
+  }
+  if (status >= 400 && status < 500) return "release";
+  return "hold";
 }
 
-/** 4xx other than 409/429 will not succeed on retry. */
-export function isPermanentUploadFailure(status: number): boolean {
-  if (status === 409 || status === 429) return false;
+export function classifyUploadResponse(status: number, detail = ""): SlotState {
+  return positionOutcome(status, detail) === "done" ? "done" : "failed";
+}
+
+/** 4xx other than 429 will not succeed on retry. */
+export function isPermanentUploadFailure(status: number, detail = ""): boolean {
+  if (status === 429) return false;
+  if (status === 409) return !detail.includes(ALREADY_INGESTED_DETAIL);
   return status >= 400 && status < 500;
+}
+
+/** Apply an outcome to one slot, releasing or holding its position. */
+export function applyUploadOutcome(
+  slots: PhotoSlot[],
+  id: string,
+  outcome: PositionOutcome,
+  status = 0,
+  detail = "",
+): PhotoSlot[] {
+  return slots.map((s) => {
+    if (s.id !== id) return s;
+    if (outcome === "done") return { ...s, state: "done", permanent: false, hold: false };
+    if (outcome === "release") {
+      // A definite rejection stored nothing, so the position goes back to the
+      // pool before any later upload claims one.
+      return {
+        ...s,
+        state: "failed",
+        position: null,
+        hold: false,
+        permanent: isPermanentUploadFailure(status, detail),
+      };
+    }
+    return { ...s, state: "failed", hold: true, permanent: false };
+  });
+}
+
+/** A known pre-ingest failure (no ticket, no file) never stored anything. */
+export function releasePosition(slots: PhotoSlot[], id: string): PhotoSlot[] {
+  return slots.map((s) =>
+    s.id === id ? { ...s, state: "failed", position: null, hold: false } : s,
+  );
 }

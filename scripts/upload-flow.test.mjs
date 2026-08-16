@@ -11,7 +11,10 @@ import {
   buildCreatePayload,
   canRemove,
   claimPosition,
+  applyUploadOutcome,
   classifyUploadResponse,
+  positionOutcome,
+  releasePosition,
   createIdemFor,
   emptyFacts,
   factsComplete,
@@ -28,6 +31,7 @@ import {
   restoreState,
   serializeState,
   turnstileRequirement,
+  uploadedPositions,
   turnstileSiteKeyRequirement,
 } from "../lib/uploadFlow.ts";
 
@@ -45,6 +49,7 @@ function slot(over = {}) {
     position: null,
     state: "pending",
     permanent: false,
+    hold: false,
     ...over,
   };
 }
@@ -195,8 +200,9 @@ test("wrong state 5b: positions are reused so removal never leaves a hole", () =
   const pending = removeSlot([...slots, slot({ id: "c", position: 2, state: "failed" })], "c");
   assert.equal(claimPosition(pending), 2, "a released position is handed to the next upload");
 
-  // 409 means our bytes already landed at that position: not a failure.
-  assert.equal(classifyUploadResponse(409), "done");
+  // Only the exact already-ingested 409 settles a slot; see "position 3".
+  assert.equal(classifyUploadResponse(409, "position already has an image"), "done");
+  assert.equal(classifyUploadResponse(409), "failed");
   assert.equal(classifyUploadResponse(201), "done");
   assert.equal(classifyUploadResponse(500), "failed");
   assert.equal(isPermanentUploadFailure(415), true);
@@ -446,4 +452,138 @@ test("product 9b: informal email copy without English Promotions", () => {
   assert.ok(!/Promotions/.test(COMPONENT));
   assert.ok(/გახსენი სპამის საქაღალდე/.test(COMPONENT));
   assert.ok(/გახსენი წერილი/.test(COMPONENT), "informal second person");
+});
+
+
+/* -------------------- final correction: photo positions ------------------ */
+
+test("position 1: a known failure at 0 releases it, three successes take 0,1,2", () => {
+  // The measured wrong state: the failed slot kept 0, successes took 1,2,3.
+  let slots = [slot({ id: "bad", position: 0, state: "uploading" })];
+  slots = applyUploadOutcome(slots, "bad", "release", 415, "unsupported media type");
+  assert.equal(slots[0].position, null, "a definite rejection releases the position");
+  assert.equal(slots[0].hold, false);
+
+  for (const id of ["a", "b", "c"]) {
+    const pos = claimPosition(slots);
+    slots = [...slots, slot({ id, position: pos, state: "uploading" })];
+    slots = applyUploadOutcome(slots, id, "done");
+  }
+  assert.deepEqual(uploadedPositions(slots), [0, 1, 2]);
+  assert.equal(galleryReady(slots), false, "the failed slot still blocks until removed");
+
+  const after = removeSlot(slots, "bad");
+  assert.deepEqual(uploadedPositions(after), [0, 1, 2]);
+  assert.equal(positionsContiguous(after), true);
+  assert.equal(galleryReady(after), true, "three good photos must be able to finalize");
+});
+
+test("position 2: an ambiguous transport failure holds its position", () => {
+  let slots = [slot({ id: "x", position: 0, state: "uploading" })];
+  slots = applyUploadOutcome(slots, "x", "hold");
+  assert.equal(slots[0].position, 0, "an unknown outcome keeps the position");
+  assert.equal(slots[0].hold, true);
+  assert.equal(canRemove(slots[0]), false, "an unresolved slot is retried, not removed");
+  assert.equal(galleryReady(slots), false);
+
+  // Nothing may advance past it.
+  slots = [...slots, slot({ id: "later" })];
+  assert.deepEqual(nextUploadBatch(slots), [], "later photos cannot skip the held position");
+
+  // Its own retry may run.
+  slots = slots.map((s) => (s.id === "x" ? { ...s, state: "pending" } : s));
+  assert.deepEqual(nextUploadBatch(slots), ["x"]);
+});
+
+test("position 3: only the exact already-ingested 409 settles a slot as done", () => {
+  assert.equal(positionOutcome(409, "position already has an image — pos 0"), "done");
+  assert.equal(classifyUploadResponse(409, "position already has an image — pos 0"), "done");
+
+  // A different 409 from the same endpoint is an error, not success.
+  assert.equal(positionOutcome(409, "submission is not accepting images"), "release");
+  assert.equal(classifyUploadResponse(409, "submission is not accepting images"), "failed");
+  assert.equal(classifyUploadResponse(409, ""), "failed", "a bare 409 is not success");
+  assert.equal(classifyUploadResponse(409), "failed");
+
+  assert.equal(positionOutcome(201), "done");
+  assert.equal(positionOutcome(415, "unsupported"), "release");
+  assert.equal(positionOutcome(429, "slow down"), "release");
+  assert.equal(positionOutcome(503, "upstream"), "hold", "5xx is ambiguous");
+  assert.equal(isPermanentUploadFailure(415), true);
+  assert.equal(isPermanentUploadFailure(429), false);
+  assert.equal(isPermanentUploadFailure(409, "position already has an image"), false);
+});
+
+test("position 4: retry after a lost successful response settles the same slot", () => {
+  let slots = [slot({ id: "x", position: 0, state: "uploading" })];
+  slots = applyUploadOutcome(slots, "x", "hold");           // response lost
+  slots = slots.map((s) => (s.id === "x" ? { ...s, state: "uploading" } : s)); // retry
+  slots = applyUploadOutcome(
+    slots, "x",
+    positionOutcome(409, "position already has an image — pos 0"),
+    409, "position already has an image — pos 0",
+  );
+  assert.equal(slots[0].state, "done");
+  assert.equal(slots[0].position, 0, "it settles at the position it originally claimed");
+  assert.equal(slots[0].hold, false);
+});
+
+test("position 5: a pre-ingest failure releases without holding", () => {
+  const slots = releasePosition([slot({ id: "x", position: 0, state: "uploading" })], "x");
+  assert.equal(slots[0].position, null);
+  assert.equal(slots[0].hold, false);
+  assert.equal(canRemove(slots[0]), true);
+  assert.equal(claimPosition(slots), 0, "the released position is the next one handed out");
+});
+
+/* ---------------------- final correction: session expiry ----------------- */
+
+test("session expiry at ticket or finalize keeps the draft and the gallery", () => {
+  const state = {
+    session: "old", email: "o@e.ge", phone: "555111222", step: "photos",
+    facts: goodFacts(), description: "ტექსტი", declared: true,
+    submissionId: 42, createIdem: "idem-1", coverId: "s1",
+    photos: [
+      { id: "s1", name: "a.jpg", size: 1, type: "image/jpeg", position: 0, state: "done", permanent: false, hold: false },
+      { id: "s2", name: "b.jpg", size: 1, type: "image/jpeg", position: 1, state: "done", permanent: false, hold: false },
+    ],
+  };
+  const back = restoreState(serializeState(state));
+  assert.equal(back.submissionId, 42, "the same draft is resumed, never a second one");
+  assert.equal(back.createIdem, "idem-1");
+  assert.equal(back.photos.filter((p) => p.state === "done").length, 2, "uploads survive");
+  assert.equal(back.step, "photos");
+
+  // Both failure paths route to email and neither discards state.
+  for (const site of ["ticket", "finalize"]) {
+    assert.ok(
+      new RegExp(`code === "session_expired"[\\s\\S]{0,200}setStep\\("email"\\)`).test(COMPONENT),
+      `${site} must return to verification on session_expired`,
+    );
+  }
+  assert.ok(
+    /setStep\(submissionId \? "photos" : "phone"\)/.test(COMPONENT),
+    "after re-verification the owner returns to the same submission and step",
+  );
+  assert.ok(
+    !/session_expired[\s\S]{0,200}setPhotos\(\[\]\)/.test(COMPONENT),
+    "successful uploads must never be discarded on expiry",
+  );
+});
+
+/* -------------------- final correction: copy consistency ----------------- */
+
+test("copy: existing-draft message is actionable and honest", () => {
+  assert.ok(/იმავე ბრაუზერიდან განაგრძე/.test(ROUTE), "must say same browser");
+  assert.ok(/7 დღე დაიცადე და დაიწყე თავიდან/.test(ROUTE));
+  assert.ok(/ამ ტელეფონზე უკვე გაქვს/.test(ROUTE), "phone variant uses ტელეფონზე");
+  assert.ok(!/სხვა მოწყობილობიდან/.test(ROUTE), "no cross-device resume claim");
+});
+
+test("copy: JPEG/PNG only, ქუჩა label, spaced countdown units", () => {
+  assert.ok(!/JPEG\/PNG\/WebP/.test(COMPONENT), "WebP removed from the message");
+  assert.ok(/\(JPEG\/PNG\)/.test(COMPONENT));
+  assert.ok(!/ქუჩა \/ უბანი/.test(COMPONENT), "label is just ქუჩა");
+  assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "countdown needs a space before წმ");
+  assert.ok(!/\$\{resendIn\}წმ/.test(COMPONENT));
 });

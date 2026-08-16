@@ -19,12 +19,13 @@ import {
   buildCreatePayload,
   canRemove,
   claimPosition,
-  classifyUploadResponse,
+  applyUploadOutcome,
   createIdemFor,
   emptyFacts,
   factsComplete,
   galleryReady,
-  isPermanentUploadFailure,
+  positionOutcome,
+  releasePosition,
   nextUploadBatch,
   planAddFiles,
   readOpaqueToken,
@@ -331,6 +332,7 @@ export default function UploadFlow() {
           position: p.position,
           state: p.state,
           permanent: p.permanent,
+          hold: p.hold,
         })),
       }),
     );
@@ -479,9 +481,8 @@ export default function UploadFlow() {
       if (!submissionId || "error" in uploadBase) return;
       const file = filesRef.current.get(id);
       if (!file) {
-        setPhotos((p) =>
-          p.map((s) => (s.id === id ? { ...s, state: "failed", permanent: true } : s)),
-        );
+        // Nothing was sent, so the position was never used.
+        setPhotos((p) => releasePosition(p, id));
         return;
       }
       let position: number | null = null;
@@ -501,21 +502,20 @@ export default function UploadFlow() {
         position,
       });
       if (tk.error) {
-        setPhotos((p) =>
-          p.map((s) =>
-            s.id === id ? { ...s, state: "failed", permanent: false } : s,
-          ),
-        );
+        // §2: an expired session keeps the whole draft and returns to email.
+        if (tk.error.code === "session_expired") {
+          setPhotos((p) => releasePosition(p, id));
+          setError(tk.error);
+          setStep("email");
+          return;
+        }
+        setPhotos((p) => releasePosition(p, id));
         setError(tk.error);
         return;
       }
       const ticket = readOpaqueToken(tk.data, "upload_ticket");
       if (!ticket) {
-        setPhotos((p) =>
-          p.map((s) =>
-            s.id === id ? { ...s, state: "failed", permanent: false } : s,
-          ),
-        );
+        setPhotos((p) => releasePosition(p, id));
         setError({ code: "ticket_spent", ka: "ამ ფოტოს ატვირთვა თავიდან სცადე." });
         return;
       }
@@ -525,19 +525,16 @@ export default function UploadFlow() {
           headers: { Authorization: `Bearer ${ticket}` },
           body: file,
         });
-        const state = classifyUploadResponse(res.status);
-        setPhotos((p) =>
-          p.map((s) =>
-            s.id === id
-              ? {
-                  ...s,
-                  state,
-                  permanent: state === "failed" && isPermanentUploadFailure(res.status),
-                }
-              : s,
-          ),
-        );
-        if (state === "done") {
+        let detail = "";
+        try {
+          const parsed = JSON.parse(await res.text()) as { detail?: unknown };
+          if (typeof parsed?.detail === "string") detail = parsed.detail;
+        } catch {
+          /* non-JSON body: the status alone decides */
+        }
+        const outcome = positionOutcome(res.status, detail);
+        setPhotos((p) => applyUploadOutcome(p, id, outcome, res.status, detail));
+        if (outcome === "done") {
           releasePreview(id);
           setCoverId((c) => c ?? id);
         } else {
@@ -547,14 +544,12 @@ export default function UploadFlow() {
           });
         }
       } catch {
-        setPhotos((p) =>
-          p.map((s) =>
-            s.id === id ? { ...s, state: "failed", permanent: false } : s,
-          ),
-        );
+        // Transport failure after the PUT began: it is unknown whether the
+        // image landed, so the position is held and only retry can settle it.
+        setPhotos((p) => applyUploadOutcome(p, id, "hold"));
         setError({
           code: "photo",
-          ka: "ეს ფოტო ვერ აიტვირთა. თავიდან სცადე ან წაშალე.",
+          ka: "ვერ დავადგინეთ, აიტვირთა თუ არა. თავიდან სცადე ამავე ფოტოზე.",
         });
       }
     },
@@ -583,7 +578,7 @@ export default function UploadFlow() {
       }
       if (plan.rejectedType.length > 0) {
         messages.push(
-          `${plan.rejectedType.length} ფაილი არ არის მხარდაჭერილი (JPEG/PNG/WebP). iPhone-ზე HEIC გამორთე ან გადაიყვანე.`,
+          `${plan.rejectedType.length} ფაილი არ არის მხარდაჭერილი (JPEG/PNG). iPhone-ზე HEIC გამორთე ან გადაიყვანე.`,
         );
       }
       setNotice(messages.join(" "));
@@ -603,6 +598,7 @@ export default function UploadFlow() {
           position: null,
           state: "pending",
           permanent: false,
+          hold: false,
         };
       });
       if (added.length > 0) {
@@ -623,6 +619,8 @@ export default function UploadFlow() {
   );
 
   const retryPhoto = useCallback((id: string) => {
+    // A held slot keeps its position and hold flag so the retry re-attempts the
+    // same position; the exact already-ingested 409 then settles it as done.
     setPhotos((p) =>
       p.map((s) => (s.id === id ? { ...s, state: "pending", permanent: false } : s)),
     );
@@ -645,6 +643,9 @@ export default function UploadFlow() {
     });
     setBusy(false);
     if (r.error) {
+      // §2: keep the draft and every uploaded photo; re-verify, then return
+      // to this exact submission rather than starting a second one.
+      if (r.error.code === "session_expired") setStep("email");
       setError(r.error);
       return;
     }
@@ -825,7 +826,7 @@ export default function UploadFlow() {
               void startVerify();
             }}
           >
-            {resendIn > 0 ? `ხელახლა გაგზავნა (${resendIn}წმ)` : "ხელახლა გაგზავნა"}
+            {resendIn > 0 ? `ხელახლა გაგზავნა (${resendIn} წმ)` : "ხელახლა გაგზავნა"}
           </button>
           <Err error={error} id="mp-code-err" />
           <BackButton onClick={() => setStep("email")} />
@@ -911,7 +912,7 @@ export default function UploadFlow() {
           </div>
           <div>
             <label htmlFor="mp-street" className="mb-1 block text-sm font-medium text-ink">
-              ქუჩა / უბანი
+              ქუჩა
             </label>
             <input
               id="mp-street"
@@ -1144,7 +1145,7 @@ export default function UploadFlow() {
                       იტვირთება…
                     </span>
                   )}
-                  {p.state === "failed" && !p.permanent && (
+                  {p.state === "failed" && (p.hold || !p.permanent) && (
                     <button
                       type="button"
                       className="absolute inset-x-0 top-0 bg-clay/70 py-1 text-xs font-semibold text-white"
