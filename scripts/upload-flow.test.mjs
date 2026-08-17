@@ -18,6 +18,7 @@ import {
   createIdemFor,
   emptyFacts,
   factsComplete,
+  floorPairComplete,
   galleryReady,
   isPermanentUploadFailure,
   nextUploadBatch,
@@ -27,10 +28,12 @@ import {
   readSubmissionId,
   removeSlot,
   reserveUploadSlot,
+  joinFloorParts,
   resolveCover,
   resolveUploadBase,
   restoreState,
   serializeState,
+  splitFloorParts,
   needsReconcile,
   onTicketFailure,
   parseStatusResponse,
@@ -428,6 +431,36 @@ test("product 7: a missing property condition blocks the step and the request", 
   }
 });
 
+test("product 7b: floor uses two number fields while preserving the API value", () => {
+  assert.deepEqual(splitFloorParts("4/9"), { unit: "4", total: "9" });
+  assert.deepEqual(splitFloorParts("4/"), { unit: "4", total: "" });
+  assert.equal(joinFloorParts("4", "9"), "4/9");
+  assert.equal(joinFloorParts("", ""), "");
+  assert.equal(joinFloorParts("4x", "9th"), "");
+  assert.equal(floorPairComplete(""), true, "floor remains optional");
+  assert.equal(floorPairComplete("4/9"), true);
+  assert.equal(floorPairComplete("4/"), false);
+  assert.equal(floorPairComplete("/9"), false);
+
+  assert.equal(factsComplete({ ...goodFacts(), floor: "4/" }), false);
+  assert.equal(factsComplete({ ...goodFacts(), floor: "4/9" }), true);
+  assert.equal(
+    buildCreatePayload({
+      session: "s",
+      phone: "555111222",
+      facts: { ...goodFacts(), floor: "4/" },
+      description: "ტ",
+      declared: true,
+      idem: "i-1",
+    }).reason,
+    "floor_pair_incomplete",
+  );
+
+  assert.ok(COMPONENT.includes("ბინის სართული"));
+  assert.ok(COMPONENT.includes("შენობის სართულები"));
+  assert.ok(!COMPONENT.includes('placeholder="4/9"'));
+});
+
 test("product 3: no blanket claim that nothing was lost", () => {
   for (const banned of ["არაფერი დაიკარგა", "ადგილზეა"]) {
     assert.ok(!COMPONENT.includes(banned), `component still promises: ${banned}`);
@@ -481,8 +514,17 @@ test("product 8+9: concise truthful manifesto without portal brands", () => {
   assert.ok(!/myhome|ss-ზე|myhome\/ss/i.test(COMPONENT), "portal brands are removed from owner copy");
   assert.ok(/იგივე განცხადების რამდენჯერმე ატვირთვა/.test(COMPONENT));
   assert.ok(/ასეთი განცხადებები არ გამოქვეყნდება/.test(COMPONENT));
-  assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
-  assert.ok(/უპასუხე უცნობ ნომერს/.test(COMPONENT), "unknown-number reminder kept");
+  assert.ok(/მადლობა, განცხადება მიღებულია და გადამოწმდება/.test(COMPONENT));
+  assert.ok(!/უპასუხე უცნობ ნომერს/.test(COMPONENT));
+});
+
+test("product 8b: facts and declaration copy are short and natural", () => {
+  assert.ok(COMPONENT.includes("მხოლოდ ქუჩის ან უბნის სახელი"));
+  assert.ok(!COMPONENT.includes("სახლის ნომერი და ბინის ნომერი არ ჩაწერო"));
+  assert.ok(
+    COMPONENT.includes("ვადასტურებ, რომ ბინის მესაკუთრე ვარ და განცხადებას თავად ვამატებ."),
+  );
+  assert.ok(!COMPONENT.includes("ამ ბინის პატრონი ვარ. აგენტი არ ვარ"));
 });
 
 test("product 10: main-photo selection is keyboard operable and labelled", () => {
@@ -833,7 +875,7 @@ test("copy: Grok-approved strings survive verbatim", () => {
     "მხოლოდ JPEG და PNG. iPhone-ის HEIC ჯერ არ მიიღება.",
     "უკან",
     "მდგომარეობა",
-    "მიღებულია. გამოქვეყნებული ჯერ არ არის. მალე დაგირეკავთ.",
+    "მადლობა, განცხადება მიღებულია და გადამოწმდება.",
   ]) {
     assert.ok(COMPONENT.includes(approved), `approved string lost: ${approved}`);
   }
@@ -852,7 +894,8 @@ test("copy: forbidden promises stay absent", () => {
     assert.ok(!banned.test(ROUTE), `route promises ${why}`);
   }
   // Nothing may imply the listing is already public.
-  assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
+  assert.ok(/გადამოწმდება/.test(COMPONENT));
+  assert.ok(!/მალე დაგირეკავთ|უპასუხე უცნობ ნომერს/.test(COMPONENT));
 });
 
 /* ------------------ pending-position race: bounded correction ------------ */

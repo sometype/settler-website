@@ -27,6 +27,7 @@ import {
   createIdemFor,
   emptyFacts,
   factsComplete,
+  joinFloorParts,
   galleryReady,
   positionOutcome,
   needsReconcile,
@@ -47,6 +48,7 @@ import {
   resolveUploadBase,
   restoreState,
   serializeState,
+  splitFloorParts,
   turnstileSiteKeyRequirement,
   type Facts,
   type PhotoSlot,
@@ -697,6 +699,7 @@ export default function UploadFlow() {
 
   const doneCount = photos.filter((p) => p.state === "done").length;
   const cover = resolveCover(photos, coverId);
+  const floorParts = splitFloorParts(facts.floor);
   const input =
     "w-full rounded-md border border-sand-strong bg-card px-3 py-2 text-sm text-ink outline-none focus:border-moss";
   const btn =
@@ -985,8 +988,7 @@ export default function UploadFlow() {
               }
             />
             <p id="mp-street-help" className="mt-1 text-xs text-faint">
-              მხოლოდ ქუჩის ან უბნის სახელი — სახლის ნომერი და ბინის ნომერი არ
-              ჩაწერო. ნომერს ზარზე / შეხვედრაზე იტყვი.
+              მხოლოდ ქუჩის ან უბნის სახელი
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -1027,21 +1029,56 @@ export default function UploadFlow() {
               />
             </div>
             <div>
-              <label htmlFor="mp-floor" className="mb-1 block text-sm font-medium text-ink">
-                სართული
+              <label htmlFor="mp-unit-floor" className="mb-1 block text-sm font-medium text-ink">
+                ბინის სართული
               </label>
               <input
-                id="mp-floor"
-                name="floor"
+                id="mp-unit-floor"
+                name="unit_floor"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="200"
                 className={input}
-                placeholder="4/9"
-                value={facts.floor}
+                placeholder="4"
+                value={floorParts.unit}
                 onChange={(e) =>
-                  setFacts((f) => ({ ...f, floor: e.target.value }))
+                  setFacts((f) => ({
+                    ...f,
+                    floor: joinFloorParts(
+                      e.target.value,
+                      splitFloorParts(f.floor).total,
+                    ),
+                  }))
                 }
               />
             </div>
             <div>
+              <label htmlFor="mp-total-floors" className="mb-1 block text-sm font-medium text-ink">
+                შენობის სართულები
+              </label>
+              <input
+                id="mp-total-floors"
+                name="total_floors"
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="200"
+                className={input}
+                placeholder="9"
+                value={floorParts.total}
+                onChange={(e) =>
+                  setFacts((f) => ({
+                    ...f,
+                    floor: joinFloorParts(
+                      splitFloorParts(f.floor).unit,
+                      e.target.value,
+                    ),
+                  }))
+                }
+              />
+            </div>
+            <div className="col-span-2">
               <label htmlFor="mp-price" className="mb-1 block text-sm font-medium text-ink">
                 ფასი $
               </label>
@@ -1402,7 +1439,7 @@ export default function UploadFlow() {
               onChange={(e) => setDeclared(e.target.checked)}
             />
             <label htmlFor="mp-declared" className="text-sm text-ink">
-              ვადასტურებ, რომ ამ ბინის პატრონი ვარ. აგენტი არ ვარ.
+              ვადასტურებ, რომ ბინის მესაკუთრე ვარ და განცხადებას თავად ვამატებ.
             </label>
           </div>
           <button
@@ -1538,14 +1575,7 @@ export default function UploadFlow() {
       {step === "done" && (
         <section className="py-8 text-center">
           <p className="text-lg font-semibold text-ink">
-            მიღებულია. გამოქვეყნებული ჯერ არ არის. მალე დაგირეკავთ.
-          </p>
-          {/* Grok D3: the call expectation is the largest type on this page */}
-          <p className="mt-4 text-2xl font-bold text-moss-deep">
-            მალე დაგირეკავთ.
-          </p>
-          <p className="mt-2 text-sm text-mink">
-            უპასუხე უცნობ ნომერს — ეს ის შემოწმებაა, რაც აქ გიწერია.
+            მადლობა, განცხადება მიღებულია და გადამოწმდება.
           </p>
         </section>
       )}

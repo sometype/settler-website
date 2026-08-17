@@ -123,6 +123,41 @@ export function emptyFacts(): Facts {
   };
 }
 
+export type FloorParts = {
+  unit: string;
+  total: string;
+};
+
+/**
+ * The API stores floors as `unit/total`, but owners should never have to find
+ * or type a slash. These helpers keep the storage contract compatible while
+ * the form presents two ordinary number fields.
+ */
+export function splitFloorParts(value: string): FloorParts {
+  const trimmed = value.trim();
+  if (!trimmed) return { unit: "", total: "" };
+  if (/^\d{1,3}$/.test(trimmed)) return { unit: trimmed, total: "" };
+  const match = trimmed.match(/^(\d{0,3})\/(\d{0,3})$/);
+  return match ? { unit: match[1], total: match[2] } : { unit: "", total: "" };
+}
+
+export function joinFloorParts(unit: string, total: string): string {
+  const clean = (value: string) => {
+    const trimmed = value.trim();
+    return /^\d{0,3}$/.test(trimmed) ? trimmed : "";
+  };
+  const cleanUnit = clean(unit);
+  const cleanTotal = clean(total);
+  if (!cleanUnit && !cleanTotal) return "";
+  return `${cleanUnit}/${cleanTotal}`;
+}
+
+export function floorPairComplete(value: string): boolean {
+  if (!value.trim()) return true;
+  const { unit, total } = splitFloorParts(value);
+  return Boolean(unit && total);
+}
+
 /**
  * The facts step is complete only once a condition has been chosen.
  *
@@ -135,6 +170,7 @@ export function factsComplete(f: Facts): boolean {
     f.district_code &&
       f.street_display.trim().length >= 2 &&
       f.area.trim() &&
+      floorPairComplete(f.floor) &&
       f.price_usd.trim() &&
       f.condition.trim(),
   );
@@ -240,6 +276,9 @@ export function buildCreatePayload(
   if (!description) return { ok: false, reason: "description_required" };
   if (!input.facts.condition.trim()) {
     return { ok: false, reason: "condition_required" };
+  }
+  if (!floorPairComplete(input.facts.floor)) {
+    return { ok: false, reason: "floor_pair_incomplete" };
   }
   const payload: Record<string, unknown> = {
     session,
