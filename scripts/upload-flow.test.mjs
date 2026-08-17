@@ -514,7 +514,9 @@ test("product 8+9: concise truthful manifesto without portal brands", () => {
   assert.ok(!/myhome|ss-ზე|myhome\/ss/i.test(COMPONENT), "portal brands are removed from owner copy");
   assert.ok(/იგივე განცხადების რამდენჯერმე ატვირთვა/.test(COMPONENT));
   assert.ok(/ასეთი განცხადებები არ გამოქვეყნდება/.test(COMPONENT));
-  assert.ok(/მადლობა, განცხადება მიღებულია და გადამოწმდება/.test(COMPONENT));
+  assert.ok(
+    /მადლობა, განცხადება მიღებულია\. გამოქვეყნდება გადამოწმების შემდეგ\./.test(COMPONENT),
+  );
   assert.ok(!/უპასუხე უცნობ ნომერს/.test(COMPONENT));
 });
 
@@ -522,9 +524,10 @@ test("product 8b: facts and declaration copy are short and natural", () => {
   assert.ok(COMPONENT.includes("მხოლოდ ქუჩის ან უბნის სახელი"));
   assert.ok(!COMPONENT.includes("სახლის ნომერი და ბინის ნომერი არ ჩაწერო"));
   assert.ok(
-    COMPONENT.includes("ვადასტურებ, რომ ბინის მესაკუთრე ვარ და განცხადებას თავად ვამატებ."),
+    COMPONENT.includes("ვარ ბინის მეპატრონე ან მეპატრონე თანახმაა, რომ განცხადება აიტვირთოს."),
   );
   assert.ok(!COMPONENT.includes("ამ ბინის პატრონი ვარ. აგენტი არ ვარ"));
+  assert.ok(!COMPONENT.includes("ვადასტურებ, რომ ბინის მესაკუთრე ვარ"));
 });
 
 test("product 10: main-photo selection is keyboard operable and labelled", () => {
@@ -672,10 +675,12 @@ test("copy: existing-draft message is actionable and honest", () => {
   assert.ok(!/სხვა მოწყობილობიდან/.test(ROUTE), "no cross-device resume claim");
 });
 
-test("copy: JPEG/PNG only, ქუჩა label, spaced countdown units", () => {
+test("copy: concise photo limits, ქუჩა label, spaced countdown units", () => {
   assert.ok(!/JPEG\/PNG\/WebP/.test(COMPONENT), "WebP removed from the message");
-  // The rule now reads as prose in both places, not a parenthesised list.
-  assert.ok(/მხოლოდ JPEG და PNG/.test(COMPONENT), "static photos copy states the rule");
+  assert.ok(/მინიმუმ \{MIN_PHOTOS\}, მაქსიმუმ \{MAX_PHOTOS\} ფოტო\./.test(COMPONENT));
+  assert.ok(!/iPhone-ის HEIC ჯერ არ მიიღება/.test(COMPONENT));
+  assert.ok(!/დაუსრულებელი განცხადება 7 დღე ინახება/.test(COMPONENT));
+  assert.ok(!/მთავარი ფოტო ატვირთულზე დაჭერით აირჩიე/.test(COMPONENT));
   assert.match(rejectedTypeNotice(1), /მხოლოდ JPEG ან PNG/, "the notice states it too");
   assert.ok(!/ქუჩა \/ უბანი/.test(COMPONENT), "label is just ქუჩა");
   assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "countdown needs a space before წმ");
@@ -872,10 +877,9 @@ test("copy: Grok-approved strings survive verbatim", () => {
     "თავიდან დაწყება",
     "ატვირთვის დროს გაწყვეტილი ფოტოები თავიდან აირჩიე.",
     "წაშლა",
-    "მხოლოდ JPEG და PNG. iPhone-ის HEIC ჯერ არ მიიღება.",
     "უკან",
     "მდგომარეობა",
-    "მადლობა, განცხადება მიღებულია და გადამოწმდება.",
+    "მადლობა, განცხადება მიღებულია. გამოქვეყნდება გადამოწმების შემდეგ.",
   ]) {
     assert.ok(COMPONENT.includes(approved), `approved string lost: ${approved}`);
   }
@@ -894,7 +898,7 @@ test("copy: forbidden promises stay absent", () => {
     assert.ok(!banned.test(ROUTE), `route promises ${why}`);
   }
   // Nothing may imply the listing is already public.
-  assert.ok(/გადამოწმდება/.test(COMPONENT));
+  assert.ok(/გამოქვეყნდება გადამოწმების შემდეგ/.test(COMPONENT));
   assert.ok(!/მალე დაგირეკავთ|უპასუხე უცნობ ნომერს/.test(COMPONENT));
 });
 

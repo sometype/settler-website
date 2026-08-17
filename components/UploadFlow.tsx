@@ -1439,7 +1439,7 @@ export default function UploadFlow() {
               onChange={(e) => setDeclared(e.target.checked)}
             />
             <label htmlFor="mp-declared" className="text-sm text-ink">
-              ვადასტურებ, რომ ბინის მესაკუთრე ვარ და განცხადებას თავად ვამატებ.
+              ვარ ბინის მეპატრონე ან მეპატრონე თანახმაა, რომ განცხადება აიტვირთოს.
             </label>
           </div>
           <button
@@ -1462,9 +1462,7 @@ export default function UploadFlow() {
             ფოტოები ({MIN_PHOTOS}–{MAX_PHOTOS})
           </p>
           <p className="mt-0.5 text-xs text-faint">
-            ატვირთულია {doneCount} / {photos.length || MIN_PHOTOS} ·
-            დაუსრულებელი განცხადება 7 დღე ინახება. მერვე დღეს იშლება, ფოტოების
-            ჩათვლით.
+            ატვირთულია {doneCount} / {photos.length || MIN_PHOTOS}
           </p>
           <ul className="mt-3 grid list-none grid-cols-3 gap-2 p-0">
             {photos.map((p, i) => {
@@ -1555,9 +1553,7 @@ export default function UploadFlow() {
             )}
           </ul>
           <p className="mt-2 text-xs text-faint">
-            მხოლოდ JPEG და PNG. iPhone-ის HEIC ჯერ არ მიიღება. მინიმუმ{" "}
-            {MIN_PHOTOS}, მაქსიმუმ {MAX_PHOTOS} ფოტო. ვერ აიტვირთა — თავიდან
-            სცადე ან წაშალე. მთავარი ფოტო ატვირთულზე დაჭერით აირჩიე.
+            მინიმუმ {MIN_PHOTOS}, მაქსიმუმ {MAX_PHOTOS} ფოტო.
           </p>
           <button
             type="button"
@@ -1575,7 +1571,7 @@ export default function UploadFlow() {
       {step === "done" && (
         <section className="py-8 text-center">
           <p className="text-lg font-semibold text-ink">
-            მადლობა, განცხადება მიღებულია და გადამოწმდება.
+            მადლობა, განცხადება მიღებულია. გამოქვეყნდება გადამოწმების შემდეგ.
           </p>
         </section>
       )}
