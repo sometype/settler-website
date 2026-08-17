@@ -467,17 +467,20 @@ test("product 5b: no raw internal status is ever rendered", () => {
   assert.ok(!/სტატუსი:/.test(COMPONENT), "no status line on the done screen");
 });
 
-test("product 8+9: no two-card absolute and no 24-hour promise", () => {
+test("product 8+9: concise truthful manifesto without portal brands", () => {
   assert.ok(!/ორ ბარათს არ ვაჩვენებთ/.test(COMPONENT), "absolute two-card promise removed");
   assert.ok(!/24 სთ/.test(COMPONENT), "24-hour promise removed");
   assert.ok(
-    /ერთ ბინას ერთ განცხადებად ვაჩვენებთ/.test(COMPONENT),
-    "the honest one-listing wording is required",
+    /შემოწმებული ბინები · დუბლიკატების გარეშე/.test(COMPONENT),
+    "the concise verification promise is required",
   );
   assert.ok(
-    /შენი myhome\/ss განცხადება ამით\s+არ იშლება/.test(COMPONENT),
-    "must say we do not delete the owner's portal listing",
+    /განცხადება გადამოწმების შემდეგ გამოქვეყნდება/.test(COMPONENT),
+    "publication must remain conditional on review",
   );
+  assert.ok(!/myhome|ss-ზე|myhome\/ss/i.test(COMPONENT), "portal brands are removed from owner copy");
+  assert.ok(/იგივე განცხადების რამდენჯერმე ატვირთვა/.test(COMPONENT));
+  assert.ok(/ასეთი განცხადებები არ გამოქვეყნდება/.test(COMPONENT));
   assert.ok(/გამოქვეყნებული ჯერ არ არის/.test(COMPONENT));
   assert.ok(/უპასუხე უცნობ ნომერს/.test(COMPONENT), "unknown-number reminder kept");
 });

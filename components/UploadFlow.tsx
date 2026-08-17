@@ -192,7 +192,7 @@ function Manifesto({ compact }: { compact?: boolean }) {
   if (compact) {
     return (
       <p className="mb-4 text-xs text-mink">
-        მხოლოდ პატრონები · გამოქვეყნებამდე დაგირეკავთ
+        შემოწმებული ბინები · დუბლიკატების გარეშე
       </p>
     );
   }
@@ -202,37 +202,17 @@ function Manifesto({ compact }: { compact?: boolean }) {
         განცხადების დამატება
       </h1>
       <p className="mt-1 text-sm text-mink">
-        მხოლოდ პატრონებისთვის · აგენტების გარეშე
+        შემოწმებული ბინები · დუბლიკატების გარეშე
       </p>
       <p className="mt-3 text-sm leading-relaxed text-ink">
-        დაამატე ბინა პირდაპირ. ჩვენ ვამოწმებთ ფოტოებს და ტექსტს — თუ ყველაფერი
-        სწორია, გამოვაქვეყნებთ.
+        დაამატე ბინა პირდაპირ. განცხადება გადამოწმების შემდეგ გამოქვეყნდება.
       </p>
 
-      {/* Twin box — the load-bearing UI. Neither may ship without the other. */}
-      <div className="mt-4 grid gap-2">
-        <div className="rounded-lg border border-moss/40 bg-moss/5 p-3 text-sm leading-relaxed">
-          <span className="font-semibold text-moss-deep">
-            თუ ბინა უკვე გაქვს myhome-ზე ან ss-ზე — აქაც შეგიძლია დაამატო.
-          </span>{" "}
-          Mepatrone-ზე ერთ ბინას ერთ განცხადებად ვაჩვენებთ. თუ ეს ბინა უკვე
-          გვაქვს, დავტოვებთ შენს პირდაპირ ვერსიას.
-        </div>
-        <div className="rounded-lg border border-clay/40 bg-clay/5 p-3 text-sm leading-relaxed">
-          <span className="font-semibold text-clay-deep">აკრძალულია</span>{" "}
-          სხვისი ბინის, აგენტის ან მოპარული ფოტოების ატვირთვა. ასეთს ვშლით —
-          იმავე ხელის სხვა ყალბ განცხადებებსაც. შენი myhome/ss განცხადება ამით
-          არ იშლება.
-        </div>
+      <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-3 text-sm leading-relaxed">
+        <span className="font-semibold text-clay-deep">აკრძალულია</span>{" "}
+        იგივე განცხადების რამდენჯერმე ატვირთვა, ყალბი ან სხვისი განცხადების
+        განთავსება. ასეთი განცხადებები არ გამოქვეყნდება.
       </div>
-      <p className="mt-3 text-xs text-faint">
-        ფოტოებს ვადარებთ სხვა საიტებზე არსებულ განცხადებებს — გადაკოპირებული
-        სწრაფად ჩანს. გამოქვეყნებამდე <b>დაგირეკავთ</b> მითითებულ ნომერზე.
-      </p>
-      <p className="mt-2 text-xs text-faint">
-        დაუსრულებელი განცხადება 7 დღე ინახება. მერვე დღეს იშლება, ფოტოების
-        ჩათვლით.
-      </p>
     </header>
   );
 }
@@ -1365,7 +1345,7 @@ export default function UploadFlow() {
 
           <div>
             <label htmlFor="mp-portal" className="mb-1 block text-sm font-medium text-ink">
-              თუ უკვე გაქვს ბმული myhome/ss-ზე — ჩასვი{" "}
+              თუ განცხადება სხვა საიტზეც გაქვს — ჩასვი ბმული{" "}
               <span className="font-normal text-faint">(არასავალდებულო)</span>
             </label>
             <input
