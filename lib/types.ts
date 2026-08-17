@@ -1,4 +1,5 @@
 import type { ConditionCode } from "./labels";
+import type { Cursor, CursorDirection } from "./pagination";
 
 export type DealType = "rent" | "sale";
 
@@ -179,6 +180,18 @@ export interface FeedFilters {
    */
   sort: FeedSort;
   page: number;
+  /**
+   * Keyset boundary for the requested window (lib/pagination.ts). Like `sort`
+   * and `view` this is a MODE, not a filter.
+   *
+   * ⚠️ Must never enter hasActiveFilters / hasNarrowingFilters. Counting a page
+   * turn as a filter application is the exact defect that made every funnel
+   * number before 2026-07-27 meaningless, and it is also why the rails must not
+   * disappear merely because the visitor advanced a page.
+   */
+  cursor?: Cursor;
+  /** Which side of `cursor` the window lies on. Defaults to "after". */
+  cursorDirection?: CursorDirection;
 }
 
 /** Channels that can be opened as a full list. Each channel must retain the

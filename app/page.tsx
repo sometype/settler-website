@@ -1,11 +1,17 @@
 import { Suspense } from "react";
 import {
+  DISTRICT_RAILS,
   fetchConditionCounts,
   fetchDistrictCounts,
   fetchFeed,
   fetchRailPlan,
   type RailPlan,
 } from "@/lib/listings";
+import {
+  RAIL_SEED_PARAM,
+  mintRailSeed,
+  parseRailSeed,
+} from "@/lib/pagination";
 import {
   parseFilters,
   hasActiveFilters,
@@ -163,7 +169,13 @@ async function Feed({
           />
         ))}
       </div>
-      <Pagination page={result.page} pageCount={result.pageCount} searchParams={searchParams} />
+      <Pagination
+        page={result.page}
+        pageCount={result.pageCount}
+        searchParams={searchParams}
+        nextCursor={result.nextCursor}
+        prevCursor={result.prevCursor}
+      />
     </>
   );
 }
@@ -217,9 +229,24 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
     return <Feed searchParams={searchParams} />;
   }
 
+  // THE RAIL SEED IS THE EXCLUSION CONTRACT (lib/pagination.ts).
+  //
+  // `shownIds` is subtracted from the feed on EVERY page, so if the rails are
+  // arranged differently on page 2 than they were on page 1, the two pages
+  // paginate different sets and listings repeat (measured: 11757 / 11759,
+  // 2026-08-17). A visitor arriving without `rs` mints one — so the strip still
+  // rotates between visits — and every page link then carries that exact seed,
+  // which is why the minted value is threaded into the params handed to Feed
+  // rather than used locally and forgotten.
+  const railSeed = parseRailSeed(searchParams[RAIL_SEED_PARAM]) ?? mintRailSeed();
+  const seededParams: SearchParams = {
+    ...searchParams,
+    [RAIL_SEED_PARAM]: String(railSeed),
+  };
+
   let plan: RailPlan | null = null;
   try {
-    plan = await fetchRailPlan(filters.dealType);
+    plan = await fetchRailPlan(filters.dealType, DISTRICT_RAILS, railSeed);
   } catch {
     // Rails are decoration over the feed — never let them break the page.
     plan = null;
@@ -242,7 +269,9 @@ async function Rails({ searchParams }: { searchParams: SearchParams }) {
       ))}
       {/* Chips are the way into the other ~40 districts that have no rail. */}
       <DistrictPulse dealType={filters.dealType} />
-      <Feed searchParams={searchParams} excludeIds={plan?.shownIds ?? []} />
+      {/* seededParams, not searchParams: the page links below the feed must
+          carry `rs` so the next page reproduces exactly these rails. */}
+      <Feed searchParams={seededParams} excludeIds={plan?.shownIds ?? []} />
     </div>
   );
 }

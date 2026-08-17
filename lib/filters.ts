@@ -1,6 +1,11 @@
 import type { FeedFilters, FeedSort } from "./types";
 import { isKnownDistrictCode } from "./districts";
 import { isConditionCode } from "./labels";
+import { decodeCursor, type CursorDirection } from "./pagination";
+
+/** URL parameters carrying the keyset window (lib/pagination.ts). */
+export const CURSOR_AFTER_PARAM = "after";
+export const CURSOR_BEFORE_PARAM = "before";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -65,6 +70,19 @@ export function parseFilters(params: SearchParams): FeedFilters {
   if (dealType === undefined && sort !== "new") {
     sort = "new";
   }
+  // Keyset window. `after` wins when a crafted URL carries both, and an
+  // undecodable value yields no cursor at all — the feed then starts from the
+  // top of the order rather than from a window nobody can reproduce.
+  const afterCursor = decodeCursor(str(params[CURSOR_AFTER_PARAM]));
+  const beforeCursor = afterCursor
+    ? null
+    : decodeCursor(str(params[CURSOR_BEFORE_PARAM]));
+  const cursor = afterCursor ?? beforeCursor ?? undefined;
+  const cursorDirection: CursorDirection | undefined = cursor
+    ? afterCursor
+      ? "after"
+      : "before"
+    : undefined;
   return {
     districts: districts.length > 0 ? districts : undefined,
     minPrice,
@@ -77,6 +95,8 @@ export function parseFilters(params: SearchParams): FeedFilters {
     view: view === "intake" || view === "hot" ? view : undefined,
     sort,
     page: Math.max(1, num(params.page) ?? 1),
+    cursor,
+    cursorDirection,
   };
 }
 

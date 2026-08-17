@@ -2,13 +2,24 @@ import { applyCoverMode, imageColumns, imageSource } from "./coverSelect";
 import { hasNarrowingFilters } from "./filters";
 import { indexCardImages, indexMainImages, orderForGallery } from "./images";
 import type { ConditionCode } from "./labels";
+import {
+  PAGE_SIZE,
+  cursorForRow,
+  keysetExpression,
+  orderSpecFor,
+  seededShuffle,
+  type Cursor,
+  type CursorDirection,
+} from "./pagination";
 import { isHonestRecentSaleDrop } from "./price-drops";
 import { getSupabase } from "./supabase";
 import type { FeedFilters, Listing, ListingImage } from "./types";
 
 export { formatPrice, pricePerSqm, sanePriceUsd } from "./prices";
 
-export const PAGE_SIZE = 24;
+/** Re-exported so existing importers keep one source for the page size; the
+ *  contract itself lives in lib/pagination.ts. */
+export { PAGE_SIZE };
 
 const FIVE_PLUS_ROOMS = ["5", "6", "7", "8", "9", "10", "11", "12"];
 
@@ -96,6 +107,13 @@ export interface FeedResult {
   total: number;
   page: number;
   pageCount: number;
+  /**
+   * Keyset boundaries of the rendered page: where the next page starts and
+   * where the previous one ends. Null when there is nothing in that direction
+   * (or when no rows came back at all).
+   */
+  nextCursor: Cursor | null;
+  prevCursor: Cursor | null;
 }
 
 // Applies the shared filter set to either the page query or the count query.
@@ -153,22 +171,24 @@ function applyFilters<T>(query: T, filters: FeedFilters): T {
  * prices display as «ფასი მოთხოვნით» but used to still rank; price_sort is null
  * for those rows. NULLS LAST is mandatory on DESC (Postgres puts nulls first
  * otherwise — measured Claude 2026-07-30). id ASC is a stable page tie-break.
+ *
+ * The spec comes from lib/pagination.ts so the ORDER BY and the keyset
+ * predicate can never disagree about what "the next row" means — two
+ * expressions of one rule, built from one definition (Article V).
+ *
+ * `reversed` serves a backward (prev) page: the same total order walked the
+ * other way, nulls first so the NULLS-LAST tail becomes the head. The caller
+ * re-reverses the rows, so what the visitor sees is always the forward order.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyFeedOrder(query: any, filters: FeedFilters) {
-  if (filters.sort === "price_asc") {
-    return query
-      .order("price_sort", { ascending: true, nullsFirst: false })
-      .order("id", { ascending: true });
-  }
-  if (filters.sort === "price_desc") {
-    return query
-      .order("price_sort", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: true });
-  }
+function applyFeedOrder(query: any, filters: FeedFilters, reversed = false) {
+  const spec = orderSpecFor(filters.sort);
   return query
-    .order("first_seen_at", { ascending: false })
-    .order("id", { ascending: true });
+    .order(spec.column, {
+      ascending: reversed ? !spec.ascending : spec.ascending,
+      nullsFirst: reversed,
+    })
+    .order("id", { ascending: !reversed });
 }
 
 export async function fetchFeed(
@@ -188,47 +208,91 @@ export async function fetchFeed(
   if (filters.view === "hot") return fetchHotFeed(filters);
 
   const supabase = getSupabase();
+  const cursor = filters.cursor ?? null;
+  const direction: CursorDirection = filters.cursorDirection ?? "after";
 
-  let base = applyFilters(
-    applyFeedOrder(
-      supabase.from("listings_public").select(LISTING_COLUMNS, { count: "exact" }),
-      filters
-    ),
-    filters
-  );
-  if (excludeIds.length > 0) {
-    base = base.not("id", "in", `(${excludeIds.join(",")})`);
-  }
-  const query = base;
-
-  const from = (filters.page - 1) * PAGE_SIZE;
-  let { data, error, count } = await query.range(from, from + PAGE_SIZE - 1);
-  if (error?.code === "PGRST103") {
-    // ?page= beyond the data: PostgREST rejects the range outright. Recover the
-    // real total so the UI can render "page doesn't exist" instead of an error.
-    const head = await applyFilters(
-      supabase.from("listings_public").select("*", { count: "exact", head: true }),
-      filters
+  /** Filters + rail exclusions, shared by the row query and the count query so
+   *  the total can never describe a different set than the rows. */
+  const scoped = <T>(query: T): T => {
+    const withFilters = applyFilters(query, filters);
+    if (excludeIds.length === 0) return withFilters;
+    return (withFilters as unknown as { not(c: string, op: string, v: string): T }).not(
+      "id",
+      "in",
+      `(${excludeIds.join(",")})`
     );
-    data = [];
-    error = head.error;
-    count = head.count;
-  }
-  if (error) throw new Error(`Failed to load listings: ${error.message}`);
+  };
 
-  const listings = (data ?? []) as Listing[];
-  const total = count ?? 0;
+  let listings: Listing[];
+  let total: number;
+
+  if (cursor) {
+    // KEYSET PATH. The window is defined by the boundary row, not by a count of
+    // rows before it, so an arrival or a removal between two requests cannot
+    // shift what this page contains — it can only add or remove that one row.
+    const backward = direction === "before";
+    const rowQuery = scoped(
+      applyFeedOrder(
+        supabase.from("listings_public").select(LISTING_COLUMNS),
+        filters,
+        backward
+      )
+    ).or(keysetExpression(filters.sort, cursor, direction));
+
+    // The count must NOT carry the keyset predicate (that would count only the
+    // rows still ahead of the cursor), so it is a separate head query — run in
+    // parallel, because the cost that matters here is the round trip.
+    const [rows, head] = await Promise.all([
+      rowQuery.range(0, PAGE_SIZE - 1),
+      scoped(supabase.from("listings_public").select("*", { count: "exact", head: true })),
+    ]);
+    if (rows.error) throw new Error(`Failed to load listings: ${rows.error.message}`);
+    if (head.error) throw new Error(`Failed to load listings: ${head.error.message}`);
+
+    const page = ((rows.data ?? []) as Listing[]).slice(0, PAGE_SIZE);
+    // A backward page was fetched in reverse; restore the reading order.
+    listings = backward ? page.reverse() : page;
+    total = head.count ?? 0;
+  } else {
+    // OFFSET PATH — first page, and the fallback for an old `?page=N` bookmark
+    // that carries no cursor. Safe for page 1 (offset 0 is the top of the order
+    // by definition); for a deep bookmark it is today's behaviour, which the
+    // stable rail exclusions already make far less prone to drift.
+    let { data, error, count } = await scoped(
+      applyFeedOrder(
+        supabase.from("listings_public").select(LISTING_COLUMNS, { count: "exact" }),
+        filters
+      )
+    ).range((filters.page - 1) * PAGE_SIZE, (filters.page - 1) * PAGE_SIZE + PAGE_SIZE - 1);
+    if (error?.code === "PGRST103") {
+      // ?page= beyond the data: PostgREST rejects the range outright. Recover the
+      // real total so the UI can render "page doesn't exist" instead of an error.
+      const head = await scoped(
+        supabase.from("listings_public").select("*", { count: "exact", head: true })
+      );
+      data = [];
+      error = head.error;
+      count = head.count;
+    }
+    if (error) throw new Error(`Failed to load listings: ${error.message}`);
+    listings = (data ?? []) as Listing[];
+    total = count ?? 0;
+  }
 
   const cardImages = await fetchCardImages(
     listings.map((l) => l.id),
     "feed"
   );
+  const first = listings[0];
+  const last = listings[listings.length - 1];
   return {
     listings,
     cardImages,
     total,
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    nextCursor: last ? cursorForRow(last, filters.sort) : null,
+    prevCursor: first ? cursorForRow(first, filters.sort) : null,
   };
 }
 
@@ -379,6 +443,12 @@ export async function fetchJustAdded(
     .select(LISTING_COLUMNS)
     .gte("first_seen_at", cutoff)
     .order("first_seen_at", { ascending: false })
+    // ⚠️ Tie-break, not decoration. These ids become `shownIds`, which the feed
+    // excludes on EVERY page. Two listings sharing a `first_seen_at` could
+    // otherwise swap between the page-1 and page-2 requests, changing the
+    // excluded set and shifting the feed window under the visitor — the same
+    // class of defect as the randomized rail, from a different cause.
+    .order("id", { ascending: true })
     .limit(limit);
   // Same reason parseFilters defaults to rent: a $94,000 sale next to a $533
   // rent reads as broken, and the feed below the strip is deal-scoped too.
@@ -537,6 +607,12 @@ export async function fetchHotFeed(filters: FeedFilters): Promise<FeedResult> {
     total,
     page: filters.page,
     pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    // Hot paginates by rolling-attention RANK, not by a catalogue sort key, so
+    // it has no keyset boundary to hand out. Its own stability comes from the
+    // listing_id tie-break inside rankedQuery(); offering a cursor here would
+    // imply an ordering this channel does not have.
+    nextCursor: null,
+    prevCursor: null,
   };
 }
 
@@ -658,32 +734,25 @@ export interface PriceDropResult {
 }
 
 /**
- * Fisher–Yates copy. Keeps the price-drop rail from freezing on the same
- * "8 newest drops" every visit (user: strip felt stale). Homepage is
- * force-dynamic; this is a decoration strip, not a stable channel rank.
- */
-function shuffleCopy<T>(items: T[]): T[] {
-  const a = items.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = a[i]!;
-    a[i] = a[j]!;
-    a[j] = tmp;
-  }
-  return a;
-}
-
-/**
  * Live sale listings with a still-current price drop (old + new on the card).
  * 48h primary window; widen to 7d if fewer than PRICE_DROP_MIN_CARDS after
  * excludeIds. Hide (empty result) if still thin — caller must not render.
  *
  * Within the eligible pool, cards are SHUFFLED then capped — eligibility still
  * prefers 48h when thick enough; order is no longer pure drop-time.
+ *
+ * ⚠️ The shuffle is SEEDED (lib/pagination.ts), not `Math.random()`. It still
+ * rotates — a new seed is minted whenever a visitor arrives without one, so the
+ * strip does not freeze on the same eight drops — but every page of one
+ * browsing session reproduces the SAME eight cards. That is load-bearing far
+ * outside this rail: these ids are excluded from the feed on every page, and
+ * when they changed per request, page 1 and page 2 paginated different sets and
+ * repeated live listings 11757 / 11759 (measured 2026-08-17).
  */
 export async function fetchPriceDrops(
   excludeIds: number[] = [],
-  limit = PRICE_DROP_RAIL_SIZE
+  limit = PRICE_DROP_RAIL_SIZE,
+  seed = 0
 ): Promise<PriceDropResult> {
   const supabase = getSupabase();
   const exclude = new Set(excludeIds);
@@ -699,6 +768,10 @@ export async function fetchPriceDrops(
     .not("price_drop_from_usd", "is", null)
     .gte("price_dropped_at", day7)
     .order("price_dropped_at", { ascending: false })
+    // Tie-break before the cap: without it, two drops sharing a timestamp can
+    // swap across the 80-row boundary between requests, changing the eligible
+    // pool itself — which a seeded shuffle downstream could not undo.
+    .order("id", { ascending: true })
     .limit(80);
   if (error || !data) return { listings: [], mainImages: new Map() };
 
@@ -712,8 +785,9 @@ export async function fetchPriceDrops(
     (l) => (l.price_dropped_at ?? "") >= day2
   );
   const pool = fresh.length >= PRICE_DROP_MIN_CARDS ? fresh : eligible;
-  // Shuffle then take 8 — same eligibility, rotating cards each homepage load.
-  const listings = shuffleCopy(pool).slice(0, limit);
+  // Shuffle then take 8 — same eligibility, rotating per seed rather than per
+  // request, so the excluded set is identical for every page of one session.
+  const listings = seededShuffle(pool, seed).slice(0, limit);
   if (listings.length < PRICE_DROP_MIN_CARDS) {
     return { listings: [], mainImages: new Map() };
   }
@@ -749,7 +823,15 @@ export interface RailPlan {
  */
 export async function fetchRailPlan(
   dealType: FeedFilters["dealType"],
-  railCount: number = DISTRICT_RAILS
+  railCount: number = DISTRICT_RAILS,
+  /**
+   * The session's rail arrangement. Every page of one browsing session passes
+   * the SAME seed (carried in the `rs` URL parameter), so `shownIds` — which
+   * the feed excludes on every page — is identical across pages. Rails still
+   * rotate between visits, because a visitor arriving without `rs` gets a
+   * freshly minted one.
+   */
+  seed = 0
 ): Promise<RailPlan> {
   const supabase = getSupabase();
   const deal = dealType === "sale" ? "sale" : "rent";
@@ -776,7 +858,7 @@ export async function fetchRailPlan(
   // the old hot rail. Hot remains only for /?view=hot. Sale inventory is
   // intentional even when the feed tab is rent — same as a sale promo strip.
   const emptyHot: HotResult = { listings: [], mainImages: new Map(), total: 0 };
-  const priceDrops = await fetchPriceDrops(justIds, PRICE_DROP_RAIL_SIZE);
+  const priceDrops = await fetchPriceDrops(justIds, PRICE_DROP_RAIL_SIZE, seed);
   const hot = emptyHot;
 
   // Only IDs that will actually render (price-drop empty if < min cards).
@@ -795,8 +877,12 @@ export async function fetchRailPlan(
         .eq("deal_type", deal)
         .eq("district_code", d.code)
         .order("first_seen_at", { ascending: false })
+        // Same tie-break law as the other rails: these ids reach `shownIds`.
+        .order("id", { ascending: true })
         .limit(DISTRICT_RAIL_SIZE + shown.size);
-      const skip = [...shown];
+      // Sorted so the emitted request is byte-identical for identical input,
+      // rather than merely equivalent.
+      const skip = [...shown].sort((a, b) => a - b);
       if (skip.length > 0) q = q.not("id", "in", `(${skip.join(",")})`);
       const { data, error } = await q;
       if (error || !data) return null;
@@ -828,7 +914,10 @@ export async function fetchRailPlan(
 
   for (const d of districts) for (const l of d.listings) shown.add(l.id);
 
-  return { justAdded, hot, priceDrops, districts, shownIds: [...shown] };
+  // Sorted: the feed turns this into a `not.in.(…)` list on every page, and a
+  // canonical order makes "the same exclusion set" checkable by comparing the
+  // request itself, not just the resulting rows.
+  return { justAdded, hot, priceDrops, districts, shownIds: [...shown].sort((a, b) => a - b) };
 }
 
 export async function fetchListing(
