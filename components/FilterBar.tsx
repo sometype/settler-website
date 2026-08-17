@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { DISTRICTS, districtLabel } from "@/lib/districts";
 import {
   MAX_DISTRICTS,
+  clearPaginationWindow,
   parseDistrictCodes,
   serializeDistricts,
 } from "@/lib/filters";
@@ -261,7 +262,7 @@ export function FilterBar({
       if (value) next.set(key, value);
       else next.delete(key);
     }
-    next.delete("page"); // filter change resets pagination
+    clearPaginationWindow(next); // filter change restarts the collection
     // Sweep the retired amenity param out of any URL that still carries it, so
     // a bookmarked ?amen= link stops propagating through pagination once the
     // visitor touches a control. Nothing reads it any more (lib/filters.ts).

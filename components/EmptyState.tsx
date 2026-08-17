@@ -1,7 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { hasActiveFilters, type SearchParams } from "@/lib/filters";
+import {
+  clearPaginationWindow,
+  hasActiveFilters,
+  type SearchParams,
+} from "@/lib/filters";
 import { ClearLink } from "@/components/ClearLink";
 import type { FeedFilters } from "@/lib/types";
 
@@ -79,7 +83,7 @@ function href(params: URLSearchParams): string {
 function withoutAxis(searchParams: SearchParams, axis: Axis): string {
   const p = toParams(searchParams);
   for (const key of AXIS_PARAMS[axis]) p.delete(key);
-  p.delete("page");
+  clearPaginationWindow(p);
   return href(p);
 }
 
@@ -87,6 +91,7 @@ function withoutAxis(searchParams: SearchParams, axis: Axis): string {
 function clearedHref(searchParams: SearchParams): string {
   const p = toParams(searchParams);
   for (const key of ALL_NARROWING) p.delete(key);
+  clearPaginationWindow(p);
   return href(p);
 }
 

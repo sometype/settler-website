@@ -36,10 +36,16 @@ function pageHref(
   else next.delete("page");
   // Page 1 is the top of the order by definition and needs no boundary.
   if (cursor && page > 1) {
-    next.set(
-      direction === "after" ? CURSOR_AFTER_PARAM : CURSOR_BEFORE_PARAM,
-      encodeCursor(cursor)
-    );
+    // A boundary that cannot be encoded safely (a row whose sort key this
+    // ordering cannot express) yields no parameter at all, and the link falls
+    // back to the offset path rather than carrying something unvalidatable.
+    const token = encodeCursor(cursor);
+    if (token) {
+      next.set(
+        direction === "after" ? CURSOR_AFTER_PARAM : CURSOR_BEFORE_PARAM,
+        token
+      );
+    }
   }
   const qs = next.toString();
   return qs ? `/?${qs}` : "/";

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import type { FeedSort } from "@/lib/types";
 import { trackEvent } from "@/lib/events";
-import { parseDistrictCodes } from "@/lib/filters";
+import { clearPaginationWindow, parseDistrictCodes } from "@/lib/filters";
 
 const OPTIONS: { value: FeedSort; label: string }[] = [
   { value: "new", label: "ახალი" },
@@ -53,7 +53,9 @@ export function SortBar({ active }: { active: FeedSort }) {
     const sp = new URLSearchParams(params.toString());
     if (next === "new") sp.delete("sort");
     else sp.set("sort", next);
-    sp.delete("page");
+    // A new ordering restarts the collection: the old boundary row is a
+    // position in a differently ordered list and means nothing here.
+    clearPaginationWindow(sp);
     startTransition(() => {
       router.push(sp.size ? `/?${sp.toString()}` : "/");
     });

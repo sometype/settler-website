@@ -427,41 +427,41 @@ test("the feed excludes exactly what the rails rendered — no more, no less", a
 
 test("cursors round-trip and refuse anything they cannot reproduce", () => {
   for (const cursor of [
-    { key: "2026-08-17T10:00:00.000Z", id: 11757 },
-    { key: 60000, id: 1 },
-    { key: null, id: 42 },
+    { sort: "new", key: "2026-08-17T10:00:00.000Z", id: 11757 },
+    { sort: "price_asc", key: 60000, id: 1 },
+    { sort: "price_desc", key: null, id: 42 },
   ]) {
-    assert.deepEqual(decodeCursor(encodeCursor(cursor)), cursor);
+    assert.deepEqual(decodeCursor(encodeCursor(cursor), cursor.sort), cursor);
   }
   for (const bad of [
     undefined,
     "",
     "not-base64!!",
-    Buffer.from("[9,1,2]").toString("base64url"), // wrong version
-    Buffer.from('[1,"k",0]').toString("base64url"), // id must be positive
-    Buffer.from('[1,"k","x"]').toString("base64url"), // id must be numeric
+    Buffer.from("[9,\"new\",1,2]").toString("base64url"), // wrong version
+    Buffer.from('[2,"new","2026-08-17T10:00:00.000Z",0]').toString("base64url"), // id <= 0
+    Buffer.from('[2,"new","2026-08-17T10:00:00.000Z","x"]').toString("base64url"), // id not numeric
     Buffer.from("{}").toString("base64url"),
   ]) {
-    assert.equal(decodeCursor(bad), null, `accepted a cursor it cannot reproduce: ${bad}`);
+    assert.equal(decodeCursor(bad, "new"), null, `accepted a cursor it cannot reproduce: ${bad}`);
   }
 });
 
 test("keyset expressions quote timestamps and place nulls last", () => {
   const ts = "2026-08-17T10:00:00+00:00";
-  const forward = keysetExpression("new", { key: ts, id: 500 }, "after");
+  const forward = keysetExpression({ sort: "new", key: ts, id: 500 }, "after");
   assert.ok(forward.includes(`"${ts}"`), "timestamp must be quoted for PostgREST");
   assert.ok(forward.includes("first_seen_at.lt."), "newest-first advances downward");
   assert.ok(forward.includes("and(first_seen_at.eq."), "ties resolve on id");
   assert.ok(!forward.includes("is.null"), "first_seen_at is NOT NULL — no null term");
 
-  const asc = keysetExpression("price_asc", { key: 1000, id: 5 }, "after");
+  const asc = keysetExpression({ sort: "price_asc", key: 1000, id: 5 }, "after");
   assert.ok(asc.includes("price_sort.gt.1000"));
   assert.ok(asc.includes("price_sort.is.null"), "the null tail is still ahead");
 
-  const tail = keysetExpression("price_asc", { key: null, id: 5 }, "after");
+  const tail = keysetExpression({ sort: "price_asc", key: null, id: 5 }, "after");
   assert.equal(tail, "and(price_sort.is.null,id.gt.5)");
 
-  const back = keysetExpression("price_asc", { key: 1000, id: 5 }, "before");
+  const back = keysetExpression({ sort: "price_asc", key: 1000, id: 5 }, "before");
   assert.ok(back.includes("price_sort.lt.1000"));
   assert.ok(!back.includes("price_sort.is.null"), "nothing null precedes a priced row");
 });
@@ -542,7 +542,7 @@ test("page links carry the cursor, and the seed reaches them", () => {
 test("the window is never a filter: cursors stay out of the funnel predicates", () => {
   const withCursor = parseFilters({
     deal: "sale",
-    after: encodeCursor({ key: 1, id: 2 }),
+    after: encodeCursor({ sort: "new", key: "2026-08-17T10:00:00.000Z", id: 2 }),
     page: "3",
   });
   // hasActiveFilters drives filter_apply; a page turn is not a filter.

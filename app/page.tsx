@@ -13,6 +13,7 @@ import {
   parseRailSeed,
 } from "@/lib/pagination";
 import {
+  clearPaginationWindow,
   parseFilters,
   hasActiveFilters,
   hasNarrowingFilters,
@@ -100,8 +101,12 @@ async function Feed({
       const v = key === "district"
         ? serializeDistricts(parseDistrictCodes(value))
         : Array.isArray(value) ? value[0] : value;
-      if (v && key !== "page") backParams.set(key, v);
+      if (v) backParams.set(key, v);
     }
+    // Recovering from "that page does not exist" means going back to the
+    // start, which drops the cursor as well as the number — carrying the
+    // boundary row of a page that is out of range is how you land nowhere.
+    clearPaginationWindow(backParams);
     const backHref = backParams.size ? `/?${backParams.toString()}` : "/";
     return (
       <EmptyState

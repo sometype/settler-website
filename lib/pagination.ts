@@ -77,12 +77,21 @@ export function orderSpecFor(sort: FeedSort): OrderSpec {
 /* ------------------------------------------------------------------ cursors */
 
 /**
- * Where one page stopped: the sort key of a boundary row plus its id.
+ * Where one page stopped: the sort key of a boundary row, its id, AND the sort
+ * mode that key belongs to.
+ *
+ * ⚠️ THE `sort` FIELD IS A SAFETY PROPERTY, NOT BOOKKEEPING. A key only means
+ * something inside the ordering it came from: a timestamp is a position in the
+ * newest-first feed and pure nonsense against `price_sort`, which is a number.
+ * Carrying the mode inside the cursor makes "this cursor belongs to a different
+ * ordering" a decode failure instead of a comparison between a text literal and
+ * a numeric column.
  *
  * `key` is null ONLY for a row in the NULLS-LAST tail of a price sort. That is
  * a real position in the order, not "unknown", and it needs its own predicate.
  */
 export interface Cursor {
+  sort: FeedSort;
   key: string | number | null;
   id: number;
 }
@@ -90,21 +99,98 @@ export interface Cursor {
 /** Which side of a boundary row the requested page lies on. */
 export type CursorDirection = "after" | "before";
 
-const CURSOR_VERSION = 1;
+/** Bumped whenever the payload shape or the key rules change, so an old link
+ *  fails closed rather than being reinterpreted under new rules. */
+const CURSOR_VERSION = 2;
+
+/**
+ * The ONLY timestamp shape a cursor may carry.
+ *
+ * ⚠️ CHARACTER CLASS IS THE SECURITY PROPERTY. Cursor keys are interpolated
+ * into a PostgREST `or=` expression, whose grammar is delimited by `"`, `,`,
+ * `(` and `)`. Before this was enforced, `decodeCursor` accepted any string, so
+ * the key `x"),id.gt.0` produced
+ *
+ *   first_seen_at.lt."x"),id.gt.0",and(first_seen_at.eq."x"),id.gt.0",id.gt.1)
+ *
+ * — the `")` closes the quoted literal and `id.gt.0` becomes an extra OR term,
+ * widening the result set from a value the URL controls. This pattern admits
+ * digits, `-`, `T`, `:`, `.`, `+` and `Z` and nothing else, so no delimiter or
+ * operator can survive validation.
+ *
+ * ⚠️ AND IT IS DELIBERATELY NOT RE-CANONICALIZED THROUGH `Date`. Postgres
+ * timestamptz keeps MICROseconds; a JS Date keeps milliseconds. Round-tripping
+ * 10:00:00.123456 through `toISOString()` yields 10:00:00.123, and the keyset
+ * comparison `first_seen_at < 10:00:00.123` then excludes rows between .123 and
+ * .123456 — silently skipping listings, which is the exact failure class this
+ * whole module exists to prevent. Validate the shape; never rewrite the value.
+ */
+const TIMESTAMP_KEY_RE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
+/** Numeric keys reach the expression unquoted, so the rendered form is checked
+ *  too: exponent notation (`1e+21`) would put a `+` into the filter grammar. */
+const NUMERIC_KEY_RE = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Is this key a legal position in this ordering?
+ *
+ * Used at BOTH ends — the decode boundary and the point of interpolation — so
+ * a value can never reach the query by some path that skipped validation.
+ */
+export function isSafeCursorKey(sort: FeedSort, key: unknown): boolean {
+  const spec = orderSpecFor(sort);
+  if (key === null) return spec.nullable;
+  if (spec.column === "first_seen_at") {
+    return (
+      typeof key === "string" &&
+      TIMESTAMP_KEY_RE.test(key) &&
+      Number.isFinite(Date.parse(key))
+    );
+  }
+  // price_sort: a finite number whose rendered literal is plain decimal.
+  return (
+    typeof key === "number" &&
+    Number.isFinite(key) &&
+    NUMERIC_KEY_RE.test(String(key))
+  );
+}
 
 /**
  * Cursors travel in the URL, so they are encoded rather than raw — not for
  * secrecy (they carry a public timestamp or price and a public id) but so a
  * hand-edited value fails the decode and falls back to the top of the feed
  * instead of half-parsing into a window nobody can reproduce.
+ *
+ * Returns null for anything that would not survive its own decode, so an
+ * unusable boundary degrades to "no cursor" at the point it is minted rather
+ * than at the point it is used.
  */
-export function encodeCursor(cursor: Cursor): string {
-  const json = JSON.stringify([CURSOR_VERSION, cursor.key, cursor.id]);
+export function encodeCursor(cursor: Cursor): string | null {
+  if (!isValidCursor(cursor)) return null;
+  const json = JSON.stringify([CURSOR_VERSION, cursor.sort, cursor.key, cursor.id]);
   return Buffer.from(json, "utf8").toString("base64url");
 }
 
-/** Total: anything malformed yields null and the caller starts from the top. */
-export function decodeCursor(raw: string | undefined | null): Cursor | null {
+function isValidCursor(cursor: Cursor | null | undefined): cursor is Cursor {
+  if (!cursor) return false;
+  if (!Object.prototype.hasOwnProperty.call(ORDER_SPECS, cursor.sort)) return false;
+  if (!Number.isSafeInteger(cursor.id) || cursor.id <= 0) return false;
+  return isSafeCursorKey(cursor.sort, cursor.key);
+}
+
+/**
+ * Total: anything malformed, stale, or belonging to a different ordering yields
+ * null and the caller starts from the top.
+ *
+ * `expectedSort` is the ordering the request will actually run under, so a
+ * cursor minted while browsing newest-first is refused the moment the visitor
+ * switches to a price sort.
+ */
+export function decodeCursor(
+  raw: string | undefined | null,
+  expectedSort: FeedSort
+): Cursor | null {
   if (!raw) return null;
   let parsed: unknown;
   try {
@@ -112,26 +198,27 @@ export function decodeCursor(raw: string | undefined | null): Cursor | null {
   } catch {
     return null;
   }
-  if (!Array.isArray(parsed) || parsed.length !== 3) return null;
-  const [version, key, id] = parsed as [unknown, unknown, unknown];
+  if (!Array.isArray(parsed) || parsed.length !== 4) return null;
+  const [version, sort, key, id] = parsed as [unknown, unknown, unknown, unknown];
   if (version !== CURSOR_VERSION) return null;
-  if (typeof id !== "number" || !Number.isSafeInteger(id) || id <= 0) return null;
-  if (key !== null && typeof key !== "string" && typeof key !== "number") return null;
-  if (typeof key === "number" && !Number.isFinite(key)) return null;
-  return { key: key as Cursor["key"], id };
+  if (sort !== expectedSort) return null;
+  const candidate = { sort, key, id } as Cursor;
+  return isValidCursor(candidate) ? candidate : null;
 }
 
-/** The cursor for a boundary row of a rendered page. */
+/** The cursor for a boundary row of a rendered page, or null when the row
+ *  carries no position this ordering can express. */
 export function cursorForRow(
   row: { id: number; first_seen_at?: string | null; price_sort?: number | null },
   sort: FeedSort
-): Cursor {
+): Cursor | null {
   const spec = orderSpecFor(sort);
-  const raw =
+  const key =
     spec.column === "price_sort"
       ? (row.price_sort ?? null)
       : (row.first_seen_at ?? null);
-  return { key: raw, id: row.id };
+  const candidate: Cursor = { sort, key, id: row.id };
+  return isValidCursor(candidate) ? candidate : null;
 }
 
 /* --------------------------------------------------- keyset predicate build */
@@ -161,11 +248,21 @@ function literal(value: string | number): string {
  * higher ids remain.
  */
 export function keysetExpression(
-  sort: FeedSort,
   cursor: Cursor,
   direction: CursorDirection
 ): string {
-  const spec = orderSpecFor(sort);
+  // ⚠️ VALIDATED AGAIN HERE, ON PURPOSE. `decodeCursor` is the boundary, but it
+  // is not the only way a Cursor can be constructed — `cursorForRow` builds one
+  // from a database row, and future callers may build one directly. A value
+  // that reaches the `or=` grammar unchecked is the whole vulnerability, so the
+  // check lives at the point of interpolation as well as at the door. Throwing
+  // is correct: an unrepresentable boundary is a defect in the caller, and a
+  // page rendered from a silently-dropped predicate would return the wrong rows
+  // rather than an error.
+  if (!isValidCursor(cursor)) {
+    throw new Error("unsafe cursor rejected before reaching the query");
+  }
+  const spec = orderSpecFor(cursor.sort);
   const col = spec.column;
   const forward = direction === "after";
   // Which way the key column moves as we advance through the page sequence.

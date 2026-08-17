@@ -237,7 +237,7 @@ export async function fetchFeed(
         filters,
         backward
       )
-    ).or(keysetExpression(filters.sort, cursor, direction));
+    ).or(keysetExpression(cursor, direction));
 
     // The count must NOT carry the keyset predicate (that would count only the
     // rows still ahead of the cursor), so it is a separate head query — run in

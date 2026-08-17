@@ -7,6 +7,37 @@ import { decodeCursor, type CursorDirection } from "./pagination";
 export const CURSOR_AFTER_PARAM = "after";
 export const CURSOR_BEFORE_PARAM = "before";
 
+/**
+ * Every parameter that says "you are somewhere other than the beginning".
+ *
+ * ⚠️ `page` ALONE IS NOT THE WINDOW ANY MORE. Before the keyset repair, the
+ * page number was the whole position, so dropping `page` was a complete reset
+ * and each navigation surface open-coded `delete("page")`. Now the cursor
+ * decides which rows load and `page` is only the counter shown to the visitor,
+ * so a surface that drops one and keeps the other sends the visitor to a
+ * filtered collection positioned by a boundary row from the OLD collection —
+ * "3 ოთახი, page 1" rendering rows from the middle of the unfiltered feed.
+ * That is why this list exists in one place instead of three call sites.
+ */
+export const PAGINATION_WINDOW_PARAMS = [
+  "page",
+  CURSOR_AFTER_PARAM,
+  CURSOR_BEFORE_PARAM,
+] as const;
+
+/**
+ * Return to the beginning of the collection. Mutates and returns `params` so it
+ * can be dropped into an existing builder chain.
+ *
+ * Call this from EVERY action that logically restarts the list: any filter
+ * change, the deal switch, a sort change, leaving a channel, and every
+ * empty-state recovery link.
+ */
+export function clearPaginationWindow(params: URLSearchParams): URLSearchParams {
+  for (const key of PAGINATION_WINDOW_PARAMS) params.delete(key);
+  return params;
+}
+
 export type SearchParams = Record<string, string | string[] | undefined>;
 
 function str(v: string | string[] | undefined): string | undefined {
@@ -70,13 +101,24 @@ export function parseFilters(params: SearchParams): FeedFilters {
   if (dealType === undefined && sort !== "new") {
     sort = "new";
   }
-  // Keyset window. `after` wins when a crafted URL carries both, and an
-  // undecodable value yields no cursor at all — the feed then starts from the
-  // top of the order rather than from a window nobody can reproduce.
-  const afterCursor = decodeCursor(str(params[CURSOR_AFTER_PARAM]));
-  const beforeCursor = afterCursor
-    ? null
-    : decodeCursor(str(params[CURSOR_BEFORE_PARAM]));
+  // Keyset window.
+  //
+  // ⚠️ The cursor is decoded against the EFFECTIVE sort computed above, not the
+  // raw `?sort=` value, so a cursor is refused the moment it belongs to a
+  // different ordering — including the `deal=all` case where a price sort is
+  // forced back to "new".
+  //
+  // ⚠️ BOTH DIRECTIONS AT ONCE IS REFUSED OUTRIGHT rather than resolved by
+  // precedence. "after=X&before=Y" describes two different windows, and picking
+  // one silently would mean the URL a visitor can see disagrees with the rows
+  // they get. No link this app renders can produce it (Pagination clears both
+  // before setting one), so it is a crafted request and it fails closed to the
+  // top of the collection.
+  const rawAfter = str(params[CURSOR_AFTER_PARAM]);
+  const rawBefore = str(params[CURSOR_BEFORE_PARAM]);
+  const bothPresent = rawAfter !== undefined && rawBefore !== undefined;
+  const afterCursor = bothPresent ? null : decodeCursor(rawAfter, sort);
+  const beforeCursor = bothPresent || afterCursor ? null : decodeCursor(rawBefore, sort);
   const cursor = afterCursor ?? beforeCursor ?? undefined;
   const cursorDirection: CursorDirection | undefined = cursor
     ? afterCursor
