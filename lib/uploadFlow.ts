@@ -193,6 +193,65 @@ export function resolveUploadBase(env: EnvLike): { url: string } | { error: stri
   return { url: "http://localhost:8000" };
 }
 
+/* ------------------------------------------------- entry-step gate (mobile UX) */
+
+/**
+ * Is this a value we are willing to send to the mail provider?
+ *
+ * ⚠️ `value.includes("@")` was the old gate, and it let `@`, `a@`, `a@b`,
+ * and `me@localhost` unlock the button — every one of which reaches the
+ * provider, burns a per-IP attempt against the intake rate cap, and comes back
+ * as a generic failure the owner cannot act on. Article IV: a string that only
+ * *might* be an address is not an address, and must not be treated as one.
+ *
+ * This is deliberately a SECOND opinion, not the only one. The browser's own
+ * `type="email"` validity check runs against the real input in the component;
+ * this function exists so the rule is testable without a DOM and so a browser
+ * that is lax about `user@host` (no dot) still cannot advance.
+ */
+export function isSubmittableEmail(value: string): boolean {
+  const v = value.trim();
+  if (v.length < 6 || v.length > 254) return false;
+  if (/\s/.test(v)) return false;
+  if ((v.match(/@/g) ?? []).length !== 1) return false;
+  const [local, domain] = v.split("@");
+  if (!local || local.length > 64) return false;
+  if (!domain || domain.length > 253) return false;
+  // A bare host is not a deliverable domain: require a dotted TLD of 2+ chars.
+  if (!/^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/.test(domain)) return false;
+  if (!/\.[A-Za-z]{2,}$/.test(domain)) return false;
+  if (v.includes("..")) return false;
+  return /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+$/.test(local) && !local.startsWith(".") && !local.endsWith(".");
+}
+
+/** Everything the entry step needs before «კოდის მიღება» may fire. */
+export type EntryGate = {
+  /** `isSubmittableEmail` AND the live input's own checkValidity(). */
+  emailValid: boolean;
+  /** A token Turnstile actually handed us. Null until then, and cleared on
+   *  expiry/error — an expired token is not a weaker pass, it is no pass. */
+  turnstileToken: string | null;
+  /** Turnstile is configured for this build (or not required off production). */
+  turnstileConfigured: boolean;
+  /** Upload origin + site key present; false disables the whole step. */
+  configOk: boolean;
+  busy: boolean;
+};
+
+/**
+ * ⚠️ FAIL CLOSED. Every unknown is a "no": no token yet, token expired, config
+ * missing, validity unknown. The button is the last thing standing between a
+ * mistyped address and a burnt rate-limit slot, and the bot gate is only a gate
+ * if the control it guards cannot be pressed without it (Article VII).
+ */
+export function canRequestCode(g: EntryGate): boolean {
+  if (g.busy) return false;
+  if (!g.configOk) return false;
+  if (!g.emailValid) return false;
+  if (!g.turnstileConfigured) return false;
+  return typeof g.turnstileToken === "string" && g.turnstileToken.length > 0;
+}
+
 /** Turnstile is mandatory in production and fails closed when unset. */
 export function turnstileRequirement(env: EnvLike): {
   required: boolean;

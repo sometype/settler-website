@@ -50,6 +50,8 @@ import {
   serializeState,
   splitFloorParts,
   turnstileSiteKeyRequirement,
+  isSubmittableEmail,
+  canRequestCode,
   type Facts,
   type PhotoSlot,
   type Step,
@@ -211,11 +213,6 @@ function Manifesto({ compact }: { compact?: boolean }) {
         დაამატე ბინა პირდაპირ. განცხადება გადამოწმების შემდეგ გამოქვეყნდება.
       </p>
 
-      <div className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-3 text-sm leading-relaxed">
-        <span className="font-semibold text-clay-deep">აკრძალულია</span>{" "}
-        იგივე განცხადების რამდენჯერმე ატვირთვა, ყალბი ან სხვისი განცხადების
-        განთავსება. ასეთი განცხადებები არ გამოქვეყნდება.
-      </div>
     </header>
   );
 }
@@ -240,6 +237,16 @@ export default function UploadFlow() {
   const [resumePending, setResumePending] = useState(() => Boolean(saved));
 
   const [email, setEmail] = useState(() => saved?.email ?? "");
+  /**
+   * ⚠️ TRACKED, NOT READ AT SUBMIT TIME. The old code queried
+   * `input[name="cf-turnstile-response"]` inside startVerify and sent whatever
+   * it found — including "" when the widget had not solved yet, which the
+   * server then rejected as a generic failure after the request was already
+   * spent. Holding the token in state is what lets the button stay disabled
+   * until a token exists, and lets expiry actively REVOKE readiness.
+   */
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [emailBrowserValid, setEmailBrowserValid] = useState(false);
   const [codeToken, setCodeToken] = useState("");
   const [code, setCode] = useState("");
   const [session, setSession] = useState(() => saved?.session ?? "");
@@ -289,6 +296,25 @@ export default function UploadFlow() {
       }),
     [],
   );
+
+  /**
+   * Turnstile's implicit rendering calls GLOBAL functions by name, so the
+   * widget's data-callback attributes below point at these. Registered in an
+   * effect (never during render) and removed on unmount so a remount cannot
+   * leave a stale closure writing into a dead component.
+   *
+   * expired/error/timeout all clear the token: Article IV — an expired token
+   * is not a weaker pass, it is no pass at all.
+   */
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.mpTurnstileOk = (token: string) => setTurnstileToken(token || null);
+    w.mpTurnstileGone = () => setTurnstileToken(null);
+    return () => {
+      delete w.mpTurnstileOk;
+      delete w.mpTurnstileGone;
+    };
+  }, []);
 
   const releasePreview = useCallback((id: string) => {
     filesRef.current.delete(id);
@@ -402,12 +428,15 @@ export default function UploadFlow() {
   const startVerify = useCallback(async () => {
     setBusy(true);
     setError(null);
-    const turnstile =
-      (
-        document.querySelector(
-          'input[name="cf-turnstile-response"]',
-        ) as HTMLInputElement | null
-      )?.value || "";
+    // The tracked token only. If it is somehow absent the request is not sent:
+    // spending a rate-limit slot on a request the server will refuse is worse
+    // than doing nothing, and the button should already have been disabled.
+    const turnstile = turnstileToken ?? "";
+    if (!turnstile) {
+      setBusy(false);
+      setError({ code: "turnstile", ka: "დაადასტურე, რომ რობოტი არ ხარ." });
+      return;
+    }
     const r = await call("verify-start", {
       email: email.trim(),
       turnstile,
@@ -428,7 +457,7 @@ export default function UploadFlow() {
     setSpamHint(false);
     setResendIn(60);
     setStep("code");
-  }, [email]);
+  }, [email, turnstileToken]);
 
   const checkCode = useCallback(async () => {
     setBusy(true);
@@ -698,7 +727,8 @@ export default function UploadFlow() {
 
   /* ------------------------------ render -------------------------------- */
 
-  const doneCount = photos.filter((p) => p.state === "done").length;
+  const emailValid = emailBrowserValid && isSubmittableEmail(email);
+    const doneCount = photos.filter((p) => p.state === "done").length;
   const cover = resolveCover(photos, coverId);
   const floorParts = splitFloorParts(facts.floor);
   const input =
@@ -824,19 +854,47 @@ export default function UploadFlow() {
             placeholder="შენი ელფოსტა"
             aria-describedby="mp-email-err"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              // Two opinions, both required. The browser knows its own parser;
+              // isSubmittableEmail refuses shapes some browsers accept (a bare
+              // host with no dotted TLD). Either saying "no" is a no.
+              setEmailBrowserValid(e.target.checkValidity());
+            }}
           />
           {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+            /* data-size="flexible" makes the widget take the container width
+               instead of its fixed 300px, which overflowed a 390px screen once
+               the 16px page padding was counted. data-appearance
+               ="interaction-only" keeps it invisible unless Cloudflare actually
+               wants a challenge, so the common case is one field and a button.
+               The callbacks are what the disabled state reads — see the
+               readiness effect above. */
             <div
-              className="cf-turnstile mt-3"
+              className="cf-turnstile mt-3 w-full max-w-full overflow-hidden"
               data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
               data-action={OWNER_UPLOAD_TURNSTILE_ACTION}
+              data-size="flexible"
+              data-appearance="interaction-only"
+              data-callback="mpTurnstileOk"
+              data-expired-callback="mpTurnstileGone"
+              data-timeout-callback="mpTurnstileGone"
+              data-error-callback="mpTurnstileGone"
             />
           ) : null}
           <button
             type="button"
+            data-testid="mp-request-code"
             className={`${btn} mt-3 w-full`}
-            disabled={busy || !email.includes("@") || Boolean(configError)}
+            disabled={
+              !canRequestCode({
+                emailValid: emailValid,
+                turnstileToken,
+                turnstileConfigured: siteKey.ok,
+                configOk: !configError,
+                busy,
+              })
+            }
             onClick={() => void startVerify()}
           >
             {busy ? "იგზავნება…" : "კოდის მიღება"}
@@ -1431,6 +1489,22 @@ export default function UploadFlow() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
+          {/* ⚠️ MOVED HERE FROM THE FIRST SCREEN (mobile-UX round, 2026-08-18).
+              Wording, publication rule and security meaning are unchanged — the
+              only change is WHERE it is read. It now sits directly above the
+              ownership declaration, which is the moment the owner actually
+              asserts the thing the rule constrains, instead of being a wall of
+              red on a screen that only asks for an email address. Do not soften
+              or shorten it: "ასეთი განცხადებები არ გამოქვეყნდება" is the
+              publication rule, not decoration. */}
+          <div
+            data-testid="mp-prohibition"
+            className="mt-4 rounded-lg border border-clay/40 bg-clay/5 p-3 text-sm leading-relaxed"
+          >
+            <span className="font-semibold text-clay-deep">აკრძალულია</span>{" "}
+            იგივე განცხადების რამდენჯერმე ატვირთვა, ყალბი ან სხვისი განცხადების
+            განთავსება. ასეთი განცხადებები არ გამოქვეყნდება.
+          </div>
           <div className="mt-3 flex items-start gap-2">
             <input
               id="mp-declared"
