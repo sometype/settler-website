@@ -780,18 +780,69 @@ export function reconcileSlots(
   const claimed = new Set(
     next.filter((s) => s.position !== null).map((s) => s.position as number),
   );
-  for (const p of [...status.positions, ...status.pendingPositions]) {
-    // A committed or in-flight position nothing local references would break
-    // contiguity at finalize and cannot be re-bound safely, so recovery stops
-    // rather than guessing.
-    if (!claimed.has(p)) return { ok: false, reason: "server_position_without_slot" };
+  // Refresh may happen after the ticket is consumed but before React persists
+  // the uploading slot. The server is authoritative for this submission, so
+  // reconstruct a stable placeholder instead of permanently bricking recovery.
+  for (const p of status.positions) {
+    if (claimed.has(p)) continue;
+    next.push({
+      id: `server-position-${p}`,
+      name: "",
+      size: 0,
+      type: "image/jpeg",
+      position: p,
+      state: "done",
+      permanent: false,
+      hold: false,
+    });
+    claimed.add(p);
   }
-  return { ok: true, slots: next };
+  for (const p of status.pendingPositions) {
+    if (claimed.has(p)) continue;
+    next.push({
+      id: `server-position-${p}`,
+      name: "",
+      size: 0,
+      type: "image/jpeg",
+      position: p,
+      state: "failed",
+      permanent: false,
+      hold: true,
+    });
+    claimed.add(p);
+  }
+  return { ok: true, slots: next.sort((a, b) =>
+    (a.position ?? MAX_PHOTOS) - (b.position ?? MAX_PHOTOS)) };
 }
 
 /** Reconciliation is owed while any slot's fate is unknown. */
 export function needsReconcile(slots: PhotoSlot[]): boolean {
   return slots.some((s) => s.hold);
+}
+
+export type RecoveryDirective = {
+  complete: boolean;
+  poll: boolean;
+  canReset: boolean;
+  retryIds: string[];
+};
+
+/** Translate gallery truth into controls the component may honestly offer. */
+export function recoveryDirective(
+  slots: PhotoSlot[],
+  availableFileIds: ReadonlySet<string>,
+): RecoveryDirective {
+  const unresolved = slots.filter((s) => s.hold);
+  return {
+    complete: unresolved.length === 0,
+    poll: unresolved.length > 0,
+    canReset: true,
+    // A refresh destroys File objects. Never render a retry whose bytes do
+    // not exist; released cards instead ask the owner to choose a file again.
+    retryIds: unresolved
+      .filter((s) => availableFileIds.has(s.id))
+      .map((s) => s.id),
+  };
 }
 
 /**
@@ -809,7 +860,11 @@ export function onTicketFailure(slots: PhotoSlot[], id: string): PhotoSlot[] {
 
 /** Slots worth restoring after a refresh: settled ones and unresolved ones. */
 export function restorableSlots(slots: PhotoSlot[]): PhotoSlot[] {
-  return slots.filter((s) => s.state === "done" || s.hold);
+  return slots
+    .filter((s) => s.state === "done" || s.hold || s.state === "uploading")
+    .map((s) => s.state === "uploading"
+      ? { ...s, state: "failed" as SlotState, hold: true }
+      : s);
 }
 
 /* ------------------------------------------------- state-dependent copy */

@@ -660,8 +660,11 @@ test("session expiry at ticket or finalize keeps the draft and the gallery", () 
     /setStep\(submissionId \? "photos" : "phone"\)/.test(COMPONENT),
     "after re-verification the owner returns to the same submission and step",
   );
+  const resetStart = COMPONENT.indexOf("const resetGallery");
+  const resetEnd = COMPONENT.indexOf("/* ------------------------------ render", resetStart);
+  const withoutExplicitReset = COMPONENT.slice(0, resetStart) + COMPONENT.slice(resetEnd);
   assert.ok(
-    !/session_expired[\s\S]{0,200}setPhotos\(\[\]\)/.test(COMPONENT),
+    !/session_expired[\s\S]{0,200}setPhotos\(\[\]\)/.test(withoutExplicitReset),
     "successful uploads must never be discarded on expiry",
   );
 });
@@ -767,12 +770,15 @@ test("recovery: malformed, foreign or duplicated status responses are refused", 
   assert.deepEqual(parseStatusResponse({ ...STATUS_OK, positions: [2, 0, 1] }, 42).positions, [0, 1, 2]);
 });
 
-test("recovery: a server position with no local slot stops rather than guessing", () => {
+test("recovery: a committed server position lost during refresh is adopted", () => {
   const local = [slot({ id: "a", position: 0, state: "done" })];
   const status = parseStatusResponse({ ...STATUS_OK, positions: [0, 1] }, 42);
   const out = reconcileSlots(local, status);
-  assert.equal(out.ok, false);
-  assert.equal(out.reason, "server_position_without_slot");
+  assert.equal(out.ok, true);
+  const adopted = out.slots.find((s) => s.position === 1);
+  assert.equal(adopted?.id, "server-position-1");
+  assert.equal(adopted?.state, "done");
+  assert.equal(adopted?.hold, false);
 });
 
 test("recovery: local claims done but the server lacks the position", () => {
@@ -812,6 +818,14 @@ test("recovery: a gallery with an unresolved hold can never finalize", () => {
   assert.equal(galleryReady(kept.slots), false, "a failed slot still blocks until removed");
   assert.equal(canRemove(released), true);
   assert.equal(galleryReady(removeSlot(kept.slots, "u")), true);
+});
+
+test("recovery wiring: status errors keep polling and reset fences stale responses", () => {
+  const source = readFileSync(new URL("../components/UploadFlow.tsx", import.meta.url), "utf8");
+  assert.match(source, /await reconcile\(\);[\s\S]{0,240}setTimeout\(\(\) => \{ void poll\(\); \}, 5_000\)/);
+  assert.match(source, /requestGeneration !== galleryRequestGenerationRef\.current/);
+  assert.ok((source.match(/galleryRequestGenerationRef\.current \+= 1/g) ?? []).length >= 2);
+  assert.match(source, /await call\("gallery-reset"[\s\S]{0,240}galleryRequestGenerationRef\.current \+= 1[\s\S]{0,160}if \(r\.error\)/);
 });
 
 /* ------------------- copy addendum: message / control agreement ---------- */
@@ -978,11 +992,15 @@ test("race 6: overlapping, duplicate, foreign or missing sets fail closed", () =
   assert.equal(galleryReady(held), false);
 });
 
-test("race 6b: a pending position with no local slot stops rather than guessing", () => {
+test("race 6b: a pending server position lost during refresh is held and polled", () => {
   const local = [slot({ id: "a", position: 0, state: "done" })];
   const out = reconcileSlots(local, parseStatusResponse(PENDING({ positions: [0], pending_positions: [1] }), 42));
-  assert.equal(out.ok, false);
-  assert.equal(out.reason, "server_position_without_slot");
+  assert.equal(out.ok, true);
+  const adopted = out.slots.find((s) => s.position === 1);
+  assert.equal(adopted?.id, "server-position-1");
+  assert.equal(adopted?.state, "failed");
+  assert.equal(adopted?.hold, true);
+  assert.equal(needsReconcile(out.slots), true);
 });
 
 test("race 7: finalization is blocked while any pending hold exists", () => {

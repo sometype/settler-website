@@ -21,6 +21,7 @@ const ACTIONS: Record<string, string> = {
   ticket: "/submission/ticket",
   finalize: "/submission/finalize",
   status: "/submission/status",
+  "gallery-reset": "/submission/gallery-reset",
 };
 
 // Grok's Georgian copy, as amended by the 2026-08-16 product acceptance
@@ -75,7 +76,7 @@ const ERRORS: Record<string, { code: string; ka: string }> = {
   },
 };
 
-function mapError(status: number, detail: string) {
+function mapError(status: number, detail: string, action: string) {
   // Detail beats status: the API's provider-failure branch is ALSO a 503,
   // and «გადატვირთულია» would tell an owner to retry a send that will fail
   // again — K4's copy exists precisely for that case.
@@ -103,6 +104,9 @@ function mapError(status: number, detail: string) {
     return ERRORS.draft_exists_phone;
   if (detail.includes("ticket")) return ERRORS.ticket_spent;
   if (detail.includes("positions") || detail.includes("preferred_cover"))
+    return ERRORS.gallery;
+  if (action === "status") return ERRORS.gallery;
+  if (["status", "ticket", "finalize", "gallery-reset"].includes(action))
     return ERRORS.gallery;
   return ERRORS.field;
 }
@@ -205,7 +209,7 @@ export async function POST(
   const res = await signedIntakeCall(path, body, { idemKey });
   if (!res.ok) {
     return NextResponse.json(
-      { error: mapError(res.status, res.detail) },
+      { error: mapError(res.status, res.detail, action) },
       { status: res.status },
     );
   }

@@ -34,6 +34,7 @@ import {
   onTicketFailure,
   parseStatusResponse,
   reconcileSlots,
+  recoveryDirective,
   rejectedTypeNotice,
   releasePosition,
   restorableSlots,
@@ -340,6 +341,9 @@ export default function UploadFlow() {
     photosRef.current = photos;
   }, [photos]);
   const reconciledRef = useRef(reconciled);
+  // Invalidates status responses that started before (or during) a gallery
+  // reset. Without this, a late response can resurrect cards the reset removed.
+  const galleryRequestGenerationRef = useRef(0);
   useEffect(() => {
     reconciledRef.current = reconciled;
   }, [reconciled]);
@@ -596,7 +600,9 @@ export default function UploadFlow() {
    */
   const reconcile = useCallback(async () => {
     if (!submissionId) return;
+    const requestGeneration = galleryRequestGenerationRef.current;
     const r = await call("status", { session, submission_id: submissionId });
+    if (requestGeneration !== galleryRequestGenerationRef.current) return;
     if (r.error) {
       if (r.error.code === "session_expired") setStep("email");
       setError(r.error);
@@ -619,10 +625,37 @@ export default function UploadFlow() {
       });
       return;
     }
+    photosRef.current = out.slots;
     setPhotos(out.slots);
-    reconciledRef.current = true;
-    setReconciled(true);
+    const directive = recoveryDirective(
+      out.slots,
+      new Set(filesRef.current.keys()),
+    );
+    reconciledRef.current = directive.complete;
+    setReconciled(directive.complete);
   }, [session, submissionId]);
+
+  // Mobile refresh/background can leave a consumed ticket alive after the
+  // local File is gone. Keep asking the server until that bounded worker
+  // either commits or leaves the pending horizon; one manual check is not a
+  // recovery mechanism.
+  useEffect(() => {
+    const directive = recoveryDirective(photos, new Set(filesRef.current.keys()));
+    if (step !== "photos" || !submissionId || !directive.poll) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      await reconcile();
+      // A transient status error does not change `photos`, so the effect will
+      // not rerun. Reschedule from here until settlement or unmount cancels us.
+      if (!cancelled) timer = setTimeout(() => { void poll(); }, 5_000);
+    };
+    timer = setTimeout(() => { void poll(); }, 5_000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [photos, step, submissionId, reconcile]);
 
   // At most MAX_CONCURRENT_UPLOADS run at once, whatever the owner selected.
   const startingRef = useRef<Set<string>>(new Set());
@@ -690,6 +723,28 @@ export default function UploadFlow() {
     [releasePreview],
   );
 
+  const chooseReplacement = useCallback((id: string, file: File | undefined) => {
+    if (!file || !ACCEPTED_IMAGE_TYPES.includes(file.type)) {
+      setError({ code: "photo", ka: "მხოლოდ JPEG ან PNG ფოტო აირჩიე." });
+      return;
+    }
+    const previous = previewsMirror.current[id];
+    if (previous) URL.revokeObjectURL(previous);
+    filesRef.current.set(id, file);
+    const url = URL.createObjectURL(file);
+    setPreviews((p) => ({ ...p, [id]: url }));
+    setPhotos((slots) => slots.map((s) => s.id === id ? {
+      ...s,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      state: "pending",
+      permanent: false,
+      hold: false,
+    } : s));
+    setError(null);
+  }, []);
+
   const retryPhoto = useCallback((id: string) => {
     // A held slot keeps its position and hold flag so the retry re-attempts the
     // same position; the exact already-ingested 409 then settles it as done.
@@ -697,6 +752,38 @@ export default function UploadFlow() {
       p.map((s) => (s.id === id ? { ...s, state: "pending", permanent: false } : s)),
     );
   }, []);
+
+  const resetGallery = useCallback(async () => {
+    if (!submissionId) return;
+    if (!window.confirm(
+      "ამ განცხადების ატვირთული ფოტოები წაიშლება. თავიდან ატვირთავ ფოტოებს.",
+    )) return;
+    galleryRequestGenerationRef.current += 1;
+    setBusy(true);
+    setError(null);
+    const r = await call("gallery-reset", {
+      session,
+      submission_id: submissionId,
+    });
+    // Invalidate every status request that began while reset was in flight,
+    // even when the reset response itself is lost or converted to an error.
+    galleryRequestGenerationRef.current += 1;
+    setBusy(false);
+    if (r.error) {
+      if (r.error.code === "session_expired") setStep("email");
+      setError(r.error);
+      void reconcile();
+      return;
+    }
+    for (const id of [...filesRef.current.keys()]) releasePreview(id);
+    photosRef.current = [];
+    setPhotos([]);
+    setCoverId(null);
+    const directive = recoveryDirective([], new Set(filesRef.current.keys()));
+    reconciledRef.current = directive.complete;
+    setReconciled(directive.complete);
+    setNotice("ფოტოები წაიშალა. შეგიძლია თავიდან ატვირთო.");
+  }, [session, submissionId, releasePreview, reconcile]);
 
   const finalize = useCallback(async () => {
     if (!submissionId) return;
@@ -728,7 +815,8 @@ export default function UploadFlow() {
   /* ------------------------------ render -------------------------------- */
 
   const emailValid = emailBrowserValid && isSubmittableEmail(email);
-    const doneCount = photos.filter((p) => p.state === "done").length;
+  const doneCount = photos.filter((p) => p.state === "done").length;
+  const recoveryNeedsPoll = needsReconcile(photos);
   const cover = resolveCover(photos, coverId);
   const floorParts = splitFloorParts(facts.floor);
   const input =
@@ -785,16 +873,18 @@ export default function UploadFlow() {
         >
           განაგრძე
         </button>
-        <button
-          type="button"
-          className="mt-2 w-full text-center text-xs text-mink underline"
-          onClick={() => {
-            sessionStorage.removeItem(STORAGE_KEY);
-            window.location.reload();
-          }}
-        >
-          თავიდან დაწყება
-        </button>
+        {!saved.submissionId && (
+          <button
+            type="button"
+            className="mt-2 w-full text-center text-xs text-mink underline"
+            onClick={() => {
+              sessionStorage.removeItem(STORAGE_KEY);
+              window.location.reload();
+            }}
+          >
+            თავიდან დაწყება
+          </button>
+        )}
       </div>
     );
   }
@@ -813,7 +903,7 @@ export default function UploadFlow() {
           {configError}
         </p>
       )}
-      {step === "photos" && !reconciled && (
+      {step === "photos" && recoveryNeedsPoll && (
         <div className="mb-3 rounded-md bg-clay/10 px-3 py-2 text-sm text-clay-deep" role="alert">
           <p>
             ვერ დავადგინეთ, რომელი ფოტოები აიტვირთა. სანამ არ შემოწმდება, ახალი
@@ -1578,7 +1668,17 @@ export default function UploadFlow() {
                       იტვირთება…
                     </span>
                   )}
-                  {p.state === "failed" && (p.hold || !p.permanent) && (
+                  {p.hold && (
+                    <span className="pointer-events-none absolute inset-x-0 top-0 bg-clay/80 px-1 py-1 text-center text-[10px] font-semibold text-white">
+                      ფოტო ჯერ მუშავდება
+                    </span>
+                  )}
+                  {p.state === "done" && !preview && (
+                    <span className="pointer-events-none absolute inset-x-0 top-0 bg-moss/90 px-1 py-1 text-center text-[10px] font-semibold text-white">
+                      ფოტო ატვირთულია
+                    </span>
+                  )}
+                  {p.state === "failed" && !p.hold && Boolean(preview) && !p.permanent && (
                     <button
                       type="button"
                       className="absolute inset-x-0 top-0 bg-clay/70 py-1 text-xs font-semibold text-white"
@@ -1586,6 +1686,20 @@ export default function UploadFlow() {
                     >
                       თავიდან სცადე
                     </button>
+                  )}
+                  {p.state === "failed" && !p.hold && !preview && (
+                    <label className="absolute inset-x-0 top-0 cursor-pointer bg-clay/80 px-1 py-1 text-center text-[10px] font-semibold text-white">
+                      ფოტოს თავიდან არჩევა
+                      <input
+                        type="file"
+                        accept={ACCEPTED_IMAGE_TYPES.join(",")}
+                        className="sr-only"
+                        onChange={(e) => {
+                          chooseReplacement(p.id, e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
                   )}
                   {canRemove(p) && (
                     <button
@@ -1609,7 +1723,7 @@ export default function UploadFlow() {
               <li className="list-none">
                 <label
                   htmlFor="mp-files"
-                  className="grid aspect-square cursor-pointer place-items-center rounded-md border border-dashed border-sand-strong text-3xl text-mink"
+                  className={`grid aspect-square place-items-center rounded-md border border-dashed border-sand-strong text-3xl text-mink ${photos.some((p) => p.hold) ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
                 >
                   <span className="text-sm font-medium">ფოტოს დამატება</span>
                 </label>
@@ -1619,6 +1733,7 @@ export default function UploadFlow() {
                   type="file"
                   accept={ACCEPTED_IMAGE_TYPES.join(",")}
                   multiple
+                  disabled={photos.some((p) => p.hold)}
                   className="sr-only"
                   onChange={(e) => {
                     void addFiles(e.target.files);
@@ -1631,6 +1746,21 @@ export default function UploadFlow() {
           <p className="mt-2 text-xs text-faint">
             მინიმუმ {MIN_PHOTOS}, მაქსიმუმ {MAX_PHOTOS} ფოტო.
           </p>
+          {photos.some((p) => p.hold) && (
+            <p className="mt-2 text-xs text-clay-deep">
+              ჯერ მიმდინარე ატვირთვას ვამოწმებთ. ახალი ფოტო ამის შემდეგ დაამატე.
+            </p>
+          )}
+          {photos.length > 0 && (
+            <button
+              type="button"
+              className="mt-3 w-full text-center text-xs text-mink underline disabled:opacity-40"
+              disabled={busy}
+              onClick={() => void resetGallery()}
+            >
+              ყველა ფოტოს წაშლა და თავიდან ატვირთვა
+            </button>
+          )}
           <button
             type="button"
             className={`${btn} mt-4 w-full`}
