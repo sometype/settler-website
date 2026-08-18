@@ -1,0 +1,31 @@
+{
+  "schema": "SETTLER_ACCEPTANCE_FREEZE_V1",
+  "task_id": "TASK-OWNER-UPLOAD-PHOTO-RECOVERY-A1-GROK",
+  "contract_sha256": "823da2ab78432626243f62d843a718dd7675ab1e30493433649ecd1a32e5f459",
+  "website_baseline_commit": "133e3589c18efeccc79794812a8fe21b7c3e79b7",
+  "backend_baseline_commit": "921e877cb768118d304c763f8b854d29e0b2ed23",
+  "artifacts": {
+    "scripts/upload-recovery-a1-acceptance.mjs": "cc27d7c62193d4f05b7d6a1e328f3c362b14fce69be0dd46c231bf7f6292ce26",
+    "scripts/fixtures/upload-recovery-a1-honest.mjs": "b9a7da22f4d53939f7f0f55d73e19dc7610d1b8d81c7c8a320d00425df3d7a46",
+    "scripts/fixtures/upload-recovery-a1-late-worker-wrong.py": "d0cd8ba876744b381111defe284f69e3b0d067b88e2207bb3aebf4f54b0999e9",
+    "scripts/fixtures/upload-recovery-a1-late-worker-wrong.sql": "d79026e4dd492267ca5958bb802abd166af841dbdb8ffc3d4e7bd76620cd94c6",
+    "scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.py": "8da2c8c700f51293ad1230c7a8e0d640542faa6aecb25aca734c9dbea360fe89",
+    "scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.sql": "a3b09877570c84e4e60dd21859a112efaf56ab5cf1410a91fdfae1f42539f89b"
+  },
+  "approved_wrong_findings": [
+    "UPLOAD_RECOVERY_ORPHAN_DROPPED",
+    "UPLOAD_RECOVERY_HELD_DEADLOCK",
+    "UPLOAD_RECOVERY_GENERIC_FIELD_MASK",
+    "UPLOAD_RECOVERY_UNFENCED_RESET",
+    "UPLOAD_RECOVERY_FOREIGN_RESET"
+  ],
+  "negative_controls": {
+    "honest_target": [],
+    "late_worker_after_reset": ["UPLOAD_RECOVERY_UNFENCED_RESET"],
+    "foreign_owner_reset": ["UPLOAD_RECOVERY_FOREIGN_RESET"]
+  },
+  "network_access": "none",
+  "production_writes": false,
+  "spend_limit": 0,
+  "verdict_boundary": "BUILT_ONLY"
+}

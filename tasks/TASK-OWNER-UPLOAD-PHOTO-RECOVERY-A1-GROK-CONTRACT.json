@@ -1,0 +1,60 @@
+{
+  "schema": "SETTLER_ACCEPTANCE_CONTRACT_V1",
+  "task_id": "TASK-OWNER-UPLOAD-PHOTO-RECOVERY-A1-GROK",
+  "role": "adversarial_verifier",
+  "mode": "HEAVY",
+  "created_at": "2026-08-18T00:00:00+04:00",
+  "website_baseline_commit": "133e3589c18efeccc79794812a8fe21b7c3e79b7",
+  "website_baseline_tree": "0e1366fef45970ae7364fe0f86fd7a11c4e14c34",
+  "backend_baseline_commit": "921e877cb768118d304c763f8b854d29e0b2ed23",
+  "backend_baseline_tree": "02795e2de8f08f76dee93a7d6795c9c3c4078d60",
+  "failure_class": "A mobile refresh during image upload can drop or permanently hold gallery positions, hide every usable recovery control, and misreport the failure as an unrelated invalid field.",
+  "required_findings_on_approved_wrong": [
+    "UPLOAD_RECOVERY_ORPHAN_DROPPED",
+    "UPLOAD_RECOVERY_HELD_DEADLOCK",
+    "UPLOAD_RECOVERY_GENERIC_FIELD_MASK",
+    "UPLOAD_RECOVERY_UNFENCED_RESET",
+    "UPLOAD_RECOVERY_FOREIGN_RESET"
+  ],
+  "acceptance_rules": [
+    "A persisted uploading position is restored as uncertain and can be reconciled when the server reports that position pending or committed.",
+    "A held slot with no surviving File keeps reconciliation incomplete, is polled with a finite delay, never offers an impossible retry, and exposes an authenticated gallery reset.",
+    "An unexpected failure of the status action maps to a gallery-specific user error even when the backend detail contains no photo keyword.",
+    "Gallery reset is owner-scoped, draft-only, and advances a durable generation under the submission lock before clearing images and tickets.",
+    "A worker that claimed a ticket before reset is fenced from committing afterward by rechecking the durable generation under lock.",
+    "A session for another owner receives the same not-found result as a missing submission and cannot reset it."
+  ],
+  "scope": {
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit": 0,
+    "candidate_edits_by_verifier": false,
+    "verifier_owned_files": [
+      "scripts/upload-recovery-a1-acceptance.mjs",
+      "scripts/fixtures/upload-recovery-a1-honest.mjs",
+      "scripts/fixtures/upload-recovery-a1-late-worker-wrong.py",
+      "scripts/fixtures/upload-recovery-a1-late-worker-wrong.sql",
+      "scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.py",
+      "scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.sql",
+      "tasks/TASK-OWNER-UPLOAD-PHOTO-RECOVERY-A1-GROK-CONTRACT.json",
+      "tasks/TASK-OWNER-UPLOAD-PHOTO-RECOVERY-A1-GROK.freeze.json"
+    ]
+  },
+  "environment": {
+    "interpreter": "/opt/homebrew/bin/node",
+    "measured_version": "v25.2.1",
+    "required_env": [
+      "SETTLER_BACKEND_REPO: local git repository containing the named backend objects; no network fetch is permitted"
+    ],
+    "timeout_seconds_each": 30
+  },
+  "commands": {
+    "approved_wrong": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --subject . --backend-repo $SETTLER_BACKEND_REPO --backend-rev 921e877cb768118d304c763f8b854d29e0b2ed23 --expect red",
+    "honest_target": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --honest-target --expect green",
+    "late_worker_negative": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --frontend-honest --backend-file scripts/fixtures/upload-recovery-a1-late-worker-wrong.py --backend-schema scripts/fixtures/upload-recovery-a1-late-worker-wrong.sql --expect named --expect-findings UPLOAD_RECOVERY_UNFENCED_RESET",
+    "foreign_owner_negative": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --frontend-honest --backend-file scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.py --backend-schema scripts/fixtures/upload-recovery-a1-foreign-owner-wrong.sql --expect named --expect-findings UPLOAD_RECOVERY_FOREIGN_RESET",
+    "candidate_template": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --subject <WEBSITE_CANDIDATE_ROOT> --backend-repo $SETTLER_BACKEND_REPO --backend-rev <BACKEND_CANDIDATE_COMMIT> --expect green",
+    "instrument_error": "node --import ./scripts/ts-resolve.mjs scripts/upload-recovery-a1-acceptance.mjs --subject /nonexistent --backend-repo $SETTLER_BACKEND_REPO --backend-rev 921e877cb768118d304c763f8b854d29e0b2ed23 --expect red"
+  },
+  "result_law": "BUILT is not PASS. Only an independent verifier may bind and run the exact candidate. Missing/malformed subjects or environment failures are instrument_error with exit 2, never subject FAIL."
+}
