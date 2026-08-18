@@ -111,6 +111,31 @@ export async function run(page, { screenshot } = {}) {
     };
   });
 
+  // ---- 0. the live intake must be discoverable --------------------------
+  // The upload flow can be perfectly healthy and still serve nobody when
+  // there is no path to it from the catalogue. The production baseline had
+  // zero /upload links; exercise the rendered global header at both widths.
+  await check("global header exposes the upload CTA on mobile and desktop", async () => {
+    for (const viewport of [VIEWPORT, { width: 1280, height: 800 }]) {
+      await page.setViewportSize(viewport);
+      // Render through /upload: it uses the same global layout as the homepage
+      // without making this navigation test depend on catalogue/Supabase data.
+      await page.goto(`${BASE}/upload`, { waitUntil: "domcontentloaded" });
+      const cta = page.getByRole("link", { name: "განცხადების დამატება", exact: true });
+      await cta.waitFor({ state: "visible", timeout: 15_000 });
+      assert.equal(await cta.count(), 1, `expected one upload CTA at ${viewport.width}px`);
+      assert.equal(await cta.getAttribute("href"), "/upload");
+      const metrics = await page.evaluate(() => ({
+        inner: window.innerWidth,
+        scroll: document.documentElement.scrollWidth,
+      }));
+      assert.ok(
+        metrics.scroll <= metrics.inner,
+        `header overflow at ${viewport.width}px: ${metrics.scroll} > ${metrics.inner}`
+      );
+    }
+  });
+
   await page.setViewportSize(VIEWPORT);
   await page.goto(`${BASE}/upload`, { waitUntil: "domcontentloaded" });
 

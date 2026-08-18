@@ -65,7 +65,7 @@ export default function RootLayout({
             shadows and rounded slabs. 44px tall on a phone; the fold budget
             below it is measured and tight. */}
         <header className="sticky top-0 z-20 min-w-0 border-b border-sand bg-card/95 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-baseline gap-3 px-4 py-2.5">
+          <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
             <Link href="/" className="flex items-baseline gap-2.5">
               {/* ONE Latin token — "Mepatrone" is the brand name, not a phrase.
                   It used to render as the Georgian "მე პატრონი", two words in a
@@ -78,6 +78,12 @@ export default function RootLayout({
               <span className="hidden text-[13px] font-medium text-mink sm:inline">
                 ბინები პირდაპირ პატრონებისგან
               </span>
+            </Link>
+            <Link
+              href="/upload"
+              className="ml-auto inline-flex min-h-9 shrink-0 items-center rounded-md border border-clay bg-clay px-3 text-[13px] font-bold text-white transition-colors hover:bg-clay-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clay-deep"
+            >
+              განცხადების დამატება
             </Link>
           </div>
         </header>
