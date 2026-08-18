@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validOwnerUploadTurnstile } from "@/lib/turnstile";
 import { signedIntakeCall } from "@/lib/intake";
 
 /**
@@ -132,8 +133,15 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
         cache: "no-store",
       },
     );
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    const data = (await res.json()) as {
+      success?: boolean;
+      hostname?: string;
+      action?: string;
+    };
+    const expectedHostname = (
+      process.env.TURNSTILE_EXPECTED_HOSTNAME || "mepatrone.com"
+    ).trim();
+    return validOwnerUploadTurnstile(data, expectedHostname);
   } catch {
     return false; // Turnstile down or slow = fail closed on the bot gate
   } finally {

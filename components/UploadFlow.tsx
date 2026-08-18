@@ -54,6 +54,7 @@ import {
   type PhotoSlot,
   type Step,
 } from "@/lib/uploadFlow";
+import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
 
 /**
  * Owner upload flow — Grok's frozen order (OWNERUPLOADDISCUSSION §C):
@@ -829,6 +830,7 @@ export default function UploadFlow() {
             <div
               className="cf-turnstile mt-3"
               data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+              data-action={OWNER_UPLOAD_TURNSTILE_ACTION}
             />
           ) : null}
           <button
