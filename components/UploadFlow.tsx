@@ -64,6 +64,7 @@ import {
 } from "@/lib/uploadFlow";
 import { localFieldError, type UploadError } from "@/lib/uploadErrors";
 import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
+import { uploadDebug, uploadDebugHeaders } from "@/lib/uploadDebug";
 
 /**
  * Owner upload flow — Grok's frozen order (OWNERUPLOADDISCUSSION §C):
@@ -99,10 +100,17 @@ async function call(
   action: string,
   payload: Record<string, unknown>,
 ): Promise<{ data?: Record<string, unknown>; error?: ApiError }> {
+  const requestSeq = callSequence += 1;
+  uploadDebug("api.request", {
+    action,
+    request_seq: requestSeq,
+    has_session: typeof payload.session === "string" && payload.session.length > 0,
+    has_submission: Number.isInteger(payload.submission_id),
+  });
   try {
     const res = await fetch(`/api/intake/${action}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...uploadDebugHeaders() },
       body: JSON.stringify(payload),
     });
     let body: Record<string, unknown> | null = null;
@@ -116,6 +124,16 @@ async function call(
     }
     if (!res.ok || body === null) {
       const err = body?.error as ApiError | undefined;
+      uploadDebug("api.response", {
+        action,
+        request_seq: requestSeq,
+        http_status: res.status,
+        ok: false,
+        error_code: err?.code ?? "unmapped",
+        field: err?.field,
+        edge_id: res.headers.get("x-vercel-id") ?? undefined,
+        response_shape: body === null ? "non_json" : "error",
+      });
       return {
         error: err ?? {
           code: "busy",
@@ -123,8 +141,17 @@ async function call(
         },
       };
     }
+    uploadDebug("api.response", {
+      action,
+      request_seq: requestSeq,
+      http_status: res.status,
+      ok: true,
+      edge_id: res.headers.get("x-vercel-id") ?? undefined,
+      response_shape: "object",
+    });
     return { data: body };
   } catch {
+    uploadDebug("api.network_error", { action, request_seq: requestSeq });
     return {
       error: {
         code: "network",
@@ -133,6 +160,8 @@ async function call(
     };
   }
 }
+
+let callSequence = 0;
 
 /**
  * Session restoration reads an external store. Doing it in an effect trips
@@ -291,6 +320,14 @@ export default function UploadFlow() {
   const headingRef = useRef<HTMLHeadingElement | null>(null);
 
   const showError = useCallback((next: ApiError) => {
+    uploadDebug("flow.route_error", {
+      step: next.step,
+      error_code: next.code,
+      field: next.field,
+      control_id: next.controlId,
+      details_id: next.detailsId,
+      retry_after_s: next.retry_after_s,
+    });
     setError(next);
     if (next.step) setStep(next.step as Step);
   }, []);
@@ -324,10 +361,12 @@ export default function UploadFlow() {
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     w.mpTurnstileOk = (token: string) => {
+      uploadDebug("turnstile.callback", { turnstile_state: token ? "ready" : "failed" });
       setTurnstileToken(token || null);
       setTurnstileState(token ? "ready" : "failed");
     };
     w.mpTurnstileGone = () => {
+      uploadDebug("turnstile.callback", { turnstile_state: "expired" });
       setTurnstileToken(null);
       setTurnstileState("failed");
     };
@@ -347,6 +386,32 @@ export default function UploadFlow() {
       delete w.mpTurnstileGone;
     };
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    uploadDebug("flow.state", {
+      step,
+      has_session: session.length > 0,
+      has_submission: submissionId !== null,
+      photo_count: photos.length,
+      pending_count: photos.filter((photo) => photo.state !== "done").length,
+      done_count: photos.filter((photo) => photo.state === "done").length,
+      restored: Boolean(saved),
+      turnstile_state: turnstileState,
+    });
+  }, [hydrated, step, session, submissionId, photos, saved, turnstileState]);
+
+  useEffect(() => {
+    if (!hydrated || !error) return;
+    uploadDebug("flow.error_visible", {
+      step,
+      error_code: error.code,
+      field: error.field,
+      control_id: error.controlId,
+      details_id: error.detailsId,
+      retry_after_s: error.retry_after_s,
+    });
+  }, [hydrated, step, error]);
 
   const releasePreview = useCallback((id: string) => {
     filesRef.current.delete(id);
@@ -478,16 +543,25 @@ export default function UploadFlow() {
   };
 
   const findRecoverableDraft = useCallback(async (ownerSession: string) => {
+    uploadDebug("draft.recover_start", { has_session: ownerSession.length > 0 });
     const recovered = await call("recover", { session: ownerSession });
-    if (recovered.error) return { error: recovered.error, found: false };
+    if (recovered.error) {
+      uploadDebug("draft.recover_result", { found: false, error_code: recovered.error.code });
+      return { error: recovered.error, found: false };
+    }
     const draft = readRecoveredDraft(recovered.data);
     if (draft === undefined) {
+      uploadDebug("draft.recover_result", { found: false, reason: "malformed" });
       return {
         error: { code: "draft_recovery", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. დააჭირე „თავიდან შემოწმებას“." },
         found: false,
       };
     }
-    if (draft === null) return { found: false };
+    if (draft === null) {
+      uploadDebug("draft.recover_result", { found: false, reason: "none" });
+      return { found: false };
+    }
+    uploadDebug("draft.recover_result", { found: true, has_submission: true, photo_count: draft.slots.length });
     setRecoverableDraft(draft);
     return { found: true };
   }, []);
@@ -562,6 +636,7 @@ export default function UploadFlow() {
   }, [codeToken, code, submissionId, photos, findRecoverableDraft, showError]);
 
   const createSubmission = useCallback(async () => {
+    uploadDebug("draft.create_start", { step, has_session: session.length > 0, has_submission: submissionId !== null });
     // The key is minted and persisted BEFORE the request, so a lost response
     // replays the same key and the server returns the same draft.
     const idem = createIdemFor(createIdem, newIdem);
@@ -576,6 +651,7 @@ export default function UploadFlow() {
       idem,
     });
     if (!built.ok) {
+      uploadDebug("draft.create_blocked", { reason: built.reason, step });
       const reasonToField: Record<string, string> = {
         declaration_required: "owner_declared",
         description_required: "description",
@@ -592,6 +668,7 @@ export default function UploadFlow() {
     setError(null);
     const r = await call("create", built.payload);
     if (r.error) {
+      uploadDebug("draft.create_result", { ok: false, error_code: r.error.code, field: r.error.field });
       if (r.error.code === "session_expired") setStep("email");
       if (r.error.code === "draft_exists_email") {
         const recovered = await findRecoverableDraft(session);
@@ -610,12 +687,14 @@ export default function UploadFlow() {
     setBusy(false);
     const id = readSubmissionId(r.data);
     if (id === null) {
+      uploadDebug("draft.create_result", { ok: false, reason: "malformed" });
       setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
       return;
     }
+    uploadDebug("draft.create_result", { ok: true, has_submission: true });
     setSubmissionId(id);
     setStep("photos");
-  }, [session, phone, facts, description, declared, createIdem, findRecoverableDraft, showError]);
+  }, [step, session, submissionId, phone, facts, description, declared, createIdem, findRecoverableDraft, showError]);
 
   const continueRecoveredDraft = useCallback(() => {
     if (!recoverableDraft) return;

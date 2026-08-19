@@ -53,6 +53,7 @@ import {
   turnstileSiteKeyRequirement,
 } from "../lib/uploadFlow.ts";
 import { mapIntakeError } from "../lib/uploadErrors.ts";
+import { sanitizeUploadDebug } from "../lib/uploadDebug.ts";
 
 const COMPONENT = readFileSync(
   fileURLToPath(new URL("../components/UploadFlow.tsx", import.meta.url)),
@@ -93,6 +94,40 @@ const ERROR_MAPPER = readFileSync(
   "utf8",
 );
 const ROUTE_COPY = `${ROUTE}\n${ERROR_MAPPER}`;
+
+test("diagnostic trace is opt-in, structured, and cannot contain owner data or credentials", () => {
+  const clean = sanitizeUploadDebug("api.response", {
+    action: "recover",
+    http_status: 404,
+    error_code: "draft_recovery",
+    field: "area",
+    has_session: true,
+    email: "owner@example.com",
+    phone: "555111222",
+    session: "secret-session",
+    code: "123456",
+    token: "secret-token",
+    description: "private listing text",
+    filename: "home.jpg",
+    payload: "private",
+    signature: "private",
+    nonce: "private",
+    idem: "private",
+  });
+  assert.deepEqual(clean, {
+    event: "api.response",
+    action: "recover",
+    http_status: 404,
+    error_code: "draft_recovery",
+    field: "area",
+    has_session: true,
+  });
+  assert.equal(sanitizeUploadDebug("bad event with spaces", {}), null);
+  assert.match(COMPONENT, /uploadDebug\("draft\.recover_start"/);
+  assert.match(COMPONENT, /uploadDebug\("draft\.create_result"/);
+  assert.match(ROUTE, /\[MP_UPLOAD_PROXY\]/);
+  assert.match(ROUTE, /X-MP-Debug-ID/);
+});
 
 /* 1. description=null and owner_declared=true before consent */
 

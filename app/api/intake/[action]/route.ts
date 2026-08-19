@@ -36,6 +36,28 @@ const TURNSTILE_TIMEOUT_MS = 5_000;
  *  objects; anything larger is rejected without buffering it. */
 const MAX_BODY_BYTES = 16 * 1024;
 
+function debugIdFrom(req: Request): string | null {
+  const value = req.headers.get("x-mp-debug-id") || "";
+  return /^[A-Za-z0-9_-]{8,40}$/.test(value) ? value : null;
+}
+
+function proxyDebug(
+  debugId: string | null,
+  event: string,
+  action: string,
+  details: Record<string, string | number | boolean | undefined> = {},
+) {
+  if (!debugId) return;
+  console.info("[MP_UPLOAD_PROXY]", JSON.stringify({ debug_id: debugId, event, action, ...details }));
+}
+
+function proxyJson(body: unknown, status: number, debugId: string | null) {
+  return NextResponse.json(body, {
+    status,
+    headers: debugId ? { "X-MP-Debug-ID": debugId } : undefined,
+  });
+}
+
 async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   const secret = (process.env.TURNSTILE_SECRET || "").trim();
   if (!secret) {
@@ -78,12 +100,14 @@ export async function POST(
   { params }: { params: Promise<{ action: string }> },
 ) {
   const { action } = await params;
+  const debugId = debugIdFrom(req);
   const path = ACTIONS[action];
-  if (!path) return NextResponse.json({ error: "unknown" }, { status: 404 });
+  proxyDebug(debugId, "proxy.request", action);
+  if (!path) return proxyJson({ error: "unknown" }, 404, debugId);
 
   const declared = Number(req.headers.get("content-length") || "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: mapError(413, "request body too large", action) }, { status: 413 });
+    return proxyJson({ error: mapError(413, "request body too large", action) }, 413, debugId);
   }
 
   let body: Record<string, unknown>;
@@ -92,15 +116,15 @@ export async function POST(
     // Content-Length can lie or be absent under chunked encoding; the decoded
     // length is the one that actually bounds what we parse.
     if (raw.length > MAX_BODY_BYTES) {
-      return NextResponse.json({ error: mapError(413, "request body too large", action) }, { status: 413 });
+      return proxyJson({ error: mapError(413, "request body too large", action) }, 413, debugId);
     }
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return NextResponse.json({ error: mapError(400, "bad request", action) }, { status: 400 });
+      return proxyJson({ error: mapError(400, "bad request", action) }, 400, debugId);
     }
     body = parsed as Record<string, unknown>;
   } catch {
-    return NextResponse.json({ error: mapError(400, "bad request", action) }, { status: 400 });
+    return proxyJson({ error: mapError(400, "bad request", action) }, 400, debugId);
   }
 
   const ip =
@@ -112,9 +136,10 @@ export async function POST(
     const token = typeof body.turnstile === "string" ? body.turnstile : "";
     delete body.turnstile;
     if (!(await verifyTurnstile(token, ip))) {
-      return NextResponse.json(
+      return proxyJson(
         { error: { code: "turnstile", ka: "უსაფრთხოების შემოწმება ვერ დასრულდა. თავიდან ჩატვირთე და სცადე." } },
-        { status: 403 },
+        403,
+        debugId,
       );
     }
     body.client_ip = ip; // the API's per-IP caps key on this
@@ -128,10 +153,15 @@ export async function POST(
 
   const res = await signedIntakeCall(path, body, { idemKey });
   if (!res.ok) {
-    return NextResponse.json(
-      { error: mapError(res.status, res.detail, action) },
-      { status: res.status },
-    );
+    const mapped = mapError(res.status, res.detail, action);
+    proxyDebug(debugId, "proxy.response", action, {
+      http_status: res.status,
+      ok: false,
+      error_code: mapped.code,
+      field: mapped.field,
+    });
+    return proxyJson({ error: mapped }, res.status, debugId);
   }
-  return NextResponse.json(res.data);
+  proxyDebug(debugId, "proxy.response", action, { http_status: res.status, ok: true });
+  return proxyJson(res.data, res.status, debugId);
 }
