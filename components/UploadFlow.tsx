@@ -42,6 +42,7 @@ import {
   nextUploadBatch,
   planAddFiles,
   readOpaqueToken,
+  readRecoveredDraft,
   readSubmissionId,
   removeSlot,
   reserveUploadSlot,
@@ -55,6 +56,7 @@ import {
   canRequestCode,
   type Facts,
   type PhotoSlot,
+  type RecoveredDraft,
   type Step,
 } from "@/lib/uploadFlow";
 import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
@@ -236,6 +238,7 @@ export default function UploadFlow() {
   const [busy, setBusy] = useState(false);
   // §8: an unfinished draft is offered explicitly, never silently resumed.
   const [resumePending, setResumePending] = useState(() => Boolean(saved));
+  const [recoverableDraft, setRecoverableDraft] = useState<RecoveredDraft | null>(null);
 
   const [email, setEmail] = useState(() => saved?.email ?? "");
   /**
@@ -427,6 +430,21 @@ export default function UploadFlow() {
     return verifyIdemRef.current[k];
   };
 
+  const findRecoverableDraft = useCallback(async (ownerSession: string) => {
+    const recovered = await call("recover", { session: ownerSession });
+    if (recovered.error) return { error: recovered.error, found: false };
+    const draft = readRecoveredDraft(recovered.data);
+    if (draft === undefined) {
+      return {
+        error: { code: "busy", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. თავიდან სცადე." },
+        found: false,
+      };
+    }
+    if (draft === null) return { found: false };
+    setRecoverableDraft(draft);
+    return { found: true };
+  }, []);
+
   /* ------------------------------ step actions -------------------------- */
 
   const startVerify = useCallback(async () => {
@@ -467,21 +485,34 @@ export default function UploadFlow() {
     setBusy(true);
     setError(null);
     const r = await call("verify-check", { token: codeToken, code: code.trim() });
-    setBusy(false);
     if (r.error) {
+      setBusy(false);
       setError(r.error);
       return;
     }
     const s = readOpaqueToken(r.data, "session");
     if (!s) {
+      setBusy(false);
       setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
       return;
     }
     setSession(s);
     // Re-verification returns to the draft that is already in progress.
     setReconciled(!needsReconcile(photos));
-    setStep(submissionId ? "photos" : "phone");
-  }, [codeToken, code, submissionId, photos]);
+    if (submissionId) {
+      setBusy(false);
+      setStep("photos");
+      return;
+    }
+    const recovered = await findRecoverableDraft(s);
+    setBusy(false);
+    if (recovered.error) {
+      setError(recovered.error);
+      setStep(recovered.error.code === "session_expired" ? "email" : "phone");
+      return;
+    }
+    if (!recovered.found) setStep("phone");
+  }, [codeToken, code, submissionId, photos, findRecoverableDraft]);
 
   const createSubmission = useCallback(async () => {
     // The key is minted and persisted BEFORE the request, so a lost response
@@ -504,12 +535,23 @@ export default function UploadFlow() {
     setBusy(true);
     setError(null);
     const r = await call("create", built.payload);
-    setBusy(false);
     if (r.error) {
       if (r.error.code === "session_expired") setStep("email");
+      if (r.error.code === "draft_exists_email") {
+        const recovered = await findRecoverableDraft(session);
+        setBusy(false);
+        if (recovered.found) return;
+        if (recovered.error) {
+          if (recovered.error.code === "session_expired") setStep("email");
+          setError(recovered.error);
+          return;
+        }
+      }
+      setBusy(false);
       setError(r.error);
       return;
     }
+    setBusy(false);
     const id = readSubmissionId(r.data);
     if (id === null) {
       setError({ code: "busy", ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე." });
@@ -517,7 +559,66 @@ export default function UploadFlow() {
     }
     setSubmissionId(id);
     setStep("photos");
-  }, [session, phone, facts, description, declared, createIdem]);
+  }, [session, phone, facts, description, declared, createIdem, findRecoverableDraft]);
+
+  const continueRecoveredDraft = useCallback(() => {
+    if (!recoverableDraft) return;
+    const draft = recoverableDraft;
+    setPhone(draft.phone);
+    setFacts(draft.facts);
+    setDescription(draft.description);
+    setDeclared(draft.declared);
+    setSubmissionId(draft.submissionId);
+    setCreateIdem("");
+    setCoverId(draft.coverId);
+    photosRef.current = draft.slots;
+    setPhotos(draft.slots);
+    const complete = !needsReconcile(draft.slots);
+    reconciledRef.current = complete;
+    setReconciled(complete);
+    setRecoverableDraft(null);
+    setError(null);
+    setNotice("დაუსრულებელი განცხადება აღდგა.");
+    setStep("photos");
+  }, [recoverableDraft]);
+
+  const abandonRecoveredDraft = useCallback(async () => {
+    if (!recoverableDraft) return;
+    if (!window.confirm(
+      "ძველი დაუსრულებელი განცხადება და მისი ფოტოები წაიშლება. თავიდან დაიწყებ.",
+    )) return;
+    setBusy(true);
+    setError(null);
+    const r = await call("abandon", {
+      session,
+      submission_id: recoverableDraft.submissionId,
+    });
+    setBusy(false);
+    if (r.error) {
+      if (r.error.code === "session_expired") {
+        setRecoverableDraft(null);
+        setStep("email");
+      }
+      setError(r.error);
+      return;
+    }
+    for (const id of [...filesRef.current.keys()]) releasePreview(id);
+    sessionStorage.removeItem(STORAGE_KEY);
+    photosRef.current = [];
+    setPhotos([]);
+    setPhone("");
+    setFacts(emptyFacts());
+    setDescription("");
+    setDeclared(false);
+    setSubmissionId(null);
+    setCreateIdem("");
+    setCoverId(null);
+    setRecoverableDraft(null);
+    reconciledRef.current = true;
+    setReconciled(true);
+    setNotice("ძველი განცხადება წაიშალა. შეგიძლია თავიდან დაიწყო.");
+    setStep("phone");
+  }, [recoverableDraft, session, releasePreview]);
 
   const uploadOne = useCallback(
     async (id: string) => {
@@ -885,6 +986,38 @@ export default function UploadFlow() {
             თავიდან დაწყება
           </button>
         )}
+      </div>
+    );
+  }
+
+  if (recoverableDraft) {
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-6">
+        <Manifesto compact />
+        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-ink">
+          დაუსრულებელი განცხადება გაქვს
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink">
+          ამ ელფოსტაზე შენახული განცხადება ვიპოვეთ. შეგიძლია გააგრძელო, ან
+          წაშალო და თავიდან დაიწყო.
+        </p>
+        <button
+          type="button"
+          className={`${btn} mt-4 w-full`}
+          disabled={busy}
+          onClick={continueRecoveredDraft}
+        >
+          არსებული განცხადების გაგრძელება
+        </button>
+        <button
+          type="button"
+          className="mt-3 w-full rounded-md border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-800 disabled:opacity-40"
+          disabled={busy}
+          onClick={() => void abandonRecoveredDraft()}
+        >
+          ძველი განცხადების წაშლა და თავიდან დაწყება
+        </button>
+        <Err error={error} id="mp-recover-err" />
       </div>
     );
   }

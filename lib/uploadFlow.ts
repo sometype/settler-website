@@ -306,6 +306,107 @@ export function readSubmissionId(data: unknown): number | null {
   return coerceIdentifier((data as Record<string, unknown>).submission_id);
 }
 
+export type RecoveredDraft = {
+  submissionId: number;
+  phone: string;
+  facts: Facts;
+  description: string;
+  declared: boolean;
+  slots: PhotoSlot[];
+  coverId: string | null;
+};
+
+/**
+ * Parse the server's accountless recovery response.
+ *
+ * `null` means the verified email has no editable draft. `undefined` means the
+ * response was malformed and must fail closed. The browser never supplies an
+ * email or phone lookup key; the server derives ownership from the session.
+ */
+export function readRecoveredDraft(
+  data: unknown,
+): RecoveredDraft | null | undefined {
+  if (!data || typeof data !== "object" || !("draft" in data)) return undefined;
+  const raw = (data as Record<string, unknown>).draft;
+  if (raw === null) return null;
+  if (!raw || typeof raw !== "object") return undefined;
+  const d = raw as Record<string, unknown>;
+  const submissionId = coerceIdentifier(d.submission_id);
+  if (submissionId === null || d.status !== "draft") return undefined;
+  if (typeof d.phone !== "string" || !d.phone.trim()) return undefined;
+  if (typeof d.owner_declared !== "boolean") return undefined;
+  const positions = boundedPositionList(d.positions);
+  const pendingPositions = boundedPositionList(d.pending_positions);
+  if (positions === null || pendingPositions === null) return undefined;
+  if (pendingPositions.some((p) => positions.includes(p))) return undefined;
+
+  const text = (key: string): string => {
+    const value = d[key];
+    return typeof value === "string" || typeof value === "number"
+      ? String(value)
+      : "";
+  };
+  const facts: Facts = {
+    ...emptyFacts(),
+    deal_type: text("deal_type"),
+    district_code: text("district_code"),
+    street_display: text("street_display"),
+    rooms: text("rooms"),
+    area: text("area"),
+    floor: text("floor"),
+    price_usd: text("price_usd"),
+    condition: text("condition"),
+    portal_url: text("portal_url"),
+    bathrooms: text("bathrooms"),
+    build_year: text("build_period"),
+    building_status: text("building_status"),
+    project_type: text("project_type"),
+    balcony: text("balcony"),
+    amenities: Array.isArray(d.amenities)
+      ? d.amenities.filter((v): v is string => typeof v === "string")
+      : [],
+    deposit_required: text("deposit_required"),
+    utilities_included: text("utilities_included"),
+    min_months: text("min_months"),
+    pets_allowed: text("pets_allowed"),
+  };
+  const slots: PhotoSlot[] = [
+    ...positions.map((position) => ({
+      id: `server-position-${position}`,
+      name: "",
+      size: 0,
+      type: "image/jpeg",
+      position,
+      state: "done" as SlotState,
+      permanent: false,
+      hold: false,
+    })),
+    ...pendingPositions.map((position) => ({
+      id: `server-position-${position}`,
+      name: "",
+      size: 0,
+      type: "image/jpeg",
+      position,
+      state: "failed" as SlotState,
+      permanent: false,
+      hold: true,
+    })),
+  ].sort((a, b) => (a.position ?? MAX_PHOTOS) - (b.position ?? MAX_PHOTOS));
+  const preferred = typeof d.preferred_cover === "number"
+    && positions.includes(d.preferred_cover)
+    ? `server-position-${d.preferred_cover}`
+    : null;
+  return {
+    submissionId,
+    phone: d.phone,
+    facts,
+    description: text("description"),
+    declared: d.owner_declared,
+    slots,
+    coverId: preferred,
+  };
+}
+
 /* --------------------------------------------------------- create contract */
 
 export type CreateInput = {

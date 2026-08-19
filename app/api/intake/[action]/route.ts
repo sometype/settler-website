@@ -18,6 +18,8 @@ const ACTIONS: Record<string, string> = {
   "verify-start": "/verify/start",
   "verify-check": "/verify/check",
   create: "/submission/create",
+  recover: "/submission/recover",
+  abandon: "/submission/abandon",
   ticket: "/submission/ticket",
   finalize: "/submission/finalize",
   status: "/submission/status",
@@ -59,11 +61,23 @@ const ERRORS: Record<string, { code: string; ka: string }> = {
   },
   draft_exists_email: {
     code: "draft_exists_email",
-    ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. იმავე ბრაუზერიდან განაგრძე, ან 7 დღე დაიცადე და დაიწყე თავიდან.",
+    ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. შეგიძლია გააგრძელო ან წაშალო და თავიდან დაიწყო.",
   },
   draft_exists_phone: {
     code: "draft_exists_phone",
-    ka: "ამ ტელეფონზე უკვე გაქვს დაუსრულებელი განცხადება. იმავე ბრაუზერიდან განაგრძე, ან 7 დღე დაიცადე და დაიწყე თავიდან.",
+    ka: "ამ ტელეფონზე უკვე არის დაუსრულებელი განცხადება. გასაგრძელებლად იმ განცხადების ელფოსტა გამოიყენე.",
+  },
+  draft_protected: {
+    code: "draft_protected",
+    ka: "ეს განცხადება უკვე გადაგზავნილია და მისი წაშლა აქედან აღარ შეიძლება.",
+  },
+  draft_recovery: {
+    code: "draft_recovery",
+    ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. თავიდან სცადე.",
+  },
+  draft_abandon: {
+    code: "draft_abandon",
+    ka: "ძველი განცხადება ვერ წაიშალა. თავიდან სცადე.",
   },
   field: { code: "field", ka: "ერთ-ერთი ველი არასწორია — გადახედე." },
   ticket_spent: {
@@ -102,10 +116,14 @@ function mapError(status: number, detail: string, action: string) {
     return ERRORS.draft_exists_email;
   if (detail.includes("submission exists for this phone"))
     return ERRORS.draft_exists_phone;
+  if (detail.includes("submission cannot be abandoned"))
+    return ERRORS.draft_protected;
   if (detail.includes("ticket")) return ERRORS.ticket_spent;
   if (detail.includes("positions") || detail.includes("preferred_cover"))
     return ERRORS.gallery;
   if (action === "status") return ERRORS.gallery;
+  if (action === "recover") return ERRORS.draft_recovery;
+  if (action === "abandon") return ERRORS.draft_abandon;
   if (["status", "ticket", "finalize", "gallery-reset"].includes(action))
     return ERRORS.gallery;
   return ERRORS.field;

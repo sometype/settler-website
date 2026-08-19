@@ -83,12 +83,44 @@ export async function run(page, { screenshot } = {}) {
   // ---- install stubs BEFORE any app script runs -------------------------
   await page.addInitScript(() => {
     window.__verifyStartCalls = 0;
+    window.__abandonCalls = 0;
     const realFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const url = typeof input === "string" ? input : input.url;
       if (url.includes("/api/intake/verify-start")) {
         window.__verifyStartCalls += 1;
         return new Response(JSON.stringify({ token: "stub-challenge-token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/api/intake/verify-check")) {
+        return new Response(JSON.stringify({ session: "verified-owner-session" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/api/intake/recover")) {
+        return new Response(JSON.stringify({ draft: {
+          submission_id: 77, status: "draft", phone: "+995555123456",
+          deal_type: "rent", district_code: "gldani",
+          street_display: "პეკინის ქ.", rooms: "2", area: "65",
+          floor: "4/9", price_usd: 600, condition: "ახალი რემონტით",
+          description: "ძველი აღწერა", portal_url: null,
+          owner_declared: true, preferred_cover: null,
+          bathrooms: null, build_period: null, building_status: null,
+          project_type: null, balcony: null, amenities: [],
+          deposit_required: null, utilities_included: null,
+          min_months: null, pets_allowed: null,
+          positions: [], pending_positions: [],
+        }}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/api/intake/abandon")) {
+        window.__abandonCalls += 1;
+        return new Response(JSON.stringify({ ok: true, submission_id: 77 }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         });
@@ -232,6 +264,47 @@ export async function run(page, { screenshot } = {}) {
       !body.includes("აკრძალულია"),
       "prohibition warning leaked onto the completion screen"
     );
+  });
+
+  // ---- 7. empty-browser recovery offers both honest exits ---------------
+  const verifyIntoRecovery = async () => {
+    await page.evaluate(() => {
+      sessionStorage.clear();
+      location.reload();
+    });
+    await page.waitForLoadState("domcontentloaded");
+    await emailBox().waitFor({ state: "visible", timeout: 10_000 });
+    await emailBox().fill("owner@example.com");
+    await page.evaluate(() => window.__solveTurnstile());
+    await btn().click();
+    const code = page.locator("#mp-code");
+    await code.waitFor({ state: "visible", timeout: 10_000 });
+    await code.fill("123456");
+    await page.getByRole("button", { name: "დადასტურება" }).click();
+    await page.getByRole("button", { name: "არსებული განცხადების გაგრძელება" })
+      .waitFor({ state: "visible", timeout: 10_000 });
+  };
+
+  await check("verified owner on an empty browser can resume the server draft", async () => {
+    await verifyIntoRecovery();
+    const body = await page.locator("body").innerText();
+    assert.ok(body.includes("ძველი განცხადების წაშლა და თავიდან დაწყება"));
+    assert.ok(!body.includes("7 დღე დაიცადე"), "the old seven-day dead end returned");
+    await page.getByRole("button", { name: "არსებული განცხადების გაგრძელება" }).click();
+    await page.getByText("ფოტოები", { exact: true }).first()
+      .waitFor({ state: "visible", timeout: 10_000 });
+  });
+
+  await check("verified owner can abandon the old draft and restart", async () => {
+    await verifyIntoRecovery();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByRole("button", {
+      name: "ძველი განცხადების წაშლა და თავიდან დაწყება",
+    }).click();
+    await page.locator("#mp-phone").waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(await page.evaluate(() => window.__abandonCalls), 1);
+    const body = await page.locator("body").innerText();
+    assert.ok(body.includes("ძველი განცხადება წაიშალა"));
   });
 
   return results;

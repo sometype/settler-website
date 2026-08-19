@@ -25,6 +25,7 @@ import {
   planAddFiles,
   positionsContiguous,
   readOpaqueToken,
+  readRecoveredDraft,
   readSubmissionId,
   removeSlot,
   reserveUploadSlot,
@@ -657,7 +658,7 @@ test("session expiry at ticket or finalize keeps the draft and the gallery", () 
     );
   }
   assert.ok(
-    /setStep\(submissionId \? "photos" : "phone"\)/.test(COMPONENT),
+    /if \(submissionId\)[\s\S]{0,120}setStep\("photos"\)/.test(COMPONENT),
     "after re-verification the owner returns to the same submission and step",
   );
   const resetStart = COMPONENT.indexOf("const resetGallery");
@@ -671,11 +672,39 @@ test("session expiry at ticket or finalize keeps the draft and the gallery", () 
 
 /* -------------------- final correction: copy consistency ----------------- */
 
-test("copy: existing-draft message is actionable and honest", () => {
-  assert.ok(/იმავე ბრაუზერიდან განაგრძე/.test(ROUTE), "must say same browser");
-  assert.ok(/7 დღე დაიცადე და დაიწყე თავიდან/.test(ROUTE));
-  assert.ok(/ამ ტელეფონზე უკვე გაქვს/.test(ROUTE), "phone variant uses ტელეფონზე");
-  assert.ok(!/სხვა მოწყობილობიდან/.test(ROUTE), "no cross-device resume claim");
+test("accountless recovery: verified email can resume or abandon its server draft", () => {
+  const recovered = readRecoveredDraft({ draft: {
+    submission_id: 42, status: "draft", phone: "+995555111222",
+    deal_type: "rent", district_code: "gldani", street_display: "პეკინის ქ.",
+    rooms: "2", area: "65", floor: "3/9", price_usd: 600,
+    condition: "ახალი რემონტით", description: "ტექსტი", portal_url: null,
+    owner_declared: true, preferred_cover: 0, bathrooms: "1",
+    build_period: "2018", building_status: "ახალი აშენებული",
+    project_type: "არასტანდარტული", balcony: "yes", amenities: ["elevator"],
+    deposit_required: "yes", utilities_included: null, min_months: 12,
+    pets_allowed: "no", positions: [0, 1], pending_positions: [2],
+  }});
+  assert.ok(recovered);
+  assert.equal(recovered.submissionId, 42);
+  assert.equal(recovered.facts.area, "65");
+  assert.equal(recovered.facts.build_year, "2018");
+  assert.equal(recovered.slots.filter((p) => p.state === "done").length, 2);
+  assert.equal(recovered.slots.find((p) => p.position === 2).hold, true);
+  assert.equal(recovered.coverId, "server-position-0");
+  assert.equal(readRecoveredDraft({ draft: null }), null);
+  assert.equal(readRecoveredDraft({ draft: { submission_id: 42, status: "promoted" } }), undefined);
+  assert.ok(/existing-draft|დაუსრულებელი/.test(COMPONENT));
+  assert.ok(/არსებული განცხადების გაგრძელება/.test(COMPONENT));
+  assert.ok(/ძველი განცხადების წაშლა და თავიდან დაწყება/.test(COMPONENT));
+  assert.ok(/call\("recover"/.test(COMPONENT));
+  assert.ok(/call\("abandon"/.test(COMPONENT));
+  assert.ok(/recover: "\/submission\/recover"/.test(ROUTE));
+  assert.ok(/abandon: "\/submission\/abandon"/.test(ROUTE));
+});
+
+test("copy: phone collision remains generic and does not promise foreign recovery", () => {
+  assert.ok(/ამ ტელეფონზე უკვე არის/.test(ROUTE), "phone variant uses ტელეფონზე");
+  assert.ok(!/სხვა ელფოსტის განცხადება/.test(ROUTE), "foreign identity is not disclosed");
 });
 
 test("copy: concise photo limits, ქუჩა label, spaced countdown units", () => {
@@ -898,7 +927,7 @@ test("copy: Grok-approved strings survive verbatim", () => {
     assert.ok(COMPONENT.includes(approved), `approved string lost: ${approved}`);
   }
   assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "ხელახლა გაგზავნა (54 წმ)");
-  assert.ok(/იმავე ბრაუზერიდან განაგრძე/.test(ROUTE), "same-browser existing-draft message");
+  assert.ok(/შეგიძლია გააგრძელო ან წაშალო/.test(ROUTE), "recoverable existing-draft message");
 });
 
 test("copy: forbidden promises stay absent", () => {
