@@ -712,6 +712,8 @@ test("copy: concise photo limits, ქუჩა label, spaced countdown units", (
   assert.ok(/მინიმუმ \{MIN_PHOTOS\}, მაქსიმუმ \{MAX_PHOTOS\} ფოტო\./.test(COMPONENT));
   assert.ok(!/iPhone-ის HEIC ჯერ არ მიიღება/.test(COMPONENT));
   assert.ok(!/დაუსრულებელი განცხადება 7 დღე ინახება/.test(COMPONENT));
+  assert.match(COMPONENT, /ტელეფონი — რომელზეც დაგირეკავენ/);
+  assert.ok(!/მყიდველები დაგირეკავენ/.test(COMPONENT));
   assert.ok(!/მთავარი ფოტო ატვირთულზე დაჭერით აირჩიე/.test(COMPONENT));
   assert.match(rejectedTypeNotice(1), /მხოლოდ JPEG ან PNG/, "the notice states it too");
   assert.ok(!/ქუჩა \/ უბანი/.test(COMPONENT), "label is just ქუჩა");

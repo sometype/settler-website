@@ -1182,7 +1182,7 @@ export default function UploadFlow() {
         <section>
           <StepTag n={2} />
           <label htmlFor="mp-phone" className="mb-1 block text-sm font-medium text-ink">
-            ტელეფონი — რომელზეც მყიდველები დაგირეკავენ
+            ტელეფონი — რომელზეც დაგირეკავენ
           </label>
           <input
             id="mp-phone"
