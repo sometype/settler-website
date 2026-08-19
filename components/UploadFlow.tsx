@@ -479,7 +479,7 @@ export default function UploadFlow() {
     const draft = readRecoveredDraft(recovered.data);
     if (draft === undefined) {
       return {
-        error: { code: "busy", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. თავიდან სცადე." },
+        error: { code: "draft_recovery", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. დააჭირე „თავიდან შემოწმებას“." },
         found: false,
       };
     }
@@ -704,7 +704,7 @@ export default function UploadFlow() {
           setReconciled(false);
           setStep("email");
         }
-        setError(tk.error);
+        showError(tk.error);
         return;
       }
       const ticket = readOpaqueToken(tk.data, "upload_ticket");
@@ -743,7 +743,7 @@ export default function UploadFlow() {
         setError({ code: "photo", ka: uploadOutcomeMessage("hold") ?? "" });
       }
     },
-    [session, submissionId, uploadBase, releasePreview],
+    [session, submissionId, uploadBase, releasePreview, showError],
   );
 
   /**
@@ -758,7 +758,7 @@ export default function UploadFlow() {
     if (requestGeneration !== galleryRequestGenerationRef.current) return;
     if (r.error) {
       if (r.error.code === "session_expired") setStep("email");
-      setError(r.error);
+      showError(r.error);
       return;
     }
     const status = parseStatusResponse(r.data, submissionId);
@@ -786,7 +786,7 @@ export default function UploadFlow() {
     );
     reconciledRef.current = directive.complete;
     setReconciled(directive.complete);
-  }, [session, submissionId]);
+  }, [session, submissionId, showError]);
 
   // Mobile refresh/background can leave a consumed ticket alive after the
   // local File is gone. Keep asking the server until that bounded worker
@@ -924,7 +924,7 @@ export default function UploadFlow() {
     setBusy(false);
     if (r.error) {
       if (r.error.code === "session_expired") setStep("email");
-      setError(r.error);
+      showError(r.error);
       void reconcile();
       return;
     }
@@ -936,7 +936,7 @@ export default function UploadFlow() {
     reconciledRef.current = directive.complete;
     setReconciled(directive.complete);
     setNotice("ფოტოები წაიშალა. შეგიძლია თავიდან ატვირთო.");
-  }, [session, submissionId, releasePreview, reconcile]);
+  }, [session, submissionId, releasePreview, reconcile, showError]);
 
   const finalize = useCallback(async () => {
     if (!submissionId) return;
@@ -958,7 +958,7 @@ export default function UploadFlow() {
       // §2: keep the draft and every uploaded photo; re-verify, then return
       // to this exact submission rather than starting a second one.
       if (r.error.code === "session_expired") setStep("email");
-      setError(r.error);
+      showError(r.error);
       return;
     }
     const accepted = readFinalizeStatus(r.data);

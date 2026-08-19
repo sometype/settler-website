@@ -60,6 +60,13 @@ export function mapIntakeError(status: number, detail: IntakeDetail, action: str
   if (text.includes("submission exists for this email")) return { code: "draft_exists_email", ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. შეგიძლია გააგრძელო ან წაშალო." };
   if (text.includes("submission exists for this phone")) return { code: "draft_exists_phone", ka: "ამ ტელეფონზე უკვე არის დაუსრულებელი განცხადება." };
   if (text.includes("submission cannot be abandoned")) return { code: "draft_protected", ka: "ეს განცხადება უკვე გადაგზავნილია და აქედან აღარ იშლება." };
+  if (action === "ticket" && text.includes("ticket")) return { code: "ticket_spent", ka: "ამ ფოტოს ატვირთვა თავიდან სცადე." };
+  if (text.includes("positions") || text.includes("preferred_cover") || text.includes("clean images")) {
+    return { code: "gallery", ka: "ფოტოები ჯერ გასასწორებელია. გადაამოწმე და თავიდან სცადე." };
+  }
+  if (text.includes("no such submission") || text.includes("not accepting images")) {
+    return { code: "draft_state", ka: "განცხადების მიმდინარე მდგომარეობა თავიდან უნდა შევამოწმოთ. ელფოსტა ხელახლა დაადასტურე.", step: "email" };
+  }
   if (["ticket", "status", "gallery-reset"].includes(action)) return { code: "gallery", ka: "ფოტოების შემოწმება ვერ დასრულდა. ფოტოები შენახულია — თავიდან სცადე." };
   if (action === "recover") return { code: "draft_recovery", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. დააჭირე „თავიდან შემოწმებას“." };
   if (action === "abandon") return { code: "draft_abandon", ka: "ძველი განცხადება ვერ წაიშალა. თავიდან სცადე." };

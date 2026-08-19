@@ -117,6 +117,9 @@ test("validation identity survives and routes to the correcting control", () => 
   assert.equal(mapIntakeError(502, "intake malformed response", "create").code, "service");
   assert.equal(mapIntakeError(401, "bad signature", "create").code, "service");
   assert.equal(mapIntakeError(409, "original request still in flight", "create").code, "service");
+  assert.equal(mapIntakeError(403, "bad, expired or already-used ticket", "ticket").code, "ticket_spent");
+  assert.equal(mapIntakeError(422, "photo positions must be contiguous", "finalize").code, "gallery");
+  assert.equal(mapIntakeError(422, "preferred_cover must be uploaded", "finalize").code, "gallery");
   for (const field of ["phone", "deal_type", "district_code", "street_display", "rooms", "area", "floor", "price_usd", "condition", "portal_url", "build_period", "bathrooms", "building_status", "project_type", "balcony", "amenities", "deposit_required", "utilities_included", "min_months", "pets_allowed", "description", "owner_declared"]) {
     const mapped = mapIntakeError(400, { code: "validation", field, reason: "wrong" }, "create");
     assert.equal(mapped.field, field, field);
@@ -168,6 +171,7 @@ test("component routes field errors, exposes Turnstile readiness, and offers rec
   assert.match(COMPONENT, /ძველი განცხადების წაშლა და თავიდან დაწყება/);
   assert.match(COMPONENT, /readFinalizeStatus\(r\.data\)/);
   assert.match(COMPONENT, /finalizeReceipt\(accepted\)/);
+  assert.doesNotMatch(COMPONENT, /setError\((?:r|tk)\.error\)/, "server errors must use the step/focus router");
 });
 
 test("wrong state 1b: owner_declared is never a constant in the component", () => {
