@@ -136,15 +136,15 @@ export type FloorParts = {
 export function splitFloorParts(value: string): FloorParts {
   const trimmed = value.trim();
   if (!trimmed) return { unit: "", total: "" };
-  if (/^\d{1,3}$/.test(trimmed)) return { unit: trimmed, total: "" };
-  const match = trimmed.match(/^(\d{0,3})\/(\d{0,3})$/);
+  if (/^\d{1,2}$/.test(trimmed)) return { unit: trimmed, total: "" };
+  const match = trimmed.match(/^(\d{0,2})\/(\d{0,2})$/);
   return match ? { unit: match[1], total: match[2] } : { unit: "", total: "" };
 }
 
 export function joinFloorParts(unit: string, total: string): string {
   const clean = (value: string) => {
     const trimmed = value.trim();
-    return /^\d{0,3}$/.test(trimmed) ? trimmed : "";
+    return /^\d{0,2}$/.test(trimmed) ? trimmed : "";
   };
   const cleanUnit = clean(unit);
   const cleanTotal = clean(total);
@@ -166,14 +166,56 @@ export function floorPairComplete(value: string): boolean {
  * than restating the list a third time.
  */
 export function factsComplete(f: Facts): boolean {
-  return Boolean(
-    f.district_code &&
-      f.street_display.trim().length >= 2 &&
-      f.area.trim() &&
-      floorPairComplete(f.floor) &&
-      f.price_usd.trim() &&
-      f.condition.trim(),
-  );
+  return validateFacts(f) === null;
+}
+
+export type LocalValidation = { field: string; reason: string };
+
+function normalizedDecimal(raw: string): number | null {
+  const compact = raw.trim().toLowerCase().replace(/\s+/g, "").replace(/m²|m2|მ²/g, "").replace(",", ".");
+  if (!/^\d+(?:\.\d+)?$/.test(compact)) return null;
+  const n = Number(compact);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizedPrice(raw: string): number | null {
+  const compact = raw.trim().replace(/\s+/g, "");
+  let digits = compact;
+  if (/^\d{1,3}(?:[,.]\d{3})+$/.test(compact)) digits = compact.replace(/[,.]/g, "");
+  if (!/^\d+$/.test(digits)) return null;
+  const n = Number(digits);
+  return Number.isSafeInteger(n) ? n : null;
+}
+
+export function normalizeAreaInput(raw: string): number | null {
+  return normalizedDecimal(raw);
+}
+
+export function normalizePriceInput(raw: string): number | null {
+  return normalizedPrice(raw);
+}
+
+export function validateFacts(f: Facts): LocalValidation | null {
+  if (!f.district_code) return { field: "district_code", reason: "required" };
+  if (f.street_display.trim().length < 2) return { field: "street_display", reason: "length" };
+  const area = normalizedDecimal(String(f.area ?? ""));
+  if (area === null || area < 5 || area > 2000) return { field: "area", reason: "range" };
+  if (!floorPairComplete(String(f.floor ?? ""))) return { field: "floor", reason: "format" };
+  const price = normalizedPrice(String(f.price_usd ?? ""));
+  if (price === null || price < 10 || price > 10_000_000) return { field: "price_usd", reason: "range" };
+  if (!f.condition.trim()) return { field: "condition", reason: "required" };
+  if (f.portal_url.trim() && !/^https?:\/\//i.test(f.portal_url.trim())) return { field: "portal_url", reason: "http_url" };
+  if (f.build_year && !/^(18|19|20)\d{2}$/.test(f.build_year.trim())) return { field: "build_period", reason: "year" };
+  if (f.deal_type === "rent" && f.min_months.trim()) {
+    const months = Number(f.min_months);
+    if (!Number.isInteger(months) || months < 1 || months > 60) return { field: "min_months", reason: "range" };
+  }
+  return null;
+}
+
+export function isValidOwnerPhone(raw: string): boolean {
+  const digits = raw.replace(/\D/g, "");
+  return /^5\d{8}$/.test(digits) || /^9955\d{8}$/.test(digits);
 }
 
 /* ------------------------------------------------------------------ config */
@@ -304,6 +346,18 @@ export function coerceIdentifier(raw: unknown): number | null {
 export function readSubmissionId(data: unknown): number | null {
   if (!data || typeof data !== "object") return null;
   return coerceIdentifier((data as Record<string, unknown>).submission_id);
+}
+
+export function readFinalizeStatus(data: unknown): "pending_review" | "duplicate_found" | null {
+  if (!data || typeof data !== "object") return null;
+  const status = (data as Record<string, unknown>).status;
+  return status === "pending_review" || status === "duplicate_found" ? status : null;
+}
+
+export function finalizeReceipt(status: "pending_review" | "duplicate_found"): string {
+  return status === "duplicate_found"
+    ? "მადლობა, განცხადება მიღებულია და გადამოწმდება. თუ იგივე ბინა უკვე გვაქვს, მეორე განცხადება არ გამოქვეყნდება."
+    : "მადლობა, განცხადება მიღებულია. გამოქვეყნდება გადამოწმების შემდეგ.";
 }
 
 export type RecoveredDraft = {
@@ -440,6 +494,11 @@ export function buildCreatePayload(
   if (!floorPairComplete(input.facts.floor)) {
     return { ok: false, reason: "floor_pair_incomplete" };
   }
+  const factError = validateFacts(input.facts);
+  if (factError) return { ok: false, reason: `${factError.field}_invalid` };
+  const area = normalizedDecimal(input.facts.area);
+  const price = normalizedPrice(input.facts.price_usd);
+  if (area === null || price === null) return { ok: false, reason: "number_invalid" };
   const payload: Record<string, unknown> = {
     session,
     phone: input.phone.trim(),
@@ -447,9 +506,9 @@ export function buildCreatePayload(
     district_code: input.facts.district_code,
     street_display: input.facts.street_display.trim(),
     rooms: input.facts.rooms,
-    area: Number(input.facts.area),
+    area,
     floor: input.facts.floor.trim(),
-    price_usd: Number(input.facts.price_usd),
+    price_usd: price,
     condition: input.facts.condition,
     description,
     portal_url: input.facts.portal_url.trim() || null,
@@ -529,7 +588,12 @@ export function restoreState(raw: string | null): PersistedState | null {
   const s = parsed as Record<string, unknown>;
   if (s.v !== STATE_VERSION) return null;
   if (typeof s.session !== "string" || !s.session.trim()) return null;
+  if (!( ["email", "code", "phone", "facts", "photos", "describe"] as string[]).includes(String(s.step))) return null;
   const facts = { ...emptyFacts(), ...(typeof s.facts === "object" && s.facts ? s.facts : {}) };
+  for (const key of ["deal_type", "district_code", "street_display", "rooms", "area", "floor", "price_usd", "condition", "portal_url"] as const) {
+    const value = facts[key];
+    if (typeof value !== "string") (facts as Record<string, unknown>)[key] = value == null ? "" : String(value);
+  }
   // Old drafts predate the parity fields; the merge above fills them with
   // unknowns. A draft that carries them must still restore into the exact
   // shapes the payload builder assumes: amenities is a string array, every
@@ -562,7 +626,7 @@ export function restoreState(raw: string | null): PersistedState | null {
     session: s.session,
     email: typeof s.email === "string" ? s.email : "",
     phone: typeof s.phone === "string" ? s.phone : "",
-    step: typeof s.step === "string" ? (s.step as Step) : "phone",
+    step: s.step as Step,
     facts: facts as Facts,
     description: typeof s.description === "string" ? s.description : "",
     declared: s.declared === true,

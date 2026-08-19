@@ -18,6 +18,10 @@ import {
   createIdemFor,
   emptyFacts,
   factsComplete,
+  validateFacts,
+  normalizeAreaInput,
+  normalizePriceInput,
+  isValidOwnerPhone,
   floorPairComplete,
   galleryReady,
   isPermanentUploadFailure,
@@ -27,6 +31,7 @@ import {
   readOpaqueToken,
   readRecoveredDraft,
   readSubmissionId,
+  readFinalizeStatus,
   removeSlot,
   reserveUploadSlot,
   joinFloorParts,
@@ -47,6 +52,7 @@ import {
   uploadedPositions,
   turnstileSiteKeyRequirement,
 } from "../lib/uploadFlow.ts";
+import { mapIntakeError } from "../lib/uploadErrors.ts";
 
 const COMPONENT = readFileSync(
   fileURLToPath(new URL("../components/UploadFlow.tsx", import.meta.url)),
@@ -82,6 +88,11 @@ const ROUTE = readFileSync(
   fileURLToPath(new URL("../app/api/intake/[action]/route.ts", import.meta.url)),
   "utf8",
 );
+const ERROR_MAPPER = readFileSync(
+  fileURLToPath(new URL("../lib/uploadErrors.ts", import.meta.url)),
+  "utf8",
+);
+const ROUTE_COPY = `${ROUTE}\n${ERROR_MAPPER}`;
 
 /* 1. description=null and owner_declared=true before consent */
 
@@ -96,6 +107,67 @@ test("wrong state 1: a draft cannot be created before the owner declares", () =>
   // The exact entered description travels with the create call, not null.
   assert.equal(declared.payload.description, "ტექსტი");
   assert.equal(declared.payload.owner_declared, true);
+});
+
+test("validation identity survives and routes to the correcting control", () => {
+  assert.deepEqual(mapIntakeError(400, { code: "validation", field: "area", reason: "range_5_2000" }, "create"), {
+    code: "invalid_area", ka: "ფართი უნდა იყოს 5-დან 2000 მ²-მდე.", field: "area", step: "facts", controlId: "mp-area",
+  });
+  assert.equal(mapIntakeError(500, "internal", "create").code, "service");
+  assert.equal(mapIntakeError(502, "intake malformed response", "create").code, "service");
+  assert.equal(mapIntakeError(401, "bad signature", "create").code, "service");
+  assert.equal(mapIntakeError(409, "original request still in flight", "create").code, "service");
+  for (const field of ["phone", "deal_type", "district_code", "street_display", "rooms", "area", "floor", "price_usd", "condition", "portal_url", "build_period", "bathrooms", "building_status", "project_type", "balcony", "amenities", "deposit_required", "utilities_included", "min_months", "pets_allowed", "description", "owner_declared"]) {
+    const mapped = mapIntakeError(400, { code: "validation", field, reason: "wrong" }, "create");
+    assert.equal(mapped.field, field, field);
+    assert.notEqual(mapped.code, "field", field);
+  }
+});
+
+test("owner-friendly numeric input normalizes without silently changing value", () => {
+  assert.equal(normalizeAreaInput("65,5"), 65.5);
+  assert.equal(normalizeAreaInput("65 m²"), 65);
+  assert.equal(normalizePriceInput("85,000"), 85000);
+  assert.equal(normalizePriceInput("85.000"), 85000);
+  assert.equal(normalizePriceInput("85.5"), null);
+});
+
+test("facts parity rejects values the API will reject", () => {
+  assert.equal(validateFacts({ ...goodFacts(), floor: "100/120" })?.field, "floor");
+  assert.equal(validateFacts({ ...goodFacts(), area: "2" })?.field, "area");
+  assert.equal(validateFacts({ ...goodFacts(), portal_url: "myhome.ge/1" })?.field, "portal_url");
+  assert.equal(validateFacts({ ...goodFacts(), build_year: "1799" })?.field, "build_period");
+  assert.equal(validateFacts({ ...goodFacts(), deal_type: "rent", min_months: "61" })?.field, "min_months");
+  assert.equal(isValidOwnerPhone("555 11 22 33"), true);
+  assert.equal(isValidOwnerPhone("123456789"), false);
+});
+
+test("persisted state cannot restore an unknown or completed screen", () => {
+  const base = { v: 2, session: "s", email: "e@x.ge", phone: "", facts: goodFacts(), description: "d", declared: true, submissionId: 1, createIdem: "i", coverId: null, photos: [] };
+  assert.equal(restoreState(JSON.stringify({ ...base, step: "made-up" })), null);
+  assert.equal(restoreState(JSON.stringify({ ...base, step: "done" })), null);
+  const restored = restoreState(JSON.stringify({ ...base, step: "facts", facts: { ...goodFacts(), area: 65, price_usd: 85000 } }));
+  assert.equal(restored.facts.area, "65");
+  assert.equal(restored.facts.price_usd, "85000");
+});
+
+test("finalization only accepts explicit review states", () => {
+  assert.equal(readFinalizeStatus({}), null);
+  assert.equal(readFinalizeStatus({ status: "expired" }), null);
+  assert.equal(readFinalizeStatus({ status: "rejected_content" }), null);
+  assert.equal(readFinalizeStatus({ status: "pending_review" }), "pending_review");
+  assert.equal(readFinalizeStatus({ status: "duplicate_found" }), "duplicate_found");
+});
+
+test("component routes field errors, exposes Turnstile readiness, and offers recovery actions", () => {
+  assert.match(COMPONENT, /setStep\(next\.step as Step\)/);
+  assert.match(COMPONENT, /control\?\.focus\(\)/);
+  assert.match(COMPONENT, /aria-invalid=\{error\?\.controlId === "mp-area"/);
+  assert.match(COMPONENT, /უსაფრთხოების შემოწმება იტვირთება/);
+  assert.match(COMPONENT, /თავიდან შემოწმება/);
+  assert.match(COMPONENT, /ძველი განცხადების წაშლა და თავიდან დაწყება/);
+  assert.match(COMPONENT, /readFinalizeStatus\(r\.data\)/);
+  assert.match(COMPONENT, /finalizeReceipt\(accepted\)/);
 });
 
 test("wrong state 1b: owner_declared is never a constant in the component", () => {
@@ -703,8 +775,8 @@ test("accountless recovery: verified email can resume or abandon its server draf
 });
 
 test("copy: phone collision remains generic and does not promise foreign recovery", () => {
-  assert.ok(/ამ ტელეფონზე უკვე არის/.test(ROUTE), "phone variant uses ტელეფონზე");
-  assert.ok(!/სხვა ელფოსტის განცხადება/.test(ROUTE), "foreign identity is not disclosed");
+  assert.ok(/ამ ტელეფონზე უკვე არის/.test(ROUTE_COPY), "phone variant uses ტელეფონზე");
+  assert.ok(!/სხვა ელფოსტის განცხადება/.test(ROUTE_COPY), "foreign identity is not disclosed");
 });
 
 test("copy: concise photo limits, ქუჩა label, spaced countdown units", () => {
@@ -929,7 +1001,7 @@ test("copy: Grok-approved strings survive verbatim", () => {
     assert.ok(COMPONENT.includes(approved), `approved string lost: ${approved}`);
   }
   assert.ok(/\$\{resendIn\} წმ/.test(COMPONENT), "ხელახლა გაგზავნა (54 წმ)");
-  assert.ok(/შეგიძლია გააგრძელო ან წაშალო/.test(ROUTE), "recoverable existing-draft message");
+  assert.ok(/შეგიძლია გააგრძელო ან წაშალო/.test(ROUTE_COPY), "recoverable existing-draft message");
 });
 
 test("copy: forbidden promises stay absent", () => {

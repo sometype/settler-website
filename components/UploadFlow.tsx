@@ -26,7 +26,8 @@ import {
   applyUploadOutcome,
   createIdemFor,
   emptyFacts,
-  factsComplete,
+  validateFacts,
+  isValidOwnerPhone,
   joinFloorParts,
   galleryReady,
   positionOutcome,
@@ -44,6 +45,8 @@ import {
   readOpaqueToken,
   readRecoveredDraft,
   readSubmissionId,
+  readFinalizeStatus,
+  finalizeReceipt,
   removeSlot,
   reserveUploadSlot,
   resolveCover,
@@ -59,6 +62,7 @@ import {
   type RecoveredDraft,
   type Step,
 } from "@/lib/uploadFlow";
+import { localFieldError, type UploadError } from "@/lib/uploadErrors";
 import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
 
 /**
@@ -81,7 +85,7 @@ import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
  * numbered steps.
  */
 
-type ApiError = { code: string; ka: string; retry_after_s?: number };
+type ApiError = UploadError;
 
 function newIdem(): string {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 32);
@@ -250,6 +254,7 @@ export default function UploadFlow() {
    * until a token exists, and lets expiry actively REVOKE readiness.
    */
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileState, setTurnstileState] = useState<"loading" | "waiting" | "ready" | "failed">("loading");
   const [emailBrowserValid, setEmailBrowserValid] = useState(false);
   const [codeToken, setCodeToken] = useState("");
   const [code, setCode] = useState("");
@@ -275,6 +280,7 @@ export default function UploadFlow() {
   const [submissionId, setSubmissionId] = useState<number | null>(
     () => saved?.submissionId ?? null,
   );
+  const [receipt, setReceipt] = useState("");
 
   // Files are not serialisable and are never rendered, so they stay in a ref.
   // Preview URLs are rendered, so they are state: reading a ref during render
@@ -283,6 +289,22 @@ export default function UploadFlow() {
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const previewsMirror = useRef<Record<string, string>>({});
   const headingRef = useRef<HTMLHeadingElement | null>(null);
+
+  const showError = useCallback((next: ApiError) => {
+    setError(next);
+    if (next.step) setStep(next.step as Step);
+    window.setTimeout(() => {
+      if (next.detailsId) {
+        const details = document.getElementById(next.detailsId);
+        if (details instanceof HTMLDetailsElement) details.open = true;
+      }
+      if (next.controlId) {
+        const control = document.getElementById(next.controlId);
+        control?.focus();
+        control?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 0);
+  }, []);
 
   const uploadBase = useMemo(
     () =>
@@ -312,9 +334,26 @@ export default function UploadFlow() {
    */
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
-    w.mpTurnstileOk = (token: string) => setTurnstileToken(token || null);
-    w.mpTurnstileGone = () => setTurnstileToken(null);
+    w.mpTurnstileOk = (token: string) => {
+      setTurnstileToken(token || null);
+      setTurnstileState(token ? "ready" : "failed");
+    };
+    w.mpTurnstileGone = () => {
+      setTurnstileToken(null);
+      setTurnstileState("failed");
+    };
+    const poll = window.setInterval(() => {
+      if ((window as unknown as { turnstile?: unknown }).turnstile) {
+        setTurnstileState((current) => current === "loading" ? "waiting" : current);
+        window.clearInterval(poll);
+      }
+    }, 200);
+    const timeout = window.setTimeout(() => {
+      if (!(window as unknown as { turnstile?: unknown }).turnstile) setTurnstileState("failed");
+    }, 8_000);
     return () => {
+      window.clearInterval(poll);
+      window.clearTimeout(timeout);
       delete w.mpTurnstileOk;
       delete w.mpTurnstileGone;
     };
@@ -353,6 +392,10 @@ export default function UploadFlow() {
 
   useEffect(() => {
     if (!hydrated || !session) return;
+    if (step === "done") {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
     sessionStorage.setItem(
       STORAGE_KEY,
       serializeState({
@@ -456,7 +499,7 @@ export default function UploadFlow() {
     const turnstile = turnstileToken ?? "";
     if (!turnstile) {
       setBusy(false);
-      setError({ code: "turnstile", ka: "დაადასტურე, რომ რობოტი არ ხარ." });
+      setError({ code: "turnstile", ka: "უსაფრთხოების შემოწმება ჯერ არ დასრულებულა. დაელოდე ან თავიდან ჩატვირთე." });
       return;
     }
     const r = await call("verify-start", {
@@ -467,7 +510,7 @@ export default function UploadFlow() {
     setBusy(false);
     if (r.error) {
       if (r.error.retry_after_s) setResendIn(r.error.retry_after_s);
-      setError(r.error);
+      showError(r.error);
       return;
     }
     const token = readOpaqueToken(r.data, "token");
@@ -479,7 +522,7 @@ export default function UploadFlow() {
     setSpamHint(false);
     setResendIn(60);
     setStep("code");
-  }, [email, turnstileToken]);
+  }, [email, turnstileToken, showError]);
 
   const checkCode = useCallback(async () => {
     setBusy(true);
@@ -487,7 +530,7 @@ export default function UploadFlow() {
     const r = await call("verify-check", { token: codeToken, code: code.trim() });
     if (r.error) {
       setBusy(false);
-      setError(r.error);
+      showError(r.error);
       return;
     }
     const s = readOpaqueToken(r.data, "session");
@@ -507,12 +550,12 @@ export default function UploadFlow() {
     const recovered = await findRecoverableDraft(s);
     setBusy(false);
     if (recovered.error) {
-      setError(recovered.error);
-      setStep(recovered.error.code === "session_expired" ? "email" : "phone");
+      showError(recovered.error);
+      if (recovered.error.code !== "session_expired") setStep("phone");
       return;
     }
     if (!recovered.found) setStep("phone");
-  }, [codeToken, code, submissionId, photos, findRecoverableDraft]);
+  }, [codeToken, code, submissionId, photos, findRecoverableDraft, showError]);
 
   const createSubmission = useCallback(async () => {
     // The key is minted and persisted BEFORE the request, so a lost response
@@ -529,7 +572,16 @@ export default function UploadFlow() {
       idem,
     });
     if (!built.ok) {
-      setError({ code: "field", ka: "ერთ-ერთი ველი არასწორია — გადახედე." });
+      const reasonToField: Record<string, string> = {
+        declaration_required: "owner_declared",
+        description_required: "description",
+        condition_required: "condition",
+        floor_pair_incomplete: "floor",
+        build_year_invalid: "build_period",
+        min_months_invalid: "min_months",
+      };
+      const field = reasonToField[built.reason] ?? built.reason.replace(/_invalid$/, "");
+      showError(localFieldError(field));
       return;
     }
     setBusy(true);
@@ -543,12 +595,12 @@ export default function UploadFlow() {
         if (recovered.found) return;
         if (recovered.error) {
           if (recovered.error.code === "session_expired") setStep("email");
-          setError(recovered.error);
+          showError(recovered.error);
           return;
         }
       }
       setBusy(false);
-      setError(r.error);
+      showError(r.error);
       return;
     }
     setBusy(false);
@@ -559,7 +611,7 @@ export default function UploadFlow() {
     }
     setSubmissionId(id);
     setStep("photos");
-  }, [session, phone, facts, description, declared, createIdem, findRecoverableDraft]);
+  }, [session, phone, facts, description, declared, createIdem, findRecoverableDraft, showError]);
 
   const continueRecoveredDraft = useCallback(() => {
     if (!recoverableDraft) return;
@@ -599,7 +651,7 @@ export default function UploadFlow() {
         setRecoverableDraft(null);
         setStep("email");
       }
-      setError(r.error);
+      showError(r.error);
       return;
     }
     for (const id of [...filesRef.current.keys()]) releasePreview(id);
@@ -618,7 +670,7 @@ export default function UploadFlow() {
     setReconciled(true);
     setNotice("ძველი განცხადება წაიშალა. შეგიძლია თავიდან დაიწყო.");
     setStep("phone");
-  }, [recoverableDraft, session, releasePreview]);
+  }, [recoverableDraft, session, releasePreview, showError]);
 
   const uploadOne = useCallback(
     async (id: string) => {
@@ -909,9 +961,16 @@ export default function UploadFlow() {
       setError(r.error);
       return;
     }
+    const accepted = readFinalizeStatus(r.data);
+    if (!accepted) {
+      showError({ code: "service", ka: "განცხადების სტატუსი ვერ დავადასტურეთ. მონაცემები შენახულია — თავიდან სცადე." });
+      return;
+    }
     sessionStorage.removeItem(STORAGE_KEY);
+    setReceipt(finalizeReceipt(accepted));
+    setSession("");
     setStep("done");
-  }, [session, submissionId, photos, coverId]);
+  }, [session, submissionId, photos, coverId, showError]);
 
   /* ------------------------------ render -------------------------------- */
 
@@ -984,6 +1043,28 @@ export default function UploadFlow() {
             }}
           >
             თავიდან დაწყება
+          </button>
+        )}
+        {saved.submissionId && (
+          <button
+            type="button"
+            disabled={busy}
+            className="mt-3 w-full rounded-md border border-red-300 px-4 py-2.5 text-sm font-semibold text-red-800 disabled:opacity-40"
+            onClick={async () => {
+              if (!window.confirm("დაუსრულებელი განცხადება და მისი ფოტოები წაიშლება. თავიდან დაიწყებ.")) return;
+              setBusy(true);
+              const result = await call("abandon", { session: saved.session, submission_id: saved.submissionId });
+              setBusy(false);
+              if (result.error) {
+                setResumePending(false);
+                showError(result.error);
+                return;
+              }
+              sessionStorage.removeItem(STORAGE_KEY);
+              window.location.reload();
+            }}
+          >
+            ძველი განცხადების წაშლა და თავიდან დაწყება
           </button>
         )}
       </div>
@@ -1105,6 +1186,20 @@ export default function UploadFlow() {
               data-error-callback="mpTurnstileGone"
             />
           ) : null}
+          {turnstileState === "loading" && (
+            <p role="status" className="mt-2 text-xs text-faint">უსაფრთხოების შემოწმება იტვირთება…</p>
+          )}
+          {turnstileState === "waiting" && !turnstileToken && (
+            <p role="status" className="mt-2 text-xs text-faint">უსაფრთხოების შემოწმება მიმდინარეობს…</p>
+          )}
+          {turnstileState === "failed" && (
+            <div className="mt-2 rounded-md bg-clay/10 px-3 py-2 text-sm text-clay-deep">
+              <p>უსაფრთხოების შემოწმება ვერ ჩაიტვირთა.</p>
+              <button type="button" className="mt-1 underline" onClick={() => window.location.reload()}>
+                თავიდან ჩატვირთვა
+              </button>
+            </div>
+          )}
           <button
             type="button"
             data-testid="mp-request-code"
@@ -1193,6 +1288,7 @@ export default function UploadFlow() {
             autoComplete="tel"
             placeholder="5XX XX XX XX"
             aria-describedby="mp-phone-err"
+            aria-invalid={error?.controlId === "mp-phone" || undefined}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
@@ -1202,8 +1298,12 @@ export default function UploadFlow() {
           <button
             type="button"
             className={`${btn} mt-3 w-full`}
-            disabled={phone.replace(/\D/g, "").length < 9}
+            disabled={busy}
             onClick={() => {
+              if (!isValidOwnerPhone(phone)) {
+                showError(localFieldError("phone"));
+                return;
+              }
               setError(null);
               setStep("facts");
             }}
@@ -1211,6 +1311,23 @@ export default function UploadFlow() {
             გაგრძელება
           </button>
           <Err error={error} id="mp-phone-err" />
+          {error?.code === "draft_recovery" && session && (
+            <button
+              type="button"
+              disabled={busy}
+              className="mt-2 w-full text-center text-sm font-medium text-moss-deep underline"
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                const recovered = await findRecoverableDraft(session);
+                setBusy(false);
+                if (recovered.error) showError(recovered.error);
+                else if (!recovered.found) setNotice("დაუსრულებელი განცხადება აღარ არის. შეგიძლია გააგრძელო.");
+              }}
+            >
+              თავიდან შემოწმება
+            </button>
+          )}
         </section>
       )}
 
@@ -1221,6 +1338,7 @@ export default function UploadFlow() {
             {(["sale", "rent"] as const).map((d) => (
               <button
                 key={d}
+                id={`mp-deal-${d}`}
                 type="button"
                 aria-pressed={facts.deal_type === d}
                 className={`rounded-md border px-3 py-2 text-sm font-medium ${
@@ -1242,6 +1360,8 @@ export default function UploadFlow() {
               id="mp-district"
               name="district_code"
               className={input}
+              aria-invalid={error?.controlId === "mp-district" || undefined}
+              aria-describedby="mp-facts-err"
               value={facts.district_code}
               onChange={(e) =>
                 setFacts((f) => ({ ...f, district_code: e.target.value }))
@@ -1265,6 +1385,7 @@ export default function UploadFlow() {
               className={input}
               placeholder="მაგ. პეკინის ქ."
               aria-describedby="mp-street-help"
+              aria-invalid={error?.controlId === "mp-street" || undefined}
               value={facts.street_display}
               onChange={(e) =>
                 setFacts((f) => ({ ...f, street_display: e.target.value }))
@@ -1283,6 +1404,8 @@ export default function UploadFlow() {
                 id="mp-rooms"
                 name="rooms"
                 className={input}
+                aria-invalid={error?.controlId === "mp-rooms" || undefined}
+                aria-describedby="mp-facts-err"
                 value={facts.rooms}
                 onChange={(e) =>
                   setFacts((f) => ({ ...f, rooms: e.target.value }))
@@ -1303,6 +1426,8 @@ export default function UploadFlow() {
                 id="mp-area"
                 name="area"
                 className={input}
+                aria-invalid={error?.controlId === "mp-area" || undefined}
+                aria-describedby="mp-facts-err"
                 inputMode="decimal"
                 placeholder="65"
                 value={facts.area}
@@ -1322,6 +1447,8 @@ export default function UploadFlow() {
                 inputMode="numeric"
                 min="0"
                 max="200"
+                aria-invalid={error?.controlId === "mp-unit-floor" || undefined}
+                aria-describedby="mp-facts-err"
                 className={input}
                 placeholder="4"
                 value={floorParts.unit}
@@ -1346,8 +1473,10 @@ export default function UploadFlow() {
                 type="number"
                 inputMode="numeric"
                 min="1"
-                max="200"
+                max="99"
                 className={input}
+                aria-invalid={error?.controlId === "mp-unit-floor" || undefined}
+                aria-describedby="mp-facts-err"
                 placeholder="9"
                 value={floorParts.total}
                 onChange={(e) =>
@@ -1370,6 +1499,8 @@ export default function UploadFlow() {
                 name="price_usd"
                 className={input}
                 inputMode="numeric"
+                aria-invalid={error?.controlId === "mp-price" || undefined}
+                aria-describedby="mp-facts-err"
                 placeholder={facts.deal_type === "rent" ? "500" : "85000"}
                 value={facts.price_usd}
                 onChange={(e) =>
@@ -1387,6 +1518,8 @@ export default function UploadFlow() {
               name="condition"
               className={input}
               required
+              aria-invalid={error?.controlId === "mp-condition" || undefined}
+              aria-describedby="mp-facts-err"
               value={facts.condition}
               onChange={(e) =>
                 setFacts((f) => ({ ...f, condition: e.target.value }))
@@ -1404,7 +1537,7 @@ export default function UploadFlow() {
               render has an owner path. All optional; unset stays UNKNOWN.
               Progressive <details> sections keep the phone screen a form,
               not a wall — the amenity grid alone is 24 checkboxes. */}
-          <details className="rounded-md border border-sand bg-card">
+          <details id="mp-building-details" className="rounded-md border border-sand bg-card">
             <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
               შენობის დეტალები{" "}
               <span className="font-normal text-faint">(არასავალდებულო)</span>
@@ -1474,6 +1607,8 @@ export default function UploadFlow() {
                     maxLength={4}
                     placeholder="2015"
                     value={facts.build_year}
+                    aria-invalid={error?.controlId === "mp-build-year" || undefined}
+                    aria-describedby="mp-facts-err"
                     onChange={(e) =>
                       setFacts((f) => ({
                         ...f,
@@ -1532,7 +1667,7 @@ export default function UploadFlow() {
             </div>
           </details>
 
-          <details className="rounded-md border border-sand bg-card">
+          <details id="mp-amenities-details" className="rounded-md border border-sand bg-card">
             <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
               კეთილმოწყობა{" "}
               <span className="font-normal text-faint">(არასავალდებულო)</span>
@@ -1570,7 +1705,7 @@ export default function UploadFlow() {
           </details>
 
           {facts.deal_type === "rent" && (
-            <details className="rounded-md border border-sand bg-card">
+            <details id="mp-rent-details" className="rounded-md border border-sand bg-card">
               <summary className="cursor-pointer px-3 py-2.5 text-sm font-medium text-ink">
                 ქირაობის პირობები{" "}
                 <span className="font-normal text-faint">(არასავალდებულო)</span>
@@ -1633,6 +1768,8 @@ export default function UploadFlow() {
                     maxLength={2}
                     placeholder="6"
                     value={facts.min_months}
+                    aria-invalid={error?.controlId === "mp-min-months" || undefined}
+                    aria-describedby="mp-facts-err"
                     onChange={(e) =>
                       setFacts((f) => ({
                         ...f,
@@ -1675,6 +1812,8 @@ export default function UploadFlow() {
               inputMode="url"
               placeholder="https://…"
               value={facts.portal_url}
+              aria-invalid={error?.controlId === "mp-portal" || undefined}
+              aria-describedby="mp-facts-err"
               onChange={(e) =>
                 setFacts((f) => ({ ...f, portal_url: e.target.value }))
               }
@@ -1683,8 +1822,13 @@ export default function UploadFlow() {
           <button
             type="button"
             className={`${btn} w-full`}
-            disabled={busy || !factsComplete(facts)}
+            disabled={busy}
             onClick={() => {
+              const invalid = validateFacts(facts);
+              if (invalid) {
+                showError(localFieldError(invalid.field));
+                return;
+              }
               setError(null);
               setStep("describe");
             }}
@@ -1709,6 +1853,7 @@ export default function UploadFlow() {
             maxLength={4000}
             placeholder="მდგომარეობა, ავეჯი, სხვა მნიშვნელოვანი…"
             aria-describedby="mp-describe-err"
+            aria-invalid={error?.controlId === "mp-description" || undefined}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -1735,6 +1880,7 @@ export default function UploadFlow() {
               type="checkbox"
               className="mt-0.5"
               checked={declared}
+              aria-invalid={error?.controlId === "mp-declared" || undefined}
               onChange={(e) => setDeclared(e.target.checked)}
             />
             <label htmlFor="mp-declared" className="text-sm text-ink">
@@ -1910,7 +2056,7 @@ export default function UploadFlow() {
       {step === "done" && (
         <section className="py-8 text-center">
           <p className="text-lg font-semibold text-ink">
-            მადლობა, განცხადება მიღებულია. გამოქვეყნდება გადამოწმების შემდეგ.
+            {receipt || "მადლობა, განცხადება მიღებულია. გამოქვეყნდება გადამოწმების შემდეგ."}
           </p>
         </section>
       )}

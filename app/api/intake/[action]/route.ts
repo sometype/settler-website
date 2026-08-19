@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { validOwnerUploadTurnstile } from "@/lib/turnstile";
 import { signedIntakeCall } from "@/lib/intake";
+import { mapIntakeError } from "@/lib/uploadErrors";
 
 /**
  * Browser → Vercel → intake API proxy for the COMMAND lane.
@@ -26,107 +27,8 @@ const ACTIONS: Record<string, string> = {
   "gallery-reset": "/submission/gallery-reset",
 };
 
-// Grok's Georgian copy, as amended by the 2026-08-16 product acceptance
-// addendum §8: no blanket "nothing was lost" reassurance survives here.
-// Keys are stable machine codes the client switches on; ka is shown verbatim.
-const ERRORS: Record<string, { code: string; ka: string }> = {
-  busy: {
-    code: "busy",
-    ka: "ახლა გადატვირთულია. 5 წამში თავიდან სცადე.",
-  },
-  too_fast: {
-    code: "too_fast",
-    ka: "ცოტა დაიცადე და თავიდან დააჭირე.",
-  },
-  send_failed: {
-    code: "send_failed",
-    ka: "კოდი ვერ გაიგზავნა. სცადე თავიდან, ან სხვა მეილი.",
-  },
-  bad_email: { code: "bad_email", ka: "ელფოსტა არასწორია — შეამოწმე." },
-  bad_code: {
-    code: "bad_code",
-    ka: "კოდი არასწორია ან ვადა გაუვიდა. სცადე თავიდან ან მოითხოვე ახალი.",
-  },
-  session_expired: {
-    code: "session_expired",
-    ka: "სესიის ვადა გავიდა — ელფოსტა თავიდან დაადასტურე.",
-  },
-  bad_phone: {
-    code: "bad_phone",
-    ka: "ნომერი არასწორია — ქართული მობილური უნდა იყოს (5XX XX XX XX).",
-  },
-  street_name_only: {
-    code: "street_name_only",
-    ka: "სახლის ან ბინის ნომერი აქ არ იწერება (უსაფრთხოებისთვის — ნომერი საჯაროდ არ ჩანს). დატოვე მხოლოდ ქუჩა, მაგ.: პეკინის ქ. ან ვაჟა-ფშაველას გამზ.",
-  },
-  draft_exists_email: {
-    code: "draft_exists_email",
-    ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. შეგიძლია გააგრძელო ან წაშალო და თავიდან დაიწყო.",
-  },
-  draft_exists_phone: {
-    code: "draft_exists_phone",
-    ka: "ამ ტელეფონზე უკვე არის დაუსრულებელი განცხადება. გასაგრძელებლად იმ განცხადების ელფოსტა გამოიყენე.",
-  },
-  draft_protected: {
-    code: "draft_protected",
-    ka: "ეს განცხადება უკვე გადაგზავნილია და მისი წაშლა აქედან აღარ შეიძლება.",
-  },
-  draft_recovery: {
-    code: "draft_recovery",
-    ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. თავიდან სცადე.",
-  },
-  draft_abandon: {
-    code: "draft_abandon",
-    ka: "ძველი განცხადება ვერ წაიშალა. თავიდან სცადე.",
-  },
-  field: { code: "field", ka: "ერთ-ერთი ველი არასწორია — გადახედე." },
-  ticket_spent: {
-    code: "ticket_spent",
-    ka: "ამ ფოტოს ატვირთვა თავიდან სცადე.",
-  },
-  gallery: {
-    code: "gallery",
-    ka: "ფოტოებში ხარვეზია — გადახედე და თავიდან სცადე.",
-  },
-};
-
-function mapError(status: number, detail: string, action: string) {
-  // Detail beats status: the API's provider-failure branch is ALSO a 503,
-  // and «გადატვირთულია» would tell an owner to retry a send that will fail
-  // again — K4's copy exists precisely for that case.
-  if (detail.includes("verification temporarily unavailable"))
-    return ERRORS.send_failed;
-  if (status === 503) return ERRORS.busy;
-  if (status === 429) {
-    // verify/start resend cooldown carries "retry in Ns" — surface seconds so
-    // the client can count down instead of guessing.
-    const m = detail.match(/retry in (\d+)s/);
-    if (m) return { ...ERRORS.too_fast, retry_after_s: Number(m[1]) };
-    return ERRORS.too_fast;
-  }
-  if (detail.includes("invalid email")) return ERRORS.bad_email;
-  if (detail.includes("verification temporarily unavailable"))
-    return ERRORS.send_failed;
-  if (detail.includes("wrong or expired code")) return ERRORS.bad_code;
-  if (detail.includes("session expired")) return ERRORS.session_expired;
-  if (detail.includes("Georgian mobile")) return ERRORS.bad_phone;
-  if (detail.includes("street_name_only") || detail === "street_display")
-    return ERRORS.street_name_only;
-  if (detail.includes("submission exists for this email"))
-    return ERRORS.draft_exists_email;
-  if (detail.includes("submission exists for this phone"))
-    return ERRORS.draft_exists_phone;
-  if (detail.includes("submission cannot be abandoned"))
-    return ERRORS.draft_protected;
-  if (detail.includes("ticket")) return ERRORS.ticket_spent;
-  if (detail.includes("positions") || detail.includes("preferred_cover"))
-    return ERRORS.gallery;
-  if (action === "status") return ERRORS.gallery;
-  if (action === "recover") return ERRORS.draft_recovery;
-  if (action === "abandon") return ERRORS.draft_abandon;
-  if (["status", "ticket", "finalize", "gallery-reset"].includes(action))
-    return ERRORS.gallery;
-  return ERRORS.field;
+function mapError(status: number, detail: Parameters<typeof mapIntakeError>[1], action: string) {
+  return mapIntakeError(status, detail, action);
 }
 
 const TURNSTILE_TIMEOUT_MS = 5_000;
@@ -181,7 +83,7 @@ export async function POST(
 
   const declared = Number(req.headers.get("content-length") || "0");
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: ERRORS.field }, { status: 413 });
+    return NextResponse.json({ error: mapError(413, "request body too large", action) }, { status: 413 });
   }
 
   let body: Record<string, unknown>;
@@ -190,15 +92,15 @@ export async function POST(
     // Content-Length can lie or be absent under chunked encoding; the decoded
     // length is the one that actually bounds what we parse.
     if (raw.length > MAX_BODY_BYTES) {
-      return NextResponse.json({ error: ERRORS.field }, { status: 413 });
+      return NextResponse.json({ error: mapError(413, "request body too large", action) }, { status: 413 });
     }
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return NextResponse.json({ error: ERRORS.field }, { status: 400 });
+      return NextResponse.json({ error: mapError(400, "bad request", action) }, { status: 400 });
     }
     body = parsed as Record<string, unknown>;
   } catch {
-    return NextResponse.json({ error: ERRORS.field }, { status: 400 });
+    return NextResponse.json({ error: mapError(400, "bad request", action) }, { status: 400 });
   }
 
   const ip =
@@ -211,7 +113,7 @@ export async function POST(
     delete body.turnstile;
     if (!(await verifyTurnstile(token, ip))) {
       return NextResponse.json(
-        { error: { code: "turnstile", ka: "დაადასტურე, რომ რობოტი არ ხარ." } },
+        { error: { code: "turnstile", ka: "უსაფრთხოების შემოწმება ვერ დასრულდა. თავიდან ჩატვირთე და სცადე." } },
         { status: 403 },
       );
     }

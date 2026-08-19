@@ -1,5 +1,6 @@
 import "server-only";
 import crypto from "crypto";
+import type { IntakeDetail } from "@/lib/uploadErrors";
 
 /**
  * Server-side signing client for the intake API (VPS, behind caddy).
@@ -24,7 +25,7 @@ const REQUEST_KEY = process.env.INTAKE_REQUEST_KEY || "";
 
 export type IntakeResult =
   | { ok: true; status: number; data: Record<string, unknown> }
-  | { ok: false; status: number; detail: string };
+  | { ok: false; status: number; detail: IntakeDetail };
 
 export async function signedIntakeCall(
   path: string,
@@ -74,9 +75,11 @@ export async function signedIntakeCall(
       /* non-JSON body — `data` stays null and is never faked into {} */
     }
     if (!res.ok) {
+      const rawDetail = data?.detail;
       const detail =
-        data && typeof data.detail === "string"
-          ? data.detail
+        typeof rawDetail === "string" ||
+        (rawDetail && typeof rawDetail === "object" && !Array.isArray(rawDetail))
+          ? (rawDetail as IntakeDetail)
           : `http ${res.status}`;
       return { ok: false, status: res.status, detail };
     }
