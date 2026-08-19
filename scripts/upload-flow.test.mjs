@@ -164,6 +164,8 @@ test("finalization only accepts explicit review states", () => {
 
 test("component routes field errors, exposes Turnstile readiness, and offers recovery actions", () => {
   assert.match(COMPONENT, /setStep\(next\.step as Step\)/);
+  assert.match(COMPONENT, /if \(error\?\.controlId\) return;[\s\S]{0,100}headingRef\.current\?\.focus\(\)/);
+  assert.match(COMPONENT, /if \(error\.detailsId\)[\s\S]{0,180}details\.open = true/);
   assert.match(COMPONENT, /control\?\.focus\(\)/);
   assert.match(COMPONENT, /aria-invalid=\{error\?\.controlId === "mp-area"/);
   assert.match(COMPONENT, /უსაფრთხოების შემოწმება იტვირთება/);

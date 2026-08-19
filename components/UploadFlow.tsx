@@ -293,17 +293,6 @@ export default function UploadFlow() {
   const showError = useCallback((next: ApiError) => {
     setError(next);
     if (next.step) setStep(next.step as Step);
-    window.setTimeout(() => {
-      if (next.detailsId) {
-        const details = document.getElementById(next.detailsId);
-        if (details instanceof HTMLDetailsElement) details.open = true;
-      }
-      if (next.controlId) {
-        const control = document.getElementById(next.controlId);
-        control?.focus();
-        control?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }, 0);
   }, []);
 
   const uploadBase = useMemo(
@@ -464,8 +453,23 @@ export default function UploadFlow() {
   // focus does not stay on a button that no longer exists.
   useEffect(() => {
     if (!hydrated) return;
+    // A field-level error has a more useful destination. Its dedicated effect
+    // below runs after the destination step has rendered, opens any enclosing
+    // disclosure, and focuses the exact correcting control.
+    if (error?.controlId) return;
     headingRef.current?.focus();
-  }, [step, hydrated]);
+  }, [step, hydrated, error?.controlId]);
+
+  useEffect(() => {
+    if (!hydrated || !error?.controlId) return;
+    if (error.detailsId) {
+      const details = document.getElementById(error.detailsId);
+      if (details instanceof HTMLDetailsElement) details.open = true;
+    }
+    const control = document.getElementById(error.controlId);
+    control?.focus();
+    control?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [hydrated, step, error]);
 
   const verifyIdemRef = useRef<Record<string, string>>({});
   const verifyIdemFor = (k: string) => {
