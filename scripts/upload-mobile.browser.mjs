@@ -101,6 +101,14 @@ export async function run(page, { screenshot } = {}) {
         });
       }
       if (url.includes("/api/intake/recover")) {
+        if (localStorage.getItem("mp_test_recover_mode") === "limit") {
+          return new Response(JSON.stringify({
+            active_count: 3, max_active: 3, draft: null,
+          }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
         return new Response(JSON.stringify({ active_count: 1, max_active: 3, draft: {
           submission_id: 77, status: "draft", phone: "+995555123456",
           deal_type: "rent", district_code: "gldani",
@@ -115,6 +123,17 @@ export async function run(page, { screenshot } = {}) {
           positions: [], pending_positions: [],
         }}), {
           status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.includes("/api/intake/create")
+          && localStorage.getItem("mp_test_create_mode") === "phone-limit") {
+        return new Response(JSON.stringify({ error: {
+          code: "active_limit_phone",
+          ka: "ამ ტელეფონზე უკვე არის 3 აქტიური განცხადება. სხვა ნომერი მიუთითე ან დაელოდე ერთ-ერთის დასრულებას.",
+          field: "phone", step: "phone", controlId: "mp-phone",
+        }}), {
+          status: 409,
           headers: { "Content-Type": "application/json" },
         });
       }
@@ -263,7 +282,7 @@ export async function run(page, { screenshot } = {}) {
   });
 
   // ---- 7. empty-browser recovery offers both honest exits ---------------
-  const verifyIntoRecovery = async () => {
+  const verifyOwner = async () => {
     await page.evaluate(() => {
       sessionStorage.clear();
       location.reload();
@@ -277,6 +296,10 @@ export async function run(page, { screenshot } = {}) {
     await code.waitFor({ state: "visible", timeout: 10_000 });
     await code.fill("123456");
     await page.getByRole("button", { name: "დადასტურება" }).click();
+  };
+
+  const verifyIntoRecovery = async () => {
+    await verifyOwner();
     await page.getByRole("button", { name: "არსებული განცხადების გაგრძელება" })
       .waitFor({ state: "visible", timeout: 10_000 });
   };
@@ -301,6 +324,37 @@ export async function run(page, { screenshot } = {}) {
     assert.equal(await page.evaluate(() => window.__abandonCalls), 1);
     const body = await page.locator("body").innerText();
     assert.ok(body.includes("ძველი განცხადება წაიშალა"));
+  });
+
+  await check("three active listings stop early and offer another email", async () => {
+    await page.evaluate(() => localStorage.setItem("mp_test_recover_mode", "limit"));
+    await verifyOwner();
+    await page.getByRole("heading", { name: "3 აქტიური განცხადება გაქვს" })
+      .waitFor({ state: "visible", timeout: 10_000 });
+    await page.getByRole("button", { name: "სხვა ელფოსტით დაწყება" }).click();
+    await emailBox().waitFor({ state: "visible", timeout: 10_000 });
+    await page.evaluate(() => localStorage.removeItem("mp_test_recover_mode"));
+  });
+
+  await check("phone portfolio cap routes and focuses the phone control", async () => {
+    await page.evaluate(() => localStorage.setItem("mp_test_create_mode", "phone-limit"));
+    await seedAndReload(page, {
+      v: 2, session: "browser-test", email: "owner@example.com",
+      phone: "555123456", step: "describe",
+      facts: { deal_type: "rent", district_code: "gldani",
+               street_display: "პეკინის ქ.", rooms: "2", area: "65",
+               floor: "4/9", price_usd: "600",
+               condition: "ახალი რემონტით", portal_url: "" },
+      description: "სინთეტიკური აღწერა", declared: true, submissionId: null,
+      createIdem: "", coverId: null, photos: [],
+    });
+    await dismissResumeGate(page);
+    await page.getByRole("button", { name: "გაგრძელება" }).click();
+    const phone = page.locator("#mp-phone");
+    await phone.waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "mp-phone");
+    assert.equal(await phone.getAttribute("aria-invalid"), "true");
+    await page.evaluate(() => localStorage.removeItem("mp_test_create_mode"));
   });
 
   return results;
