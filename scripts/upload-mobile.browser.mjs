@@ -101,7 +101,7 @@ export async function run(page, { screenshot } = {}) {
         });
       }
       if (url.includes("/api/intake/recover")) {
-        return new Response(JSON.stringify({ draft: {
+        return new Response(JSON.stringify({ active_count: 1, max_active: 3, draft: {
           submission_id: 77, status: "draft", phone: "+995555123456",
           deal_type: "rent", district_code: "gldani",
           street_display: "პეკინის ქ.", rooms: "2", area: "65",
@@ -249,21 +249,17 @@ export async function run(page, { screenshot } = {}) {
     if (screenshot) await screenshot("declare-step");
   });
 
-  // ---- 6. completion screen unchanged this round -----------------------
-  await check("completion screen is unchanged for this round", async () => {
+  // ---- 6. a browser cannot forge a completed receipt -------------------
+  await check("persisted completion is rejected and returns to verification", async () => {
     await seedAndReload(page, {
       v: 2, session: "browser-test", email: "o@example.com", phone: "555123456",
       step: "done", facts: {}, description: "", declared: true,
       submissionId: 1, createIdem: "", coverId: null, photos: [],
     });
-    await dismissResumeGate(page);
-    await page.getByText("მიღებულია").first().waitFor({ state: "visible", timeout: 10_000 });
+    await emailBox().waitFor({ state: "visible", timeout: 10_000 });
     const body = await page.locator("body").innerText();
-    assert.match(body, /მიღებულია/, "completion heading changed");
-    assert.ok(
-      !body.includes("აკრძალულია"),
-      "prohibition warning leaked onto the completion screen"
-    );
+    assert.ok(!body.includes("მადლობა, განცხადება მიღებულია"),
+      "untrusted persisted state forged a completion receipt");
   });
 
   // ---- 7. empty-browser recovery offers both honest exits ---------------

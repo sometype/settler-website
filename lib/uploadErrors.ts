@@ -57,8 +57,10 @@ export function mapIntakeError(status: number, detail: IntakeDetail, action: str
   if (text.includes("session expired")) return { code: "session_expired", ka: "სესიის ვადა გავიდა — ელფოსტა თავიდან დაადასტურე.", step: "email" };
   if (text.includes("Georgian mobile")) return { code: "bad_phone", ...FIELDS.phone };
   if (text.includes("street_name_only")) return { code: "street_name_only", ...FIELDS.street_display };
-  if (text.includes("submission exists for this email")) return { code: "draft_exists_email", ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. შეგიძლია გააგრძელო ან წაშალო." };
-  if (text.includes("submission exists for this phone")) return { code: "draft_exists_phone", ka: "ამ ტელეფონზე უკვე არის დაუსრულებელი განცხადება." };
+  if (text.includes("active draft exists for this email")) return { code: "draft_exists_email", ka: "ამ ელფოსტაზე უკვე გაქვს დაუსრულებელი განცხადება. შეგიძლია გააგრძელო ან წაშალო." };
+  if (text.includes("active draft exists for this phone")) return { code: "draft_exists_phone", ka: "ამ ტელეფონზე უკვე არის დაუსრულებელი განცხადება.", field: "phone", step: "phone", controlId: "mp-phone" };
+  if (text.includes("active submission limit reached for this email")) return { code: "active_limit_email", ka: "ამ ელფოსტაზე უკვე გაქვს 3 აქტიური განცხადება. ახალი განცხადების დამატება შესაძლებელი იქნება, როცა ერთ-ერთი აღარ იქნება აქტიური." };
+  if (text.includes("active submission limit reached for this phone")) return { code: "active_limit_phone", ka: "ამ ტელეფონზე უკვე არის 3 აქტიური განცხადება. სხვა ნომერი მიუთითე ან დაელოდე ერთ-ერთის დასრულებას.", field: "phone", step: "phone", controlId: "mp-phone" };
   if (text.includes("submission cannot be abandoned")) return { code: "draft_protected", ka: "ეს განცხადება უკვე გადაგზავნილია და აქედან აღარ იშლება." };
   if (action === "ticket" && text.includes("ticket")) return { code: "ticket_spent", ka: "ამ ფოტოს ატვირთვა თავიდან სცადე." };
   if (text.includes("positions") || text.includes("preferred_cover") || text.includes("clean images")) {

@@ -370,6 +370,15 @@ export type RecoveredDraft = {
   coverId: string | null;
 };
 
+export const MAX_ACTIVE_OWNER_LISTINGS = 3;
+
+export type RecoveryState = {
+  draft: RecoveredDraft | null;
+  activeCount: number;
+  maxActive: typeof MAX_ACTIVE_OWNER_LISTINGS;
+  limitReached: boolean;
+};
+
 /**
  * Parse the server's accountless recovery response.
  *
@@ -458,6 +467,23 @@ export function readRecoveredDraft(
     declared: d.owner_declared,
     slots,
     coverId: preferred,
+  };
+}
+
+/** Parse recovery and portfolio capacity as one fail-closed contract. */
+export function readRecoveryState(data: unknown): RecoveryState | undefined {
+  const draft = readRecoveredDraft(data);
+  if (draft === undefined || !data || typeof data !== "object") return undefined;
+  const raw = data as Record<string, unknown>;
+  const activeCount = raw.active_count;
+  const maxActive = raw.max_active;
+  if (!Number.isInteger(activeCount) || (activeCount as number) < 0
+      || maxActive !== MAX_ACTIVE_OWNER_LISTINGS) return undefined;
+  return {
+    draft,
+    activeCount: activeCount as number,
+    maxActive: MAX_ACTIVE_OWNER_LISTINGS,
+    limitReached: (activeCount as number) >= MAX_ACTIVE_OWNER_LISTINGS,
   };
 }
 

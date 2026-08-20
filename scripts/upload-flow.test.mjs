@@ -30,6 +30,7 @@ import {
   positionsContiguous,
   readOpaqueToken,
   readRecoveredDraft,
+  readRecoveryState,
   readSubmissionId,
   readFinalizeStatus,
   removeSlot,
@@ -813,6 +814,27 @@ test("accountless recovery: verified email can resume or abandon its server draf
   assert.ok(/call\("abandon"/.test(COMPONENT));
   assert.ok(/recover: "\/submission\/recover"/.test(ROUTE));
   assert.ok(/abandon: "\/submission\/abandon"/.test(ROUTE));
+});
+
+test("owner portfolio: three active listings are allowed but the fourth stops early", () => {
+  assert.deepEqual(readRecoveryState({
+    draft: null, active_count: 2, max_active: 3,
+  }), {
+    draft: null, activeCount: 2, maxActive: 3, limitReached: false,
+  });
+  assert.deepEqual(readRecoveryState({
+    draft: null, active_count: 3, max_active: 3,
+  }), {
+    draft: null, activeCount: 3, maxActive: 3, limitReached: true,
+  });
+  assert.equal(readRecoveryState({ draft: null, active_count: 2, max_active: 4 }), undefined);
+  assert.equal(mapIntakeError(409, "active submission limit reached for this email", "create").code, "active_limit_email");
+  const phoneLimit = mapIntakeError(409, "active submission limit reached for this phone", "create");
+  assert.equal(phoneLimit.code, "active_limit_phone");
+  assert.equal(phoneLimit.step, "phone");
+  assert.ok(/3 აქტიური განცხადება გაქვს/.test(COMPONENT));
+  assert.ok(/სხვა ელფოსტით დაწყება/.test(COMPONENT));
+  assert.ok(/!recovered\.found && !recovered\.limited/.test(COMPONENT));
 });
 
 test("copy: phone collision remains generic and does not promise foreign recovery", () => {

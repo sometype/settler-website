@@ -43,7 +43,7 @@ import {
   nextUploadBatch,
   planAddFiles,
   readOpaqueToken,
-  readRecoveredDraft,
+  readRecoveryState,
   readSubmissionId,
   readFinalizeStatus,
   finalizeReceipt,
@@ -272,6 +272,7 @@ export default function UploadFlow() {
   // §8: an unfinished draft is offered explicitly, never silently resumed.
   const [resumePending, setResumePending] = useState(() => Boolean(saved));
   const [recoverableDraft, setRecoverableDraft] = useState<RecoveredDraft | null>(null);
+  const [activeLimitReached, setActiveLimitReached] = useState(false);
 
   const [email, setEmail] = useState(() => saved?.email ?? "");
   /**
@@ -549,20 +550,21 @@ export default function UploadFlow() {
       uploadDebug("draft.recover_result", { found: false, error_code: recovered.error.code });
       return { error: recovered.error, found: false };
     }
-    const draft = readRecoveredDraft(recovered.data);
-    if (draft === undefined) {
+    const state = readRecoveryState(recovered.data);
+    if (state === undefined) {
       uploadDebug("draft.recover_result", { found: false, reason: "malformed" });
       return {
         error: { code: "draft_recovery", ka: "დაუსრულებელი განცხადება ვერ შევამოწმეთ. დააჭირე „თავიდან შემოწმებას“." },
         found: false,
       };
     }
-    if (draft === null) {
-      uploadDebug("draft.recover_result", { found: false, reason: "none" });
-      return { found: false };
+    setActiveLimitReached(state.limitReached);
+    if (state.draft === null) {
+      uploadDebug("draft.recover_result", { found: false, reason: state.limitReached ? "limit" : "none", active_count: state.activeCount });
+      return { found: false, limited: state.limitReached };
     }
-    uploadDebug("draft.recover_result", { found: true, has_submission: true, photo_count: draft.slots.length });
-    setRecoverableDraft(draft);
+    uploadDebug("draft.recover_result", { found: true, has_submission: true, photo_count: state.draft.slots.length, active_count: state.activeCount });
+    setRecoverableDraft(state.draft);
     return { found: true };
   }, []);
 
@@ -632,7 +634,7 @@ export default function UploadFlow() {
       if (recovered.error.code !== "session_expired") setStep("phone");
       return;
     }
-    if (!recovered.found) setStep("phone");
+    if (!recovered.found && !recovered.limited) setStep("phone");
   }, [codeToken, code, submissionId, photos, findRecoverableDraft, showError]);
 
   const createSubmission = useCallback(async () => {
@@ -679,6 +681,11 @@ export default function UploadFlow() {
           showError(recovered.error);
           return;
         }
+      }
+      if (r.error.code === "active_limit_email") {
+        setBusy(false);
+        setActiveLimitReached(true);
+        return;
       }
       setBusy(false);
       showError(r.error);
@@ -1182,6 +1189,36 @@ export default function UploadFlow() {
           ძველი განცხადების წაშლა და თავიდან დაწყება
         </button>
         <Err error={error} id="mp-recover-err" />
+      </div>
+    );
+  }
+
+  if (activeLimitReached) {
+    return (
+      <div className="mx-auto w-full max-w-md px-4 py-6">
+        <Manifesto compact />
+        <h2 ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-ink">
+          3 აქტიური განცხადება გაქვს
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink">
+          ერთ ელფოსტაზე მაქსიმუმ 3 აქტიური განცხადება შეიძლება. ახალი
+          განცხადების დამატება შესაძლებელი იქნება, როცა ერთ-ერთი აღარ იქნება აქტიური.
+        </p>
+        <button
+          type="button"
+          className="mt-4 w-full rounded-md border border-clay px-4 py-2.5 text-sm font-semibold text-clay-deep"
+          onClick={() => {
+            setActiveLimitReached(false);
+            setSession("");
+            setEmail("");
+            setCodeToken("");
+            setCode("");
+            setError(null);
+            setStep("email");
+          }}
+        >
+          სხვა ელფოსტით დაწყება
+        </button>
       </div>
     );
   }
