@@ -92,3 +92,21 @@ test("detail gallery changes sources without remounting its image layers", async
   assert.match(listingImage, /failedSrc === src/);
   assert.match(listingImage, /onError=\{\(\) => setFailedSrc\(src\)\}/);
 });
+
+test("failed listing photos show the temporary Georgian outage message", async () => {
+  const listingImage = await readFile(
+    new URL("../components/ListingImage.tsx", import.meta.url),
+    "utf8"
+  );
+
+  assert.match(
+    listingImage,
+    /failed\s*\?\s*"ტექნიკური პრობლემა, მალე გამოსწორდება"\s*:\s*placeholderLabel/,
+    "an actual load failure must explain the temporary technical problem"
+  );
+  assert.doesNotMatch(
+    listingImage,
+    /label=\{"ტექნიკური პრობლემა, მალე გამოსწორდება"\}/,
+    "the outage message must not replace the ordinary no-photo placeholder"
+  );
+});
