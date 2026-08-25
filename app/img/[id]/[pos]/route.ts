@@ -13,7 +13,7 @@ import { getSupabase } from "@/lib/supabase";
  * URL would be an open proxy (SSRF). The host allowlist below is a second gate
  * in case a bad row ever reaches the table.
  *
- * Once the stored copies are reachable (NEXT_PUBLIC_IMAGE_BASE_URL set), this
+ * Once the stored copies are reachable (IMAGE_CDN_BASE_URL set), this
  * route redirects to them instead and stops touching upstream entirely.
  */
 const UPSTREAM_HOSTS = new Set([
@@ -22,15 +22,14 @@ const UPSTREAM_HOSTS = new Set([
   "static.my.ge",
 ]);
 
-// Photos are immutable once posted; long CDN cache keeps the per-image DB
-// lookup to a one-time cost.
-const CACHE_CONTROL = "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400";
+// Existing keys can receive new bytes. Keep browser and CDN caching bounded.
+const CACHE_CONTROL = "public, max-age=3600, s-maxage=3600, stale-while-revalidate=300";
 
 /**
- * Young-image bridge (temporary until image_worker uploads to R2 itself).
+ * Young-image bridge while the bounded image sync catches up.
  *
  * `stored_path` is written the moment a photo lands on VPS *disk*, but the
- * object only reaches R2 on settler-r2sync's next sweep — so for a new
+ * object only reaches storage on settler-imagesync's next sweep — so for a new
  * listing's first minutes the 308 below points at a 404. That window is
  * exactly the "just added" rail, i.e. the product's front door.
  *
@@ -38,13 +37,18 @@ const CACHE_CONTROL = "public, max-age=3600, s-maxage=31536000, stale-while-reva
  * it through the upstream proxy instead of redirecting. Age comes from the
  * row's own `created_at` (measured ~2s after listing insert), so late-added
  * photos on an old listing bridge correctly too. After the window it is
- * ALWAYS the R2 redirect — if the sync breaks for hours, that is an ops
- * problem for the heartbeat (r2sync staleness check, see HANDOFF §8 #6d),
+ * ALWAYS the configured CDN redirect — if the sync breaks for hours, that is
+ * an ops problem for the ledger-backed heartbeat,
  * not something this route should paper over per-request.
  */
-const R2_SYNC_INTERVAL_MIN = 15; // must match settler-r2sync.timer on the VPS
+function boundedMinutes(raw: string | undefined, fallback: number): number {
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 1 && value <= 60 ? value : fallback;
+}
+
+const IMAGE_SYNC_INTERVAL_MIN = boundedMinutes(process.env.IMAGE_SYNC_INTERVAL_MIN, 10);
 const BRIDGE_BUFFER_MIN = 10;
-const BRIDGE_WINDOW_MS = (R2_SYNC_INTERVAL_MIN + BRIDGE_BUFFER_MIN) * 60 * 1000;
+const BRIDGE_WINDOW_MS = (IMAGE_SYNC_INTERVAL_MIN + BRIDGE_BUFFER_MIN) * 60 * 1000;
 
 // Bridge responses must expire fast: with the year-long TTL above, the edge
 // would pin the proxied bytes forever and the image would never cut over to
@@ -53,6 +57,38 @@ const BRIDGE_CACHE_CONTROL = "public, max-age=60, s-maxage=60";
 
 function notFound(): Response {
   return new Response(null, { status: 404, headers: { "Cache-Control": "public, max-age=300" } });
+}
+
+function serviceUnavailable(): Response {
+  return new Response(null, {
+    status: 503,
+    headers: { "Cache-Control": "no-store", "Retry-After": "60" },
+  });
+}
+
+function validImageBaseUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash) {
+      return null;
+    }
+    return parsed.href.replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+function imageBaseUrl(now = Date.now()): string | null {
+  const primary = validImageBaseUrl(process.env.IMAGE_CDN_BASE_URL);
+  if (primary) return primary;
+
+  const fallbackRaw = process.env.IMAGE_CDN_FALLBACK_BASE_URL;
+  const fallbackExpiresAt = Date.parse(process.env.IMAGE_CDN_FALLBACK_EXPIRES_AT ?? "");
+  if (!fallbackRaw || !Number.isFinite(fallbackExpiresAt) || fallbackExpiresAt <= now) {
+    return null;
+  }
+  return validImageBaseUrl(fallbackRaw);
 }
 
 /**
@@ -139,15 +175,18 @@ export async function GET(
     .maybeSingle();
   if (error || !data) return notFound();
 
-  const base = process.env.NEXT_PUBLIC_IMAGE_BASE_URL;
-  if (data.stored_path && base) {
+  const base = imageBaseUrl();
+  if (data.stored_path) {
     const ageMs = Date.now() - new Date(data.created_at).getTime();
     // NaN age (malformed timestamp) falls through to the redirect — the
     // bridge is an exception for provably-young rows, never the default.
     if (ageMs < BRIDGE_WINDOW_MS && data.source_url) {
       return proxyUpstream(data.source_url, BRIDGE_CACHE_CONTROL);
     }
-    return Response.redirect(`${base.replace(/\/$/, "")}/${data.stored_path}`, 308);
+    // A missing/invalid CDN authority is a provider failure, not permission to
+    // silently proxy source portals forever.
+    if (!base) return serviceUnavailable();
+    return Response.redirect(`${base}/${data.stored_path}`, 308);
   }
 
   if (!data.source_url) return notFound();

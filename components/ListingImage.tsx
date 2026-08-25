@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const IMAGE_OUTAGE_MESSAGE = "ტექნიკური პრობლემა, მალე გამოსწორდება";
 
 function Placeholder({ label }: { label?: string }) {
   return (
@@ -20,11 +22,7 @@ function Placeholder({ label }: { label?: string }) {
             d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"
           />
         </svg>
-        {label && (
-          <span className="max-w-full px-3 text-center text-xs leading-4">
-            {label}
-          </span>
-        )}
+        {label && <span className="text-xs">{label}</span>}
       </div>
     </div>
   );
@@ -50,20 +48,38 @@ export function ListingImage({
   // failure on the previous photo poisoning every later photo. This also lets
   // callers keep the component mounted and avoid a visible remount blink.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const failed = src != null && failedSrc === src;
+  // Keep the original explicit failure/no-photo distinction as a compatibility
+  // contract while the rendered failure branch uses the centralized copy.
+  const fallbackLabel = failed
+    ? "ტექნიკური პრობლემა, მალე გამოსწორდება"
+    : placeholderLabel;
 
-  if (!src || failed) {
+  useEffect(() => {
+    const image = imageRef.current;
+    if (!src || !image) return;
+
+    // A cached/DNS failure can finish before hydration attaches onError. Check
+    // the browser's settled image state once React owns the node so mobile does
+    // not leak a raw broken-image icon instead of the approved outage copy.
+    if (image.complete && image.naturalWidth === 0) setFailedSrc(src);
+  }, [src]);
+
+  if (!src) {
+    return (
+      <div className={className} aria-label={fallbackLabel}>
+        <Placeholder label={placeholderLabel} />
+      </div>
+    );
+  }
+
+  if (failed) {
     // Keep className (often absolute inset-0) so a failed load cannot collapse
     // a fixed-aspect gallery frame and reflow the page.
     return (
-      <div className={className}>
-        <Placeholder
-          label={
-            failed
-              ? "ტექნიკური პრობლემა, მალე გამოსწორდება"
-              : placeholderLabel
-          }
-        />
+      <div className={className} aria-label={fallbackLabel}>
+        <Placeholder label={IMAGE_OUTAGE_MESSAGE} />
       </div>
     );
   }
@@ -71,6 +87,7 @@ export function ListingImage({
   return (
     // eslint-disable-next-line @next/next/no-img-element -- next/image would add a second hop on top of the /img route; revisit with the CDN work
     <img
+      ref={imageRef}
       src={src}
       alt={alt}
       className={className}
