@@ -6,6 +6,7 @@ import { ListingOpenBeacon } from "@/components/ListingOpenBeacon";
 import {
   englishAmenities,
   englishListingPresentation,
+  englishSafeRenderedText,
 } from "@/lib/english-rent";
 import { resolveImageUrl } from "@/lib/images";
 import { fetchListing } from "@/lib/listings";
@@ -14,11 +15,12 @@ import { stripHtml } from "@/lib/text";
 export const dynamic = "force-dynamic";
 
 function Fact({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
+  const safe = englishSafeRenderedText(value);
+  if (!safe) return null;
   return (
     <div className="flex justify-between gap-4 border-b border-sand/70 py-2 text-sm last:border-b-0">
       <dt className="text-mink">{label}</dt>
-      <dd className="text-right font-medium text-ink">{value}</dd>
+      <dd className="text-right font-medium text-ink">{safe}</dd>
     </div>
   );
 }
@@ -126,7 +128,7 @@ export default async function EnglishListingPage({
               <Fact label="Rooms" value={facts.rooms} />
               <Fact label="Area" value={facts.area} />
               <Fact label="Floor" value={facts.floor} />
-              <Fact label="Bathrooms" value={listing.bathrooms} />
+              <Fact label="Bathrooms" value={facts.bathrooms} />
             </dl>
           </section>
 

@@ -33,6 +33,7 @@ export type EnglishListingInput = {
   price_usd: number | null;
   area: number | null;
   floor: string | null;
+  bathrooms?: string | null;
   description?: string | null;
   description_ka?: string | null;
 };
@@ -45,12 +46,27 @@ export type EnglishListingPresentation = {
   price: string | null;
   area: string | null;
   floor: string | null;
+  bathrooms: string | null;
   description: string | null;
   title: string;
 };
 
 export function containsMkhedruli(value: string): boolean {
   return MKHEDRULI_RE.test(value);
+}
+
+/**
+ * Last-mile guard for any English catalog/detail string. Georgian script is
+ * dropped, not transliterated: bathrooms "არ აქვს" is a fact, not a street, and
+ * "Ar akvs" would be a false English value. Streets keep their own helper.
+ */
+export function englishSafeRenderedText(
+  value: string | number | null | undefined
+): string | null {
+  if (value === null || value === undefined) return null;
+  const cleaned = tidy(String(value));
+  if (!cleaned || MKHEDRULI_RE.test(cleaned)) return null;
+  return cleaned;
 }
 
 function tidy(value: string): string {
@@ -133,6 +149,7 @@ export function englishListingPresentation(
         ? `${listing.area} m²`
         : null,
     floor: safeFloor(listing.floor),
+    bathrooms: englishSafeRenderedText(listing.bathrooms),
     description,
     title,
   };
@@ -171,5 +188,6 @@ export function englishAmenities(map: Record<string, boolean> | null | undefined
   if (!map) return [];
   return Object.entries(AMENITY_LABELS)
     .filter(([key]) => map[key] === true)
-    .map(([, label]) => label);
+    .map(([, label]) => englishSafeRenderedText(label))
+    .filter((label): label is string => label !== null);
 }
