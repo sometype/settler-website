@@ -1,7 +1,15 @@
 import { englishDistrictLabel } from "./districts";
 import { sanePriceUsd } from "./prices";
 
-const MKHEDRULI_RE = /[\u10A0-\u10FF]/u;
+// Every Georgian script block, not just Mkhedruli:
+//   U+10A0-10FF Georgian (Asomtavruli + Mkhedruli)
+//   U+1C90-1CBF Georgian Extended (Mtavruli — Georgian ALL-CAPS)
+//   U+2D00-2D2F Georgian Supplement (Nuskhuri)
+// A guard covering only the first block lets a Mtavruli headline reach an
+// English page whenever it carries enough Latin characters to pass the
+// description threshold. The exported name stays `containsMkhedruli`
+// because the frozen EN-RENT-OWNER-DIRECT-V1 gate calls it.
+const MKHEDRULI_RE = /[\u10A0-\u10FF\u1C90-\u1CBF\u2D00-\u2D2F]/u;
 const CYRILLIC_RE = /[\u0400-\u052F]/u;
 const CJK_RE = /[\u3400-\u9FFF\uF900-\uFAFF]/u;
 const LATIN_RE = /[A-Za-z]/g;
