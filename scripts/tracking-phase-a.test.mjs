@@ -263,7 +263,7 @@ test("owned emitters carry compensating bounded context", async () => {
   const [photo, card, page, sort, route] = await Promise.all([
     readFile(new URL("../components/CardPhotoPeek.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/ListingCard.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/(ka)/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/SortBar.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/events/route.ts", import.meta.url), "utf8"),
   ]);

@@ -1197,7 +1197,7 @@ import { AMENITIES } from "../lib/amenities.ts";
 import { OWNER_PROJECT_TYPES, OWNER_STATUSES } from "../lib/labels.ts";
 
 const PAGE = readFileSync(
-  fileURLToPath(new URL("../app/listing/[id]/page.tsx", import.meta.url)),
+  fileURLToPath(new URL("../app/(ka)/listing/[id]/page.tsx", import.meta.url)),
   "utf8",
 );
 

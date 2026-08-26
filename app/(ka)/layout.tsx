@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Google_Sans, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
-import "./globals.css";
+import "../globals.css";
 import { SessionBeacon } from "@/components/SessionBeacon";
 
 // Georgian-first, and it must SELF-HOST the Georgian glyphs — the original Geist
