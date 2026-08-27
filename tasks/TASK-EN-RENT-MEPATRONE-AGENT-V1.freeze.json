@@ -1,0 +1,25 @@
+{
+  "task_id": "TASK-EN-RENT-MEPATRONE-AGENT-V1",
+  "authority_class": "transaction-bound acceptance",
+  "subject_baseline": "817ed541a6dd6b26ffdc5b2fbf661cbd1da0edda",
+  "execution_boundary": "isolated local website worktree; no network, production, deployment, push, Ads, or spend",
+  "approved_wrong_state": "Exact baseline 817ed541: English owner phones flow into EnglishContact and owner-direct CTA/copy is rendered.",
+  "acceptance_owner": "independent adversarial verifier",
+  "protected_files": {
+    "app/(ka)/layout.tsx": "a0e63905e47bbaedfbd7cce75fa6ce49898b3f39bee498b977ec647f169e0cb9",
+    "app/(ka)/listing/[id]/loading.tsx": "dc1f6ad8860581c9379a5ad1813559e234b25a756e47d6f70c08fe08b5273bad",
+    "app/(ka)/listing/[id]/page.tsx": "a29b18bb64043d1c4385254ef01bcff5fbe0834fc66d1ad86acff446c5cb9a40",
+    "app/(ka)/loading.tsx": "5a0af500691620f3e85d931d091a1f7037a7c37cfdec2f5d2b1502c558a453df",
+    "app/(ka)/not-found.tsx": "b3634e04ef4fc8fff4139287fc61ee74bef0ee637af645ac42e644b95718614e",
+    "app/(ka)/page.tsx": "2d4e09dbff210d09367f2d1cd1a15688ca4ac4f0222282560d4930371abbda6e",
+    "app/(ka)/upload/page.tsx": "dc76fd92082a3564a456520644979822084f8ce8f2a002cc70702d5fed6aecd6",
+    "app/api/phone/[id]/route.ts": "e95448ea449fb329a9b8c9e34f66b8787126db2bd61e2e5d7c9306efd02cec35",
+    "components/CardCallButton.tsx": "32333f593939550c5d01d142271fdf2f77493d7929273d00f5acc96ea4e57f5f",
+    "components/EnglishListingImage.tsx": "106cdc2d983241602ea3a5fd9e950a30abef3ba9bf82ddadbef892421464a0ab",
+    "components/ListingCard.tsx": "6cf36eddd03fb0f588c3ea0e70cfe154dacc15c15a7840c494139d320de62f43",
+    "components/PhoneBlock.tsx": "ccb3334c2cb8238b503ad183efc3b556ee0749da3ca77ae71fd84d17d9518847",
+    "components/StickyContactBar.tsx": "da73747b11bd08f6f365d69f50e231b96be171055618a8787475a67e0671f51c",
+    "scripts/english-rent-12411-bathrooms.test.mjs": "3350273f725c55dc36b62fe60a75e84dcad90ae8a18eaee39a3a9cb7f39e9b93",
+    "scripts/english-rent-georgian-blocks.test.mjs": "bae3fd8f509e3ec9534a77a8ce8741ff4eecd390716c6799897d840ce6439bc6"
+  }
+}

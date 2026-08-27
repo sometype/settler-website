@@ -1,0 +1,95 @@
+{
+  "task_id": "TASK-EN-RENT-MEPATRONE-AGENT-V1",
+  "title": "English Mepatrone agent lead-generation contact path",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "frozen_at": "2026-08-27T11:41:12+04:00",
+  "authority": {
+    "human_decision": "On English pages only, Mepatrone provides an English-speaking agent service at +995555121150. The agent can contact the owner, confirm availability, arrange a viewing, and assist with the rental process.",
+    "authorized_now": "local implementation and local verification after this verifier freeze",
+    "unauthorized": [
+      "push",
+      "preview or production deployment",
+      "production or DNS mutation",
+      "Google Ads campaign or spend",
+      "billing or payment changes"
+    ]
+  },
+  "control": {
+    "authority_class": "transaction-bound acceptance",
+    "execution_qualifiers": ["environment-specific", "isolated-local-worktree"],
+    "baseline_subject": "817ed541a6dd6b26ffdc5b2fbf661cbd1da0edda",
+    "candidate_subject": "builder must return one exact local commit descended from the baseline",
+    "expires_on": "candidate transaction completion, subject drift, gate drift, fixture drift, or execution-boundary change",
+    "approved_wrong_state": "817ed541 routes per-listing owner phone data into EnglishContact and renders owner-direct contact/copy.",
+    "gate": {
+      "path": "scripts/english-rent-agent-acceptance.mjs",
+      "sha256": "b0f8f07a13017399269e308267c91c66aabe98f863ce1ecddf47af93512daded",
+      "expected_honest_result": "RESULT:PASS:12/12 with exit 0",
+      "expected_wrong_result": "RESULT:FAIL with nonzero exit"
+    },
+    "fixture_manifest": {
+      "path": "tasks/TASK-EN-RENT-MEPATRONE-AGENT-V1.freeze.json",
+      "sha256": "e59577dfeabf1f10d476e98e30d73a984fab7a75e65995ae44f2de10e23e2f2c"
+    },
+    "baseline_red_evidence": {
+      "path": "tasks/TASK-EN-RENT-MEPATRONE-AGENT-V1.baseline-red.txt",
+      "sha256": "476b7d0d771f3e47811346a18e3a1e86d7239ada552bf20b56b97b8d7d13e90d",
+      "result": "RESULT:FAIL:3/12",
+      "exit_code": 1
+    },
+    "exact_command": "node --import ./scripts/ts-resolve.mjs scripts/english-rent-agent-acceptance.mjs --subject-root <absolute-subject-root>",
+    "interpreter": "Node.js v25.2.1 with the subject's scripts/ts-resolve.mjs",
+    "time_limit_seconds": 60,
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "acceptance_owner": "independent adversarial verifier; builder may not edit the gate, contract, or fixture manifest"
+  },
+  "required_behavior": [
+    "English contact authority is exact E.164 +995555121150; display formatting may be +995 555 12 11 50.",
+    "All English call links are tel:+995555121150 and all English WhatsApp links use https://wa.me/995555121150.",
+    "The WhatsApp prefilled message identifies the listing ID and https://mepatrone.com/en/listing/{id}.",
+    "English CTA/copy uses the public Mepatrone brand and truthfully promises an English-speaking Mepatrone agent can contact the owner, confirm availability, arrange a viewing, and assist with the rental process.",
+    "The public English UI contains no Settler brand.",
+    "Owner phone data is not displayed, linked, passed into English contact components, embedded in English source/DOM, or used as fallback.",
+    "Missing, malformed, formatted, or non-approved agent authority returns no links and never falls back to owner contact.",
+    "wa_tap and call_tap retain listing_id and action/surface attribution.",
+    "The Georgian routes and owner-direct contact behavior remain byte-identical to baseline.",
+    "The existing zero-Mkhedruli, listing 12411, and image-failure protections remain effective."
+  ],
+  "allowed_implementation_paths": [
+    "app/(en)/layout.tsx",
+    "app/(en)/en/rent/page.tsx",
+    "app/(en)/en/listing/[id]/page.tsx",
+    "components/EnglishContact.tsx",
+    "components/EnglishListingCard.tsx",
+    "lib/english-agent-contact-core.ts",
+    "lib/english-agent-contact.ts",
+    "scripts/english-rent-acceptance.test.mjs",
+    "new additive tests whose filenames clearly name this task"
+  ],
+  "builder_obligations": [
+    "Do not modify this contract, its gate, or its freeze manifest.",
+    "Observe and record the exact baseline RED before implementation.",
+    "Implement the smallest complete repair only in allowed paths.",
+    "Run the frozen gate to 12/12 PASS, then run the complete unit suite, eslint, tsc --noEmit, and next build.",
+    "Return the exact final local commit and command/exit evidence for independent verification.",
+    "Do not push, deploy, mutate production, create Ads, or spend."
+  ],
+  "independent_verification_after_build": [
+    "Recheck gate and manifest hashes before executing.",
+    "Run the frozen gate against exact baseline and exact candidate.",
+    "Inspect candidate diff for owner-phone reachability and alternate English contact paths.",
+    "Verify desktop and 390px rendered English catalog/detail in a separately authorized real-data preview before publication.",
+    "Verify actual DOM/hrefs contain only the approved number, the WhatsApp message carries the correct listing, failures expose no contact links, and Georgian pages remain owner-direct."
+  ],
+  "product_attestation": {
+    "brand": "Mepatrone",
+    "phone_e164": "+995555121150",
+    "phone_display": "+995 555 12 11 50",
+    "primary_cta": "Message a Mepatrone agent on WhatsApp",
+    "secondary_cta": "Call a Mepatrone agent",
+    "service_copy": "An English-speaking Mepatrone agent can contact the owner, confirm availability, arrange a viewing, and assist with the rental process.",
+    "human_attested_capability": true
+  }
+}

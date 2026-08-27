@@ -1,0 +1,27 @@
+TASK-LISTING: TASK-EN-RENT-MEPATRONE-AGENT-V1
+MEASURED_AT: 2026-08-27T11:41:12+04:00
+EXECUTOR_ROLE: independent adversarial verifier
+SUBJECT_ROOT: /private/tmp/settler-en-rent-facts-first-v1
+SUBJECT_COMMIT: 817ed541a6dd6b26ffdc5b2fbf661cbd1da0edda
+SUBJECT_STATUS: clean
+GATE_SHA256: b0f8f07a13017399269e308267c91c66aabe98f863ce1ecddf47af93512daded
+FREEZE_SHA256: e59577dfeabf1f10d476e98e30d73a984fab7a75e65995ae44f2de10e23e2f2c
+COMMAND: node --import ./scripts/ts-resolve.mjs scripts/english-rent-agent-acceptance.mjs --subject-root /private/tmp/settler-en-rent-facts-first-v1
+EXIT_CODE: 1
+
+G1:FAIL:exact Mepatrone agent authority and fail-closed resolver:lib/english-agent-contact-core.ts missing
+G2:FAIL:server-side environment authority has no public or owner fallback:ENOENT: no such file or directory, open '/private/tmp/settler-en-rent-facts-first-v1/lib/english-agent-contact.ts'
+G3:FAIL:English contact UI makes the exact truthful Mepatrone service promise:Mepatrone WhatsApp CTA missing
+G4:FAIL:missing or invalid agent authority fails closed without contact links:contact prop is not explicitly nullable
+G5:FAIL:English cards never receive or expose owner contact data:card does not resolve agent contact by listing id
+G6:FAIL:English details never receive or expose owner contact data:detail does not resolve agent contact by listing id
+G7:FAIL:English public copy is Mepatrone-agent only and remains zero-Mkhedruli:superseded owner-direct/internal-brand copy remains: /Contact the property owner directly/iu
+G8:PASS:WhatsApp and call events retain listing/action attribution
+G9:PASS:existing Georgian-script and 12411 guards still pass
+G10:PASS:Georgian owner-direct product is byte-identical to the frozen baseline
+G11:FAIL:stale owner-direct English assertion is superseded without dropping safety tests:stale owner-direct assertion remains active
+G12:FAIL:English source contains no alternate contact path or number:owner contact path remains reachable from English source
+RESULT:FAIL:3/12
+
+APPROVED_WRONG_STATE_OBSERVED_RED: yes
+SIDE_EFFECTS: none; read-only execution against the exact clean baseline
