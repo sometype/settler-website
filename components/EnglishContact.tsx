@@ -2,6 +2,7 @@
 
 import { trackEvent } from "@/lib/events";
 import type { EnglishAgentContact } from "@/lib/english-agent-contact-core";
+import { sendGoogleAdsConversion } from "@/lib/google-ads-conversion-client";
 
 export function EnglishContact({
   contact,
@@ -37,24 +38,26 @@ export function EnglishContact({
         href={contact.whatsappHref}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() =>
+        onClick={() => {
           trackEvent("wa_tap", {
             listingId,
             meta: { surface: compact ? "card" : "phone_block", ...attribution },
-          })
-        }
+          });
+          sendGoogleAdsConversion("wa_tap");
+        }}
         className="flex w-full items-center justify-center rounded bg-ink px-4 py-3 text-sm font-bold text-card transition hover:bg-pine"
       >
         Message a Mepatrone agent on WhatsApp
       </a>
       <a
         href={contact.callHref}
-        onClick={() =>
+        onClick={() => {
           trackEvent("call_tap", {
             listingId,
             meta: { surface: compact ? "card" : "phone_block", ...attribution },
-          })
-        }
+          });
+          sendGoogleAdsConversion("call_tap");
+        }}
         className="flex w-full items-center justify-center rounded border border-sand-strong bg-card px-4 py-2.5 text-sm font-semibold text-ink transition hover:border-ink"
       >
         Call a Mepatrone agent
