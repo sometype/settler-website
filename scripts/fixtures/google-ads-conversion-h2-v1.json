@@ -1,0 +1,122 @@
+{
+  "fixtures": [
+    {
+      "id": "honest-click-only",
+      "expect": "PASS",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 0,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-swapped-labels",
+      "expect": "FAIL",
+      "finding": "WHATSAPP_DESTINATION_WRONG",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 0,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-conversion-on-render",
+      "expect": "FAIL",
+      "finding": "RENDER_OR_PAGE_LOAD_CONVERSION:1",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 1,
+        "georgian_calls": 0,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-georgian-wiring",
+      "expect": "FAIL",
+      "finding": "GEORGIAN_CONVERSION_WIRING:1",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 1,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-blocking-navigation",
+      "expect": "FAIL",
+      "finding": "NAVIGATION_BLOCKED",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 0,
+        "blocks_navigation": true,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-gtag-unavailable-throws",
+      "expect": "FAIL",
+      "finding": "GTAG_UNAVAILABLE_THROWS",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 0,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": true,
+        "payload_keys": ["send_to"],
+        "first_party_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-invented-payload-data",
+      "expect": "FAIL",
+      "finding": "CONVERSION_PAYLOAD_KEYS:send_to,value",
+      "model": {
+        "whatsapp_destination": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+        "call_destination": "AW-16798915501/-vmrCLjU6OgcEK23rMo-",
+        "whatsapp_click_calls": 1,
+        "call_click_calls": 1,
+        "render_or_page_load_calls": 0,
+        "georgian_calls": 0,
+        "blocks_navigation": false,
+        "gtag_unavailable_throws": false,
+        "payload_keys": ["send_to", "value"],
+        "first_party_attribution_preserved": true
+      }
+    }
+  ]
+}

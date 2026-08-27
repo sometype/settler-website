@@ -1,0 +1,110 @@
+{
+  "task_id": "TASK-GOOGLE-ADS-CONVERSION-H2-V1",
+  "title": "Distinct English WhatsApp and Call Google Ads click conversions",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "frozen_at": "2026-08-27T15:46:43+04:00",
+  "authority": {
+    "human_request": "Finish the authorized Google Ads installation using the exact Google-issued WhatsApp and Call conversion labels.",
+    "supersession_boundary": "H1 remains immutable and valid for the base-tag transaction. H1's no-conversion rule is superseded only for this separately frozen H2 click-conversion transaction because the exact labels now exist.",
+    "authorized_for_builder_after_freeze": "smallest local click-only integration and local verification against this exact frozen contract",
+    "unauthorized": [
+      "editing this contract, freeze manifest, gate, fixtures, or baseline-red evidence",
+      "changing any H1 artifact or base-tag/Consent Mode behavior",
+      "push, merge, preview, or production deployment",
+      "Vercel or Google Ads resource mutation",
+      "campaign, billing, payment, or spend mutation",
+      "conversion wiring outside EnglishContact or on Georgian routes",
+      "conversion on render, page load, or any event other than the corresponding contact click",
+      "invented value, currency, transaction, listing, phone, href, surface, or other conversion payload"
+    ]
+  },
+  "control": {
+    "authority_class": "transaction-bound acceptance",
+    "execution_qualifiers": [
+      "isolated-local-worktree",
+      "environment-specific"
+    ],
+    "baseline_subject": "9ed4f5e889968acaa41cb8846d66342d982a2dc4",
+    "candidate_subject": "builder must return one exact local commit descended from this verifier freeze commit",
+    "expires_on": "candidate transaction completion, subject drift, gate drift, fixture drift, protected-H1 drift, or execution-boundary change",
+    "gate": {
+      "path": "scripts/google-ads-conversion-h2-acceptance.mjs",
+      "sha256": "7be09360f78e5a05b88820fe25e4a641c71feff967a7888bf0362d941b125037",
+      "expected_candidate_result": "RESULT:PASS:9/9 with exit 0",
+      "expected_baseline_result": "RESULT:FAIL:4/9 with exit 1"
+    },
+    "fixture": {
+      "path": "scripts/fixtures/google-ads-conversion-h2-v1.json",
+      "sha256": "edaba1a972d7a08acad5826298f0e351d06c579a57f34a607b61d8191508a29e",
+      "observed": [
+        "honest-click-only GREEN",
+        "wrong-swapped-labels RED",
+        "wrong-conversion-on-render RED",
+        "wrong-Georgian-wiring RED",
+        "wrong-blocking-navigation RED",
+        "wrong-gtag-unavailable-throws RED",
+        "wrong-invented-payload-data RED"
+      ]
+    },
+    "freeze_manifest": {
+      "path": "tasks/TASK-GOOGLE-ADS-CONVERSION-H2-V1.freeze.json",
+      "sha256": "417af38c01c21eec499d2ca5a40c493e21598df0d5ff0395d557024ea463c006"
+    },
+    "baseline_red_evidence": {
+      "path": "tasks/TASK-GOOGLE-ADS-CONVERSION-H2-V1.baseline-red.txt",
+      "sha256": "a394b95b61ef6aaf76ee3e2c3676afd2e78e6e2cef531a94b689fd4767849d46",
+      "result": "RESULT:FAIL:4/9",
+      "exit_code": 1
+    },
+    "exact_command": "node --import <subject-root>/scripts/ts-resolve.mjs <verifier-root>/scripts/google-ads-conversion-h2-acceptance.mjs --subject-root <absolute-subject-root>",
+    "interpreter": "Node.js v25.2.1 with the subject repository's scripts/ts-resolve.mjs",
+    "time_limit_seconds": 180,
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "acceptance_owner": "independent adversarial verifier"
+  },
+  "exact_destinations": {
+    "wa_tap": "AW-16798915501/gaeICL3T6OgcEK23rMo-",
+    "call_tap": "AW-16798915501/-vmrCLjU6OgcEK23rMo-"
+  },
+  "required_behavior": [
+    "EnglishContact's WhatsApp click emits exactly one Google conversion to the exact wa_tap destination; its Call click emits exactly one conversion to the distinct exact call_tap destination.",
+    "Each existing first-party trackEvent remains first in its click handler with its listingId, surface, and attribution unchanged; each href, target, rel, approved phone, and listing-specific WhatsApp URL remains unchanged.",
+    "No Google conversion is emitted during render, page load, or from any Georgian route or component outside EnglishContact.",
+    "Dispatch is synchronous and never prevents, delays indefinitely, or takes control of anchor navigation.",
+    "Missing or throwing gtag fails safe by returning false and never throws through the click handler.",
+    "The Google payload contains only send_to; no value, currency, transaction identifier, listing, phone, href, surface, or other invented data is sent.",
+    "All H1 base-tag and denied-by-default Consent Mode artifacts remain byte-identical.",
+    "The prior English-agent acceptance and complete unit suites remain green."
+  ],
+  "required_interfaces": {
+    "destination_core": "lib/google-ads-conversion-core.ts exports googleAdsConversionDestination for wa_tap and call_tap, returning null for every unknown action",
+    "client_sender": "lib/google-ads-conversion-client.ts exports synchronous sendGoogleAdsConversion(action, optionalGtagOverride), calls gtag('event','conversion',{send_to}) exactly, and returns false rather than throwing when unavailable",
+    "click_wiring": "components/EnglishContact.tsx calls sendGoogleAdsConversion once inside each corresponding existing click handler after trackEvent"
+  },
+  "allowed_implementation_paths": [
+    "components/EnglishContact.tsx",
+    "lib/google-ads-conversion-client.ts",
+    "lib/google-ads-conversion-core.ts",
+    "additive tests matching scripts/google-ads-conversion-h2-*.test.mjs"
+  ],
+  "builder_obligations": [
+    "Do not inspect, modify, replace, or weaken verifier-owned artifacts.",
+    "Observe exact baseline RESULT:FAIL:4/9 before implementation.",
+    "Implement only the smallest complete click-conversion candidate in allowed paths.",
+    "Keep H1 base-tag, English-only mount, Consent Mode, and all frozen H1 artifacts byte-identical.",
+    "Run the frozen H2 gate to RESULT:PASS:9/9, complete unit suite, eslint, tsc --noEmit, and production build.",
+    "Add implementation-owned tests for exact distinct labels, no render dispatch, missing-gtag safety, and preservation of first-party tracking/navigation.",
+    "Return the exact final local commit, changed-file hashes, commands, exit codes, and any reproducibility limitation.",
+    "Do not push, deploy, mutate Vercel or Google Ads, create campaigns, or spend."
+  ],
+  "independent_verification_after_build": [
+    "Recheck gate, fixture, freeze, baseline evidence, and protected-H1 hashes.",
+    "Run the exact H2 gate against exact baseline and exact candidate in separate clean worktrees.",
+    "Observe all six wrong fixtures red and the honest click-only fixture green.",
+    "Adversarially inspect the candidate for page-load conversion, Georgian reach, swapped labels, duplicate calls, invented payloads, or navigation blocking.",
+    "Run complete unit, eslint, type checking, and production build independently.",
+    "Before separately authorized deployment, click-test English WhatsApp and Call on desktop and 390px while blocking first-party write APIs, and confirm Georgian pages contain no conversion wiring."
+  ]
+}

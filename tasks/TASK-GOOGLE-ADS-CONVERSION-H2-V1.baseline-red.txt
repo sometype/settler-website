@@ -1,0 +1,20 @@
+SUBJECT: 9ed4f5e889968acaa41cb8846d66342d982a2dc4
+COMMAND: node --import ./scripts/ts-resolve.mjs ./scripts/google-ads-conversion-h2-acceptance.mjs --subject-root /private/tmp/settler-google-ads-h2-verifier-v1
+EXIT_CODE: 1
+FIXTURE:honest-click-only:OBSERVED_GREEN
+FIXTURE:wrong-swapped-labels:OBSERVED_RED:WHATSAPP_DESTINATION_WRONG
+FIXTURE:wrong-conversion-on-render:OBSERVED_RED:RENDER_OR_PAGE_LOAD_CONVERSION:1
+FIXTURE:wrong-georgian-wiring:OBSERVED_RED:GEORGIAN_CONVERSION_WIRING:1
+FIXTURE:wrong-blocking-navigation:OBSERVED_RED:NAVIGATION_BLOCKED
+FIXTURE:wrong-gtag-unavailable-throws:OBSERVED_RED:GTAG_UNAVAILABLE_THROWS
+FIXTURE:wrong-invented-payload-data:OBSERVED_RED:CONVERSION_PAYLOAD_KEYS:send_to,value
+H0:PASS:H2 verifier artifacts are intact and approved wrong states are observed red
+H1:FAIL:exact distinct WhatsApp and Call conversion destinations:MISSING:lib/google-ads-conversion-core.ts
+H2:FAIL:client dispatch is synchronous, exact, minimal, and fail-safe without gtag:MISSING:lib/google-ads-conversion-client.ts
+H3:FAIL:English click handlers preserve first-party attribution and add one distinct conversion each:WA_CONVERSION_CLICK_COUNT (0 !== 1)
+H4:FAIL:conversion wiring exists only inside the two English click handlers:WA_CALL_SITE_COUNT (0 !== 1)
+H5:FAIL:labels are exact, occur once each, and dispatch carries no invented data:WA_LABEL_OCCURRENCE_COUNT (0 !== 1)
+H6:PASS:H1 artifacts remain unchanged and prior English-agent gate remains green
+H7:PASS:complete unit suite remains green
+H8:PASS:H2 diff is limited to verifier artifacts and click-conversion integration
+RESULT:FAIL:4/9
