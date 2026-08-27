@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { EnglishContact } from "@/components/EnglishContact";
 import { EnglishListingImage } from "@/components/EnglishListingImage";
 import { ListingOpenBeacon } from "@/components/ListingOpenBeacon";
+import { getEnglishAgentContact } from "@/lib/english-agent-contact";
 import {
   englishAmenities,
   englishListingPresentation,
@@ -57,6 +58,7 @@ export default async function EnglishListingPage({
   });
   if (!facts) notFound();
   const amenities = englishAmenities(listing.amenities);
+  const agentContact = getEnglishAgentContact(listing.id);
 
   return (
     <article className="mx-auto max-w-6xl space-y-5 px-4 py-6">
@@ -115,7 +117,7 @@ export default async function EnglishListingPage({
 
           <div className="lg:hidden">
             <EnglishContact
-              phone={listing.has_phone ? listing.phone : null}
+              contact={agentContact}
               listingId={listing.id}
             />
           </div>
@@ -157,7 +159,7 @@ export default async function EnglishListingPage({
 
         <aside className="sticky top-20 hidden lg:block">
           <EnglishContact
-            phone={listing.has_phone ? listing.phone : null}
+            contact={agentContact}
             listingId={listing.id}
           />
         </aside>

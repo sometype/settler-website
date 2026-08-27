@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { EnglishContact } from "./EnglishContact";
 import { EnglishListingImage } from "./EnglishListingImage";
+import { getEnglishAgentContact } from "@/lib/english-agent-contact";
 import { englishListingPresentation } from "@/lib/english-rent";
 import { resolveImageUrl } from "@/lib/images";
 import type { Listing, ListingImage } from "@/lib/types";
@@ -16,6 +17,7 @@ export function EnglishListingCard({
   if (!facts) return null;
   const href = `/en/listing/${listing.id}`;
   const image = images[0] ?? null;
+  const agentContact = getEnglishAgentContact(listing.id);
 
   return (
     <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card">
@@ -38,9 +40,9 @@ export function EnglishListingCard({
           </p>
         </div>
       </Link>
-      {listing.has_phone && listing.phone && (
+      {agentContact && (
         <div className="mt-auto border-t border-sand p-3">
-          <EnglishContact phone={listing.phone} listingId={listing.id} compact />
+          <EnglishContact contact={agentContact} listingId={listing.id} compact />
         </div>
       )}
     </article>

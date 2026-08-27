@@ -21,10 +21,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://mepatrone.com"),
   title: "Apartments for rent in Tbilisi | Mepatrone",
   description:
-    "Current Tbilisi rental listings with direct owner contact. Browse apartments by district, price, rooms and size.",
+    "Browse current Tbilisi rentals and contact an English-speaking Mepatrone agent for availability and viewing assistance.",
   openGraph: {
     title: "Apartments for rent in Tbilisi | Mepatrone",
-    description: "Current rental listings with direct contact to property owners.",
+    description: "Current Tbilisi rentals with help from an English-speaking Mepatrone agent.",
     locale: "en_US",
     type: "website",
   },
@@ -41,7 +41,7 @@ export default function EnglishRootLayout({ children }: { children: React.ReactN
                 Me<span className="text-clay">patrone</span>
               </span>
               <span className="hidden text-[13px] font-medium text-mink sm:inline">
-                Tbilisi rentals from property owners
+                Tbilisi rentals with a Mepatrone agent
               </span>
             </Link>
             <span className="ml-auto text-xs font-medium text-mink">English rental catalog</span>
@@ -55,7 +55,7 @@ export default function EnglishRootLayout({ children }: { children: React.ReactN
               Me<span className="text-clay">patrone</span>
             </p>
             <p className="mt-1.5 max-w-xl">
-              Current rental listings in Tbilisi. Contact the property owner directly; Mepatrone is not an agency or concierge service.
+              Browse current Tbilisi rentals and ask a Mepatrone agent to contact the owner, confirm availability, and help arrange a viewing.
             </p>
           </div>
         </footer>

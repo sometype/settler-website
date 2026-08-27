@@ -78,15 +78,17 @@ test("listing data cannot leak Georgian into an English presentation", async () 
   assert.equal(englishListingPresentation({ ...fixture, deal_type: "sale" }), null);
 });
 
-test("contact remains owner-direct and WhatsApp-first", () => {
+test("contact is Mepatrone-agent and WhatsApp-first", () => {
   const source = read("components/EnglishContact.tsx");
-  assert.match(source, /Message owner on WhatsApp/);
-  assert.match(source, /Call owner/);
+  assert.match(source, /Message a Mepatrone agent on WhatsApp/);
+  assert.match(source, /Call a Mepatrone agent/);
   assert.ok(
-    source.indexOf("Message owner on WhatsApp") < source.indexOf("Call owner"),
+    source.indexOf("Message a Mepatrone agent on WhatsApp") <
+      source.indexOf("Call a Mepatrone agent"),
     "WhatsApp must be the primary control"
   );
-  assert.doesNotMatch(source, /concierge|desk|we contact|we call the owner/iu);
+  assert.match(source, /English-speaking Mepatrone agent/);
+  assert.doesNotMatch(source, /Contact the property owner directly|\bSettler\b/iu);
   assert.doesNotMatch(source, mkhedruli);
 });
 

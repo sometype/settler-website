@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Apartments for rent in Tbilisi",
   description:
-    "Browse current long-term apartment rentals in Tbilisi and contact property owners directly by WhatsApp or phone.",
+    "Browse current long-term rentals in Tbilisi with help from an English-speaking Mepatrone agent.",
   alternates: { canonical: "/en/rent" },
 };
 
@@ -85,7 +85,7 @@ export default async function EnglishRentPage({
           Apartments for rent in Tbilisi
         </h1>
         <p className="mt-3 text-base leading-7 text-mink">
-          Current listings with direct owner contact. Start with WhatsApp if you do not share a language; owner response languages vary.
+          Browse current listings and speak with an English-speaking Mepatrone agent who can contact the owner, confirm availability, and help arrange a viewing.
         </p>
       </section>
 
