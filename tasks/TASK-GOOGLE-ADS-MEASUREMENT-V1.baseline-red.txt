@@ -1,0 +1,26 @@
+TASK: TASK-GOOGLE-ADS-MEASUREMENT-V1
+MEASURED_AT: 2026-08-27T15:07:51+04:00
+SUBJECT: 97035d0a007d29dd58000e56ddcd1c42bb8796c0
+WORKTREE: /private/tmp/settler-google-ads-tag-verifier-v1
+NODE: v25.2.1
+COMMAND: node --import ./scripts/ts-resolve.mjs ./scripts/google-ads-measurement-acceptance.mjs --subject-root /private/tmp/settler-google-ads-tag-verifier-v1
+EXIT_CODE: 1
+
+FIXTURE:honest-base-tag-only:OBSERVED_GREEN
+FIXTURE:wrong-unconditional-consent-granted:OBSERVED_RED:CONSENT_DEFAULT_NOT_DENIED:ad_storage=granted
+FIXTURE:wrong-consent-update-without-choice:OBSERVED_RED:CONSENT_UPDATE_WITHOUT_CHOICE:1
+FIXTURE:wrong-tag-on-georgian-route:OBSERVED_RED:TAG_ROUTE_SCOPE:en,ka
+FIXTURE:wrong-duplicate-tag:OBSERVED_RED:TAG_OCCURRENCES:2
+FIXTURE:wrong-conversion-without-labels:OBSERVED_RED:BASE_TAG_FALSE_CONVERSION_CLAIM:1
+G0:PASS:frozen artifacts are intact and approved wrong states are observed red
+G1:FAIL:exact tag ID and four denied Consent Mode defaults come from one tested core:MISSING:lib/google-ads-measurement-core.ts
+G2:PASS:no consent update or conversion claim exists before a separate consent/label task
+G3:FAIL:denied consent executes before one Next-compatible English tag config:ENOENT: no such file or directory, open '/private/tmp/settler-google-ads-tag-verifier-v1/components/EnglishGoogleAdsMeasurement.tsx'
+G4:FAIL:tag is mounted exactly once on English routes and never on Georgian routes:TAG_ROUTE_FILES:[] expected [app/(en)/layout.tsx]
+G5:FAIL:runtime has one tag loader, one exact ID literal, and no duplicate authority:TAG_LOADER_NOT_EXACTLY_ONE:0 expected 1
+G6:PASS:existing contact attribution, URLs, and English/Georgian contracts remain frozen
+G7:PASS:complete unit suite remains green
+G8:PASS:candidate diff is limited to verifier artifacts and base-tag integration
+RESULT:FAIL:5/9
+
+NOTE: Assertion-library diff decorations were normalized above to their exact finding strings; the raw process output was observed in the verifier session. The decisive baseline finding is G1 MISSING:lib/google-ads-measurement-core.ts. No candidate implementation existed during this run.

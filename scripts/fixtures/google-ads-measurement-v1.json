@@ -1,0 +1,123 @@
+{
+  "fixtures": [
+    {
+      "id": "honest-base-tag-only",
+      "expect": "PASS",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 1,
+        "tag_routes": ["en"],
+        "consent_default": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 0,
+        "conversion_dispatch_claims": 0,
+        "existing_contact_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-unconditional-consent-granted",
+      "expect": "FAIL",
+      "finding": "CONSENT_DEFAULT_NOT_DENIED:ad_storage=granted",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 1,
+        "tag_routes": ["en"],
+        "consent_default": {
+          "ad_storage": "granted",
+          "analytics_storage": "granted",
+          "ad_user_data": "granted",
+          "ad_personalization": "granted"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 0,
+        "conversion_dispatch_claims": 0,
+        "existing_contact_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-consent-update-without-choice",
+      "expect": "FAIL",
+      "finding": "CONSENT_UPDATE_WITHOUT_CHOICE:1",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 1,
+        "tag_routes": ["en"],
+        "consent_default": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 1,
+        "conversion_dispatch_claims": 0,
+        "existing_contact_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-tag-on-georgian-route",
+      "expect": "FAIL",
+      "finding": "TAG_ROUTE_SCOPE:en,ka",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 1,
+        "tag_routes": ["en", "ka"],
+        "consent_default": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 0,
+        "conversion_dispatch_claims": 0,
+        "existing_contact_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-duplicate-tag",
+      "expect": "FAIL",
+      "finding": "TAG_OCCURRENCES:2",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 2,
+        "tag_routes": ["en"],
+        "consent_default": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 0,
+        "conversion_dispatch_claims": 0,
+        "existing_contact_attribution_preserved": true
+      }
+    },
+    {
+      "id": "wrong-conversion-without-labels",
+      "expect": "FAIL",
+      "finding": "BASE_TAG_FALSE_CONVERSION_CLAIM:1",
+      "model": {
+        "tag_id": "AW-16798915501",
+        "tag_occurrences": 1,
+        "tag_routes": ["en"],
+        "consent_default": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "consent_before_config": true,
+        "consent_update_calls": 0,
+        "conversion_dispatch_claims": 1,
+        "existing_contact_attribution_preserved": true
+      }
+    }
+  ]
+}

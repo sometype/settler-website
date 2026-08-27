@@ -1,0 +1,45 @@
+{
+  "task_id": "TASK-GOOGLE-ADS-MEASUREMENT-V1",
+  "frozen_at": "2026-08-27T15:07:51+04:00",
+  "authority_class": "transaction-bound acceptance",
+  "execution_qualifiers": [
+    "isolated-local-worktree",
+    "environment-specific"
+  ],
+  "subject_baseline": "97035d0a007d29dd58000e56ddcd1c42bb8796c0",
+  "execution_boundary": "isolated local website worktree; Node.js with repository TypeScript resolver; no network, production, push, deployment, Vercel mutation, Google Ads resource mutation, or spend",
+  "approved_wrong_states": [
+    "Exact production baseline 97035d0 has no Google tag and cannot establish the requested measurement base.",
+    "Consent Mode defaults any of ad_storage, analytics_storage, ad_user_data, or ad_personalization to granted before user choice.",
+    "A consent update occurs despite there being no consent-choice product in this transaction.",
+    "The Google tag is mounted on a Georgian route.",
+    "The same Google tag is loaded more than once.",
+    "A conversion event or destination is claimed before Google has issued the two conversion labels."
+  ],
+  "acceptance_owner": "independent adversarial verifier; builder may not edit this freeze, the gate, the fixtures, or the baseline-red evidence",
+  "verifier_artifacts": {
+    "scripts/google-ads-measurement-acceptance.mjs": "103e9ff2a099d814729220e4310e69350915ce6d90fad3129ecf5bc494a5815f",
+    "scripts/fixtures/google-ads-measurement-v1.json": "f9b23530ebb3076f3f5c1ce4248b5f27e9e778b2cfadbd3769ba6d27837581da"
+  },
+  "protected_existing_contracts": {
+    "components/EnglishContact.tsx": "22cb344a8d479134afab7ff4ad9dbb4fcf2426225fbc6d7372b2a06d09059877",
+    "scripts/english-rent-agent-acceptance.mjs": "889ab2c38865ea41fd8b5738081f3cd710070726b68d08bc041aaf3aa67112f3",
+    "tasks/TASK-EN-RENT-MEPATRONE-AGENT-V1.json": "1d2cc52cc2fa2485bf8a2d58aa09011644cfa74e6c14604392d205892e6ce8b3",
+    "tasks/TASK-EN-RENT-MEPATRONE-AGENT-V1.freeze.json": "e59577dfeabf1f10d476e98e30d73a984fab7a75e65995ae44f2de10e23e2f2c",
+    "scripts/english-rent-acceptance.test.mjs": "04f33cdef53eb6df653c70e7c0a87c145e392da8a7bc30e51bd4f14e37626c16",
+    "scripts/english-rent-12411-bathrooms.test.mjs": "3350273f725c55dc36b62fe60a75e84dcad90ae8a18eaee39a3a9cb7f39e9b93",
+    "scripts/english-rent-georgian-blocks.test.mjs": "bae3fd8f509e3ec9534a77a8ce8741ff4eecd390716c6799897d840ce6439bc6",
+    "scripts/english-rent-agent-contact.test.mjs": "7a6e16fab2b703dae7fab5f71edc5eaa48e25ed2fa927189d9a3120a631173d0",
+    "components/EnglishListingImage.tsx": "106cdc2d983241602ea3a5fd9e950a30abef3ba9bf82ddadbef892421464a0ab"
+  },
+  "exact_command": "node --import <subject-root>/scripts/ts-resolve.mjs <verifier-root>/scripts/google-ads-measurement-acceptance.mjs --subject-root <absolute-subject-root>",
+  "expected_baseline_result": "RESULT:FAIL with nonzero exit and MISSING:lib/google-ads-measurement-core.ts among exact findings",
+  "expected_candidate_result": "RESULT:PASS:9/9 with exit 0",
+  "interpreter": "Node.js v25.2.1 with the subject repository's scripts/ts-resolve.mjs",
+  "time_limit_seconds": 180,
+  "network_access": "none",
+  "production_writes": false,
+  "spend_limit_usd": 0,
+  "expires_on": "candidate transaction completion, subject drift, gate drift, fixture drift, protected-contract drift, or execution-boundary change",
+  "recovery": "restore the exact frozen verifier commit and rerun the exact command in an isolated worktree"
+}

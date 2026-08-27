@@ -1,0 +1,116 @@
+{
+  "task_id": "TASK-GOOGLE-ADS-MEASUREMENT-V1",
+  "title": "English-only Google Ads base tag with denied-by-default Consent Mode",
+  "status": "FROZEN_BEFORE_IMPLEMENTATION",
+  "frozen_at": "2026-08-27T15:07:51+04:00",
+  "authority": {
+    "human_request": "Install Google Ads tag AW-16798915501 for the Mepatrone English rent lead funnel.",
+    "authorized_for_builder_after_freeze": "smallest local base-tag implementation and local verification against this exact frozen contract",
+    "unauthorized": [
+      "editing this contract, freeze manifest, gate, fixtures, or baseline-red evidence",
+      "push or merge",
+      "preview or production deployment",
+      "Vercel environment mutation",
+      "Google Ads campaign, conversion-action, billing, payment, or spend mutation",
+      "tracking on Georgian routes",
+      "consent update or grant before an explicit consent-choice product is separately authorized",
+      "conversion event, conversion destination, or claim before Google Ads issues both conversion labels"
+    ]
+  },
+  "control": {
+    "authority_class": "transaction-bound acceptance",
+    "execution_qualifiers": [
+      "isolated-local-worktree",
+      "environment-specific"
+    ],
+    "baseline_subject": "97035d0a007d29dd58000e56ddcd1c42bb8796c0",
+    "candidate_subject": "builder must return one exact local commit descended from the verifier freeze commit and the baseline",
+    "expires_on": "candidate transaction completion, subject drift, gate drift, fixture drift, protected-contract drift, or execution-boundary change",
+    "approved_wrong_states": [
+      "production baseline has no Google tag",
+      "Consent Mode is granted unconditionally before user choice",
+      "consent update occurs without a consent-choice product",
+      "Google tag is mounted on Georgian routes",
+      "Google tag is loaded twice",
+      "conversion is claimed before labels exist"
+    ],
+    "gate": {
+      "path": "scripts/google-ads-measurement-acceptance.mjs",
+      "sha256": "103e9ff2a099d814729220e4310e69350915ce6d90fad3129ecf5bc494a5815f",
+      "expected_candidate_result": "RESULT:PASS:9/9 with exit 0",
+      "expected_baseline_result": "RESULT:FAIL:5/9 with exit 1"
+    },
+    "fixture": {
+      "path": "scripts/fixtures/google-ads-measurement-v1.json",
+      "sha256": "f9b23530ebb3076f3f5c1ce4248b5f27e9e778b2cfadbd3769ba6d27837581da",
+      "observed": [
+        "honest-base-tag-only GREEN",
+        "wrong-unconditional-consent-granted RED",
+        "wrong-consent-update-without-choice RED",
+        "wrong-tag-on-georgian-route RED",
+        "wrong-duplicate-tag RED",
+        "wrong-conversion-without-labels RED"
+      ]
+    },
+    "freeze_manifest": {
+      "path": "tasks/TASK-GOOGLE-ADS-MEASUREMENT-V1.freeze.json",
+      "sha256": "b49282c131a29184344f00cf7fe6ea0f8c581e32926ee612f2d26feb4cef0373"
+    },
+    "baseline_red_evidence": {
+      "path": "tasks/TASK-GOOGLE-ADS-MEASUREMENT-V1.baseline-red.txt",
+      "sha256": "9dd28d54b845d68b29d63d321730e2dc0e01f2a0c5fb326c2a0f0fb975f490b6",
+      "result": "RESULT:FAIL:5/9",
+      "exit_code": 1
+    },
+    "exact_command": "node --import <subject-root>/scripts/ts-resolve.mjs <verifier-root>/scripts/google-ads-measurement-acceptance.mjs --subject-root <absolute-subject-root>",
+    "interpreter": "Node.js v25.2.1 with the subject repository's scripts/ts-resolve.mjs",
+    "time_limit_seconds": 180,
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "acceptance_owner": "independent adversarial verifier"
+  },
+  "required_behavior": [
+    "The only Google Ads account ID is exact AW-16798915501.",
+    "The Google tag loads exactly once and is mounted only by the English app route-group layout; Georgian routes receive no Google tag or Ads identifier.",
+    "Before the tag loader or gtag config executes, Consent Mode defaults ad_storage, analytics_storage, ad_user_data, and ad_personalization to denied.",
+    "No consent category is unconditionally granted and no consent update exists in this transaction. A consent choice/update flow is a separate product task.",
+    "No Google conversion event, send_to destination, conversion label, or conversion-tracking claim exists in this candidate because Google Ads has not issued the two labels.",
+    "Existing first-party wa_tap and call_tap events, listing IDs, surfaces, approved call number, and listing-specific WhatsApp URLs remain byte-identical and are not replaced by Google measurement.",
+    "The tag ID is a public measurement identifier, not a credential; no credential, phone, listing payload, raw event metadata, or debug log is added to the Google base tag.",
+    "The implementation uses Next-compatible script loading, passes the production build, and does not introduce eval, dynamic script-element creation, or dangerous inline-HTML APIs.",
+    "Existing frozen English-agent, zero-Georgian, listing-12411, image-failure, Georgian owner-direct, lint, type, and build contracts remain unchanged and green."
+  ],
+  "required_interfaces": {
+    "core_module": "lib/google-ads-measurement-core.ts exports only the exact GOOGLE_ADS_ID and four-key GOOGLE_CONSENT_DEFAULT authority needed by the base tag",
+    "tag_component": "components/EnglishGoogleAdsMeasurement.tsx uses next/script and emits denied consent before the one loader/config",
+    "route_mount": "app/(en)/layout.tsx mounts EnglishGoogleAdsMeasurement exactly once",
+    "contact_freeze": "components/EnglishContact.tsx remains SHA-256 22cb344a8d479134afab7ff4ad9dbb4fcf2426225fbc6d7372b2a06d09059877"
+  },
+  "allowed_implementation_paths": [
+    "app/(en)/layout.tsx",
+    "components/EnglishGoogleAdsMeasurement.tsx",
+    "lib/google-ads-measurement-core.ts",
+    "additive tests matching scripts/google-ads-measurement-*.test.mjs"
+  ],
+  "builder_obligations": [
+    "Do not inspect, modify, replace, or weaken verifier-owned artifacts.",
+    "Observe the exact baseline RESULT:FAIL:5/9 before implementation.",
+    "Implement only the smallest complete base-tag candidate in allowed paths.",
+    "Do not invent conversion labels and do not emit or claim any conversion event.",
+    "Keep all four Consent Mode defaults denied and add no update/grant path in this transaction.",
+    "Run the frozen gate to RESULT:PASS:9/9, the complete unit suite, eslint, tsc --noEmit, and a production build with network disabled or controlled.",
+    "Add an implementation-owned behavioral test for exact ID, denied defaults, consent-before-config order, one English mount, zero Georgian reach, and zero conversion dispatch; builder tests supplement but never replace the frozen gate.",
+    "Return the exact final local commit, changed-file hashes, commands, exit codes, and any reproducibility limitation.",
+    "Do not push, deploy, mutate Vercel or Google Ads, create campaigns/conversion actions, or spend."
+  ],
+  "independent_verification_after_build": [
+    "Recheck gate, fixture, freeze, baseline-evidence, and protected-contract hashes before execution.",
+    "Run the exact gate against exact baseline and exact candidate in separate clean worktrees.",
+    "Observe all five wrong fixtures red and the honest base-tag fixture green.",
+    "Inspect only the final candidate diff after the gate verdict for hidden duplicate loaders, unconditional consent grant/update, Georgian reachability, conversion claims, or extra data sent to Google.",
+    "Run unit, eslint, type checking, and production build independently.",
+    "Before any separately authorized deployment, verify rendered desktop and 390px English pages have one tag with denied default consent and Georgian pages have none; block event/intake writes during browser verification.",
+    "After Google issues two real labels, freeze a separate conversion task for distinct wa_tap and call_tap destinations before claiming those conversions are measured."
+  ]
+}
