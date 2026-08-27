@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Google_Sans, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
 import "../globals.css";
+import { EnglishGoogleAdsMeasurement } from "@/components/EnglishGoogleAdsMeasurement";
 import { SessionBeacon } from "@/components/SessionBeacon";
 
 const latin = Google_Sans({
@@ -34,6 +35,7 @@ export default function EnglishRootLayout({ children }: { children: React.ReactN
   return (
     <html lang="en" className={`${latin.variable} ${monoNum.variable} h-full antialiased`}>
       <body className="flex min-h-full min-w-0 flex-col bg-paper font-sans text-ink">
+        <EnglishGoogleAdsMeasurement />
         <header className="sticky top-0 z-20 border-b border-sand bg-card/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
             <Link href="/en/rent" className="flex items-baseline gap-2.5">
