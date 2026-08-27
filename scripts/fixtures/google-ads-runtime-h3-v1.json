@@ -1,0 +1,124 @@
+{
+  "fixtures": [
+    {
+      "id": "honest-native-parse-time",
+      "expect": "PASS",
+      "model": {
+        "carrier": "native_script",
+        "data_layer_defined": true,
+        "gtag_defined": true,
+        "consent_index": 0,
+        "config_index": 2,
+        "consent_defaults": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "loader_count": 1,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 0
+      }
+    },
+    {
+      "id": "wrong-next-queue-only",
+      "expect": "FAIL",
+      "finding": "EXECUTION_CARRIER:next_queue",
+      "model": {
+        "carrier": "next_queue",
+        "data_layer_defined": false,
+        "gtag_defined": false,
+        "consent_index": -1,
+        "config_index": -1,
+        "consent_defaults": {},
+        "loader_count": 1,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 0
+      }
+    },
+    {
+      "id": "wrong-consent-granted",
+      "expect": "FAIL",
+      "finding": "CONSENT_DEFAULT_ad_storage:granted",
+      "model": {
+        "carrier": "native_script",
+        "data_layer_defined": true,
+        "gtag_defined": true,
+        "consent_index": 0,
+        "config_index": 2,
+        "consent_defaults": {
+          "ad_storage": "granted",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "loader_count": 1,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 0
+      }
+    },
+    {
+      "id": "wrong-config-before-consent",
+      "expect": "FAIL",
+      "finding": "CONSENT_CONFIG_ORDER:1:0",
+      "model": {
+        "carrier": "native_script",
+        "data_layer_defined": true,
+        "gtag_defined": true,
+        "consent_index": 1,
+        "config_index": 0,
+        "consent_defaults": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "loader_count": 1,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 0
+      }
+    },
+    {
+      "id": "wrong-duplicate-loader",
+      "expect": "FAIL",
+      "finding": "LOADER_COUNT:2",
+      "model": {
+        "carrier": "native_script",
+        "data_layer_defined": true,
+        "gtag_defined": true,
+        "consent_index": 0,
+        "config_index": 2,
+        "consent_defaults": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "loader_count": 2,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 0
+      }
+    },
+    {
+      "id": "wrong-georgian-reach",
+      "expect": "FAIL",
+      "finding": "GEORGIAN_REACH:1",
+      "model": {
+        "carrier": "native_script",
+        "data_layer_defined": true,
+        "gtag_defined": true,
+        "consent_index": 0,
+        "config_index": 2,
+        "consent_defaults": {
+          "ad_storage": "denied",
+          "analytics_storage": "denied",
+          "ad_user_data": "denied",
+          "ad_personalization": "denied"
+        },
+        "loader_count": 1,
+        "config_id": "AW-16798915501",
+        "georgian_reach": 1
+      }
+    }
+  ]
+}

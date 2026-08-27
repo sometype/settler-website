@@ -1,0 +1,46 @@
+{
+  "task_id": "TASK-GOOGLE-ADS-RUNTIME-H3-V1",
+  "frozen_at": "2026-08-27T16:07:38+04:00",
+  "authority_class": "transaction-bound acceptance",
+  "execution_qualifiers": [
+    "isolated-local-worktree",
+    "environment-specific"
+  ],
+  "subject_baseline": "09d8793589ee1037b86b4be88bc246e8a5c1024c",
+  "execution_boundary": "isolated local website worktree; executable bootstrap is evaluated in a fresh browser-shaped VM context; no network, production, push, deployment, Vercel mutation, Google Ads mutation, or spend",
+  "measured_wrong_state": "The live deployment built from exact 09d8793 emits Next self.__next_s queue entries for consent, loader, and config, but Playwright observes window.dataLayer absent and CONSENT_ORDER:-1:-1 on /en/rent. The Georgian route remains tag-free.",
+  "approved_wrong_states": [
+    "Exact 09d8793 relies on nested-layout next/script beforeInteractive queue metadata rather than an executing native parse-time script.",
+    "The bootstrap fails to define dataLayer or gtag when executed.",
+    "Consent defaults are granted or config runs before all four denied defaults.",
+    "The loader or config is duplicated or uses an ID other than AW-16798915501.",
+    "Google Ads runtime authority reaches a Georgian route or component.",
+    "The repair uses dangerous HTML, eval, Function construction, or document.write."
+  ],
+  "acceptance_owner": "independent adversarial verifier; builder may not edit this freeze, gate, fixtures, or baseline-red evidence",
+  "verifier_artifacts": {
+    "scripts/google-ads-runtime-h3-acceptance.mjs": "c6baf8ee7ca0de6d61cb793ed93440f0757fa8d6e26df7403d9dcc395ade382e",
+    "scripts/fixtures/google-ads-runtime-h3-v1.json": "1bde65b6b7ddacf98a8d1456c0026c6e407a848edafaf3ae7bc8eb3f36434e7e"
+  },
+  "protected_h2_artifacts": {
+    "components/EnglishContact.tsx": "7e63358073bbf07ffa30a13bc32dabf6a98581121561e05494942f19cdfbf134",
+    "lib/google-ads-conversion-client.ts": "21b2665ba8d780677a6bd8dc392c84b85685bc03c53d6a669c94552f270cc86c",
+    "lib/google-ads-conversion-core.ts": "fc80ebb2d5da1d10f3256cbe4fa6cd43ad902bca6d4c002687c03d6463bdef0b",
+    "scripts/google-ads-conversion-h2-builder.test.mjs": "45b681e63fde3b3577835f53ce8233c5a547cb96ef7e4c0406d7ae750f36ce2e",
+    "scripts/google-ads-conversion-h2-acceptance.mjs": "7be09360f78e5a05b88820fe25e4a641c71feff967a7888bf0362d941b125037",
+    "scripts/fixtures/google-ads-conversion-h2-v1.json": "edaba1a972d7a08acad5826298f0e351d06c579a57f34a607b61d8191508a29e",
+    "tasks/TASK-GOOGLE-ADS-CONVERSION-H2-V1.freeze.json": "417af38c01c21eec499d2ca5a40c493e21598df0d5ff0395d557024ea463c006",
+    "tasks/TASK-GOOGLE-ADS-CONVERSION-H2-V1.baseline-red.txt": "a394b95b61ef6aaf76ee3e2c3676afd2e78e6e2cef531a94b689fd4767849d46",
+    "tasks/TASK-GOOGLE-ADS-CONVERSION-H2-V1.json": "9a586504b66de30fe78069b7ff3598ec1981ba2d4769d6b4e9275238f6294b74"
+  },
+  "exact_command": "node --import <subject-root>/scripts/ts-resolve.mjs <verifier-root>/scripts/google-ads-runtime-h3-acceptance.mjs --subject-root <absolute-subject-root>",
+  "expected_baseline_result": "RESULT:FAIL with nonzero exit and BOOTSTRAP_EXPORT_MISSING, NEXT_SCRIPT_CARRIER_PRESENT, and MEASUREMENT_NOT_IN_PARSE_TIME_HEAD findings",
+  "expected_candidate_result": "RESULT:PASS:9/9 with exit 0",
+  "interpreter": "Node.js v25.2.1 with the subject repository's scripts/ts-resolve.mjs and node:vm",
+  "time_limit_seconds": 180,
+  "network_access": "none",
+  "production_writes": false,
+  "spend_limit_usd": 0,
+  "expires_on": "candidate transaction completion, subject drift, gate drift, fixture drift, protected-H2 drift, or execution-boundary change",
+  "recovery": "restore the exact frozen verifier commit and rerun the exact command in an isolated worktree"
+}

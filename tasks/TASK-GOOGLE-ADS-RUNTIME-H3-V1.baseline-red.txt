@@ -1,0 +1,20 @@
+SUBJECT: 09d8793589ee1037b86b4be88bc246e8a5c1024c
+MEASURED_LIVE_WRONG_STATE: dpl_EYr HTML queues consent/loader/config via self.__next_s, but Playwright on /en/rent observes window.dataLayer absent and CONSENT_ORDER:-1:-1; Georgian tag absent.
+COMMAND: node --import ./scripts/ts-resolve.mjs ./scripts/google-ads-runtime-h3-acceptance.mjs --subject-root /private/tmp/settler-google-ads-h3-verifier-v1
+EXIT_CODE: 1
+FIXTURE:honest-native-parse-time:OBSERVED_GREEN
+FIXTURE:wrong-next-queue-only:OBSERVED_RED:EXECUTION_CARRIER:next_queue
+FIXTURE:wrong-consent-granted:OBSERVED_RED:CONSENT_DEFAULT_ad_storage:granted
+FIXTURE:wrong-config-before-consent:OBSERVED_RED:CONSENT_CONFIG_ORDER:1:0
+FIXTURE:wrong-duplicate-loader:OBSERVED_RED:LOADER_COUNT:2
+FIXTURE:wrong-georgian-reach:OBSERVED_RED:GEORGIAN_REACH:1
+R0:PASS:H3 verifier artifacts are intact and approved wrong states are observed red
+R1:FAIL:native bootstrap executes and defines ordered denied consent before exact config:BOOTSTRAP_EXPORT_MISSING
+R2:FAIL:measurement carrier is native script markup, not a Next queue:NEXT_SCRIPT_CARRIER_PRESENT
+R3:FAIL:native measurement scripts are mounted exactly once inside the English head before body:MEASUREMENT_NOT_IN_PARSE_TIME_HEAD
+R4:PASS:Google Ads runtime authority remains English-only
+R5:PASS:one exact loader and one exact config authority exist
+R6:PASS:H2 conversion-click runtime and frozen evidence remain byte-identical
+R7:PASS:complete unit suite remains green
+R8:PASS:H3 diff is limited to runtime execution repair and verifier artifacts
+RESULT:FAIL:6/9
