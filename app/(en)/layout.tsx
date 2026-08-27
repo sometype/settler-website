@@ -34,8 +34,10 @@ export const metadata: Metadata = {
 export default function EnglishRootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${latin.variable} ${monoNum.variable} h-full antialiased`}>
-      <body className="flex min-h-full min-w-0 flex-col bg-paper font-sans text-ink">
+      <head>
         <EnglishGoogleAdsMeasurement />
+      </head>
+      <body className="flex min-h-full min-w-0 flex-col bg-paper font-sans text-ink">
         <header className="sticky top-0 z-20 border-b border-sand bg-card/95 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
             <Link href="/en/rent" className="flex items-baseline gap-2.5">
