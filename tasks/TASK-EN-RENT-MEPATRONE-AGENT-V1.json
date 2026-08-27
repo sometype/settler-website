@@ -2,7 +2,8 @@
   "task_id": "TASK-EN-RENT-MEPATRONE-AGENT-V1",
   "title": "English Mepatrone agent lead-generation contact path",
   "status": "FROZEN_BEFORE_IMPLEMENTATION",
-  "frozen_at": "2026-08-27T11:41:12+04:00",
+  "frozen_at": "2026-08-27T11:47:36+04:00",
+  "instrument_repair": "Verifier-owned lint-only rename module -> contactModule; no acceptance requirement changed.",
   "authority": {
     "human_decision": "On English pages only, Mepatrone provides an English-speaking agent service at +995555121150. The agent can contact the owner, confirm availability, arrange a viewing, and assist with the rental process.",
     "authorized_now": "local implementation and local verification after this verifier freeze",
@@ -23,7 +24,7 @@
     "approved_wrong_state": "817ed541 routes per-listing owner phone data into EnglishContact and renders owner-direct contact/copy.",
     "gate": {
       "path": "scripts/english-rent-agent-acceptance.mjs",
-      "sha256": "b0f8f07a13017399269e308267c91c66aabe98f863ce1ecddf47af93512daded",
+      "sha256": "889ab2c38865ea41fd8b5738081f3cd710070726b68d08bc041aaf3aa67112f3",
       "expected_honest_result": "RESULT:PASS:12/12 with exit 0",
       "expected_wrong_result": "RESULT:FAIL with nonzero exit"
     },
@@ -33,7 +34,7 @@
     },
     "baseline_red_evidence": {
       "path": "tasks/TASK-EN-RENT-MEPATRONE-AGENT-V1.baseline-red.txt",
-      "sha256": "476b7d0d771f3e47811346a18e3a1e86d7239ada552bf20b56b97b8d7d13e90d",
+      "sha256": "a7943a5bf7c4a96b8aa3a5c2c7189c1d5f20d8a7da6547f6317b364bb8998180",
       "result": "RESULT:FAIL:3/12",
       "exit_code": 1
     },

@@ -48,10 +48,10 @@ await check("G1", "exact Mepatrone agent authority and fail-closed resolver", as
   const relative = "lib/english-agent-contact-core.ts";
   assert.ok(fs.existsSync(path.join(subjectRoot, relative)), `${relative} missing`);
   const moduleUrl = `${pathToFileURL(path.join(subjectRoot, relative)).href}?gate=${Date.now()}`;
-  const module = await import(moduleUrl);
-  assert.equal(typeof module.buildEnglishAgentContact, "function", "buildEnglishAgentContact export missing");
+  const contactModule = await import(moduleUrl);
+  assert.equal(typeof contactModule.buildEnglishAgentContact, "function", "buildEnglishAgentContact export missing");
 
-  const contact = module.buildEnglishAgentContact("+995555121150", 12411);
+  const contact = contactModule.buildEnglishAgentContact("+995555121150", 12411);
   assert.ok(contact, "approved number did not produce contact links");
   assert.equal(contact.phoneE164, "+995555121150");
   assert.equal(contact.displayPhone, "+995 555 12 11 50");
@@ -65,10 +65,10 @@ await check("G1", "exact Mepatrone agent authority and fail-closed resolver", as
   assert.match(message, /https:\/\/mepatrone\.com\/en\/listing\/12411/u, "WhatsApp message lacks canonical listing URL");
 
   for (const invalid of [undefined, null, "", " ", "995555121150", "+995555121151", "+995 555 12 11 50", "+9955551211500"]) {
-    assert.equal(module.buildEnglishAgentContact(invalid, 12411), null, `invalid authority accepted: ${String(invalid)}`);
+    assert.equal(contactModule.buildEnglishAgentContact(invalid, 12411), null, `invalid authority accepted: ${String(invalid)}`);
   }
   for (const invalidId of [0, -1, 1.5, Number.NaN]) {
-    assert.equal(module.buildEnglishAgentContact("+995555121150", invalidId), null, `invalid listing id accepted: ${String(invalidId)}`);
+    assert.equal(contactModule.buildEnglishAgentContact("+995555121150", invalidId), null, `invalid listing id accepted: ${String(invalidId)}`);
   }
 });
 
