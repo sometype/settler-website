@@ -520,7 +520,7 @@ const PAGINATION_COMPONENT = readFileSync(
   "utf8"
 );
 const PAGE_COMPONENT = readFileSync(
-  fileURLToPath(new URL("../app/(ka)/page.tsx", import.meta.url)),
+  fileURLToPath(new URL("../app/(ka)/(catalog)/page.tsx", import.meta.url)),
   "utf8"
 );
 

@@ -190,7 +190,7 @@ test("GAP 1 — every reset surface calls the shared helper", () => {
     "../components/FilterBar.tsx",
     "../components/SortBar.tsx",
     "../components/EmptyState.tsx",
-    "../app/(ka)/page.tsx",
+    "../app/(ka)/(catalog)/page.tsx",
   ]) {
     const source = read(file);
     assert.match(source, /clearPaginationWindow\(/, `${file} does not reset the window`);

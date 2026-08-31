@@ -1,0 +1,43 @@
+{
+  "task_id": "TASK-SEO-PHASE-1A-H2-V1",
+  "frozen_at": "2026-08-31",
+  "authority_class": "transaction-bound acceptance addendum",
+  "execution_qualifiers": ["isolated-worktree", "offline", "two-commit-H1-then-H2-topology"],
+  "production_baseline": "5794001270e0f31e3adddcd9753e0b532b96f911",
+  "h1_freeze_commit": "ff82acfea0831e5284630c803c268c250af49917",
+  "frozen_inputs": {
+    "scripts/seo-phase1a-route-move-tests.acceptance.mjs": "ff876200ea3d1adba6316e8136296c108d6813baacbdb5a04829995ab5fcc958",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.json": "9701f0f359448f042fc38df9e3e44eb0bb4d83a236e7f185cf1699085cbd8c4c",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.baseline-red.txt": "c6cd1aa460745a8909a97281d54632825c9edc9ed4dd34ba8e9a13782a87c605"
+  },
+  "baseline_test_hashes": {
+    "scripts/pagination-hardening.test.mjs": "02aed384abe08102b0a341c5b08b81c63d8462f45ee6dd1ae62862c0c8b2911c",
+    "scripts/pagination.test.mjs": "70ae1ab568b46575658e68632620e07388275b86d641a539a76f1f921bdedcb9",
+    "scripts/tracking-phase-a.test.mjs": "dfa9412a946beb85ea88be313f93447cd39622d882a98ad8852873ec286dae93"
+  },
+  "h1_frozen_hashes": {
+    "scripts/seo-phase1a-acceptance.mjs": "e65fb3948c7bb7661e0d1e11e21bd4feeab46c5164a26e8aaf962b4f10a34670",
+    "tasks/TASK-SEO-PHASE-1A-V1.json": "97fc798b27fee916ad2ad4c79356759f66f7969b176cee0c7719f8b1840fe91c",
+    "tasks/TASK-SEO-PHASE-1A-V1.freeze.json": "42bad54808448f2ddfce8918ec41ca4b753047cdfe9a0ed8e07cf08b44576442",
+    "tasks/TASK-SEO-PHASE-1A-V1.baseline-red.txt": "4b7b766f42fce0d47946694acad4d1ccfb2c7aa1f0531db844439d2f3693822d"
+  },
+  "approved_negative_control": {
+    "subject": "sealed H2 freeze commit with unchanged production-baseline test readers",
+    "expected": "1 PASS / 4 RED, exit 4",
+    "runtime_failures_observed_on_current_H1_candidate": [
+      "pagination-hardening: 26 pass / 1 fail, ENOENT app/(ka)/page.tsx",
+      "pagination: process exit 7, ENOENT app/(ka)/page.tsx before suite",
+      "tracking-phase-a: 11 pass / 1 fail, ENOENT app/(ka)/page.tsx"
+    ]
+  },
+  "honest_target": {
+    "H1_parent": "12 PASS / 0 RED, exit 0 in a clean detached worktree at final HEAD^",
+    "H2_final": "5 PASS / 0 RED, exit 0",
+    "full_unit_final": "exit 0"
+  },
+  "exact_allowed_transformation": "In each named test, replace its single literal app/(ka)/page.tsx with app/(ka)/(catalog)/page.tsx; all other bytes remain identical to production baseline.",
+  "acceptance_owner": "independent Codex verifier",
+  "builder_exclusion": "The acceptance owner may not implement. The builder may not edit H1/H2 gates, contracts, manifests or baseline evidence.",
+  "review_trigger": "Any later catalog route move, source-reading test path change, H1 artifact change or altered two-commit topology.",
+  "expiry": "Named Phase 1A H2 candidate transaction completion or drift in any frozen input."
+}

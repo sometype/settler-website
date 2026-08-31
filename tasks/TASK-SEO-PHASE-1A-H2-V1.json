@@ -1,0 +1,47 @@
+{
+  "task_id": "TASK-SEO-PHASE-1A-H2-V1",
+  "status": "frozen_addendum_before_repair",
+  "authority_class": "transaction-bound acceptance addendum",
+  "h1_freeze_commit": "ff82acfea0831e5284630c803c268c250af49917",
+  "production_baseline": "5794001270e0f31e3adddcd9753e0b532b96f911",
+  "owner": "human repository/product owner",
+  "acceptance_author": "independent Codex verifier; may not implement",
+  "problem": "Phase 1A must move the Georgian catalog page to app/(ka)/(catalog)/page.tsx to remove listing-route loading inheritance. Three existing tests read app/(ka)/page.tsx directly and therefore fail ENOENT even though the product implementation is correct.",
+  "approved_wrong_state": "All three test readers still name app/(ka)/page.tsx after the required route move: pagination-hardening fails one subtest, pagination exits before its suite, and tracking-phase-a fails one subtest.",
+  "required_state": [
+    "Each named test replaces its single app/(ka)/page.tsx reference with app/(ka)/(catalog)/page.tsx.",
+    "Apart from that exact substitution, every byte and assertion in each test remains unchanged from production baseline.",
+    "The final H2 commit changes only these tests and the four additive H2 frozen artifacts; all H1 implementation bytes are inherited untouched from its parent.",
+    "The exact H1 implementation parent passes H1 acceptance 12/12 before H2 is evaluated.",
+    "The final H2 child passes this addendum 5/5 and the complete unit suite."
+  ],
+  "allowed_implementation_files": [
+    "scripts/pagination-hardening.test.mjs",
+    "scripts/pagination.test.mjs",
+    "scripts/tracking-phase-a.test.mjs"
+  ],
+  "frozen_files_builder_must_not_modify": [
+    "scripts/seo-phase1a-route-move-tests.acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.json",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.freeze.json",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.baseline-red.txt",
+    "scripts/seo-phase1a-acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-V1.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.freeze.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.baseline-red.txt"
+  ],
+  "execution": {
+    "h2_command": "node scripts/seo-phase1a-route-move-tests.acceptance.mjs",
+    "h2_wrong_state": "1 PASS / 4 RED, exit 4 on the sealed additive freeze commit",
+    "h2_target": "5 PASS / 0 RED, exit 0",
+    "h1_parent_command": "In a clean detached worktree at H2 HEAD^: node --import ./scripts/ts-resolve.mjs scripts/seo-phase1a-acceptance.mjs",
+    "h1_parent_target": "12 PASS / 0 RED, exit 0",
+    "final_required": "npm run test:unit exits 0"
+  },
+  "not_authorized": [
+    "any H1 implementation repair, including the separately builder-owned TypeScript narrowing fix",
+    "editing assertions or test semantics beyond the exact path substitution",
+    "sitemap, district pages, Search Console, push, deploy or production access",
+    "editing any H1 or H2 frozen artifact"
+  ]
+}
