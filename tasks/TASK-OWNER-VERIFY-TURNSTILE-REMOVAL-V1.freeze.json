@@ -1,0 +1,45 @@
+{
+  "task_id": "TASK-OWNER-VERIFY-TURNSTILE-REMOVAL-V1",
+  "frozen_at": "2026-08-31",
+  "authority_class": "transaction-bound acceptance",
+  "execution_qualifiers": ["isolated-worktree", "offline"],
+  "baseline_commit": "59b00bdac1dffd2048021d4cd8213cc855cd0cf3",
+  "frozen_inputs": {
+    "scripts/owner-verify-turnstile-removal.acceptance.mjs": "d9981de457d2ef1d0e30f8e7e340e993d0d2ce35616534587cc7719d8c8d41f0",
+    "tasks/TASK-OWNER-VERIFY-TURNSTILE-REMOVAL-V1.json": "e0c787f3d897579d53ad7dab19c89d5073d3fd2cacb842d9730cd7912d871efd",
+    "scripts/ts-resolve.mjs": "94a7cdb0182764329c93f6b2d3f8c139d239c39d21f7e72f9ea493ed5b1838dc",
+    "package.json": "cbd3a71bdb9ce1689bb86a7a9a78fd6ff76f0ee93c9a2d839debcf7aa63827a3",
+    "package-lock.json": "099ba3a008c5bf9d9dceae19d001cf2aa5f4931c0b3f430c563bf9fd9e03bcc7"
+  },
+  "baseline_subject_hashes": {
+    "app/(ka)/upload/page.tsx": "dc76fd92082a3564a456520644979822084f8ce8f2a002cc70702d5fed6aecd6",
+    "components/UploadFlow.tsx": "9bc2ae3211027053818a1feda9f933c2be6fc45f8dbe7de368510dc379673318",
+    "app/api/intake/[action]/route.ts": "dd7a7182b370fba56c796b0bbeb90e4db2fd32f0d0790e7ff6bf66930aa53a04",
+    "lib/uploadFlow.ts": "8c5b06ea1f9da8540eb09679220f3c3fc56dfa51cfb56c93604c8075614a6453",
+    "lib/turnstile.ts": "163762ada684482dfeb15a863e86408b659a611cc723959ae1cda9ac7aa1442c"
+  },
+  "command": "node --import ./scripts/ts-resolve.mjs scripts/owner-verify-turnstile-removal.acceptance.mjs",
+  "environment": {
+    "cwd": "exact website repository worktree",
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "secrets_required": false,
+    "timeout_seconds": 30
+  },
+  "approved_negative_control": {
+    "subject": "59b00bdac1dffd2048021d4cd8213cc855cd0cf3",
+    "expected_and_observed": "5 PASS / 4 RED, exit 4",
+    "findings": [
+      "ENTRY_STILL_REQUIRES_BOT_CREDENTIAL",
+      "UPLOAD_RUNTIME_STILL_CONTAINS_TURNSTILE_AUTHORITY",
+      "VERIFY_START_STILL_SENDS_OR_REQUIRES_BOT_TOKEN",
+      "VERIFY_START_PROXY_STILL_ENFORCES_TURNSTILE"
+    ]
+  },
+  "honest_target": "9 PASS / 0 RED, exit 0",
+  "acceptance_owner": "independent Codex verifier",
+  "builder_exclusion": "The acceptance owner may not implement; the builder may not edit the frozen gate, contract or manifest.",
+  "review_trigger": "Any change to the owner-upload email entry, proxy action map, email-code session transition, rate/error mapping or frozen artifacts.",
+  "expiry": "Named candidate transaction completion or drift in any frozen subject/interface."
+}

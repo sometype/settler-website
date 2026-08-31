@@ -1,0 +1,50 @@
+{
+  "task_id": "TASK-OWNER-VERIFY-TURNSTILE-REMOVAL-V1",
+  "status": "frozen_before_implementation",
+  "authority_class": "transaction-bound acceptance",
+  "baseline_commit": "59b00bdac1dffd2048021d4cd8213cc855cd0cf3",
+  "owner": "human repository/product owner",
+  "acceptance_author": "independent Codex verifier; may not implement",
+  "problem": "Cloudflare Turnstile is a redundant flow blocker before the separately enforced emailed-code verification step.",
+  "approved_wrong_state": "Production-main client refuses verify-start without a Turnstile token, its proxy rejects that request, and /upload loads and renders Turnstile authority.",
+  "required_state": [
+    "A browser with a syntactically valid email can request the verification code without a Turnstile token.",
+    "verify-start neither requires nor transmits a Turnstile token.",
+    "The /upload page, component, entry helper and intake proxy contain no Turnstile script, widget, environment authority, verification call or bot-check error copy.",
+    "verify-check still requires the emailed challenge token and entered code; no verified session is minted outside successful code checking.",
+    "The server-only signed proxy, request idempotency, client-IP forwarding, error/rate mapping and body cap remain.",
+    "All later intake, upload, review and publication behavior remains outside the change and unchanged."
+  ],
+  "allowed_implementation_files": [
+    "app/(ka)/upload/page.tsx",
+    "components/UploadFlow.tsx",
+    "app/api/intake/[action]/route.ts",
+    "lib/uploadFlow.ts",
+    "lib/turnstile.ts",
+    "scripts/turnstile.test.mjs",
+    "scripts/upload-flow.test.mjs",
+    "scripts/upload-mobile.browser.mjs"
+  ],
+  "frozen_files_builder_must_not_modify": [
+    "scripts/owner-verify-turnstile-removal.acceptance.mjs",
+    "tasks/TASK-OWNER-VERIFY-TURNSTILE-REMOVAL-V1.json",
+    "tasks/TASK-OWNER-VERIFY-TURNSTILE-REMOVAL-V1.freeze.json"
+  ],
+  "execution": {
+    "command": "node --import ./scripts/ts-resolve.mjs scripts/owner-verify-turnstile-removal.acceptance.mjs",
+    "cwd": "exact website repository worktree",
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "timeout_seconds": 30,
+    "baseline_expected": "5 PASS / 4 RED, exit 4",
+    "candidate_expected": "9 PASS / 0 RED, exit 0"
+  },
+  "required_regression_commands": ["npm run test:unit", "npm run lint", "npx tsc --noEmit", "npm run build"],
+  "not_authorized": [
+    "production access or mutation",
+    "push, preview, deployment or environment changes",
+    "changes to backend email-code verification, rate limits, signing, uploads, review or publication law",
+    "editing the frozen contract or gate"
+  ]
+}
