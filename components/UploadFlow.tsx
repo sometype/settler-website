@@ -54,7 +54,6 @@ import {
   restoreState,
   serializeState,
   splitFloorParts,
-  turnstileSiteKeyRequirement,
   isSubmittableEmail,
   canRequestCode,
   type Facts,
@@ -63,7 +62,6 @@ import {
   type Step,
 } from "@/lib/uploadFlow";
 import { localFieldError, type UploadError } from "@/lib/uploadErrors";
-import { OWNER_UPLOAD_TURNSTILE_ACTION } from "@/lib/turnstile";
 import { uploadDebug, uploadDebugHeaders } from "@/lib/uploadDebug";
 
 /**
@@ -275,16 +273,6 @@ export default function UploadFlow() {
   const [activeLimitReached, setActiveLimitReached] = useState(false);
 
   const [email, setEmail] = useState(() => saved?.email ?? "");
-  /**
-   * ⚠️ TRACKED, NOT READ AT SUBMIT TIME. The old code queried
-   * `input[name="cf-turnstile-response"]` inside startVerify and sent whatever
-   * it found — including "" when the widget had not solved yet, which the
-   * server then rejected as a generic failure after the request was already
-   * spent. Holding the token in state is what lets the button stay disabled
-   * until a token exists, and lets expiry actively REVOKE readiness.
-   */
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [turnstileState, setTurnstileState] = useState<"loading" | "waiting" | "ready" | "failed">("loading");
   const [emailBrowserValid, setEmailBrowserValid] = useState(false);
   const [codeToken, setCodeToken] = useState("");
   const [code, setCode] = useState("");
@@ -341,53 +329,6 @@ export default function UploadFlow() {
       }),
     [],
   );
-  const siteKey = useMemo(
-    () =>
-      turnstileSiteKeyRequirement({
-        NEXT_PUBLIC_TURNSTILE_SITE_KEY: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
-        NODE_ENV: process.env.NODE_ENV,
-      }),
-    [],
-  );
-
-  /**
-   * Turnstile's implicit rendering calls GLOBAL functions by name, so the
-   * widget's data-callback attributes below point at these. Registered in an
-   * effect (never during render) and removed on unmount so a remount cannot
-   * leave a stale closure writing into a dead component.
-   *
-   * expired/error/timeout all clear the token: Article IV — an expired token
-   * is not a weaker pass, it is no pass at all.
-   */
-  useEffect(() => {
-    const w = window as unknown as Record<string, unknown>;
-    w.mpTurnstileOk = (token: string) => {
-      uploadDebug("turnstile.callback", { turnstile_state: token ? "ready" : "failed" });
-      setTurnstileToken(token || null);
-      setTurnstileState(token ? "ready" : "failed");
-    };
-    w.mpTurnstileGone = () => {
-      uploadDebug("turnstile.callback", { turnstile_state: "expired" });
-      setTurnstileToken(null);
-      setTurnstileState("failed");
-    };
-    const poll = window.setInterval(() => {
-      if ((window as unknown as { turnstile?: unknown }).turnstile) {
-        setTurnstileState((current) => current === "loading" ? "waiting" : current);
-        window.clearInterval(poll);
-      }
-    }, 200);
-    const timeout = window.setTimeout(() => {
-      if (!(window as unknown as { turnstile?: unknown }).turnstile) setTurnstileState("failed");
-    }, 8_000);
-    return () => {
-      window.clearInterval(poll);
-      window.clearTimeout(timeout);
-      delete w.mpTurnstileOk;
-      delete w.mpTurnstileGone;
-    };
-  }, []);
-
   useEffect(() => {
     if (!hydrated) return;
     uploadDebug("flow.state", {
@@ -398,9 +339,8 @@ export default function UploadFlow() {
       pending_count: photos.filter((photo) => photo.state !== "done").length,
       done_count: photos.filter((photo) => photo.state === "done").length,
       restored: Boolean(saved),
-      turnstile_state: turnstileState,
     });
-  }, [hydrated, step, session, submissionId, photos, saved, turnstileState]);
+  }, [hydrated, step, session, submissionId, photos, saved]);
 
   useEffect(() => {
     if (!hydrated || !error) return;
@@ -573,18 +513,8 @@ export default function UploadFlow() {
   const startVerify = useCallback(async () => {
     setBusy(true);
     setError(null);
-    // The tracked token only. If it is somehow absent the request is not sent:
-    // spending a rate-limit slot on a request the server will refuse is worse
-    // than doing nothing, and the button should already have been disabled.
-    const turnstile = turnstileToken ?? "";
-    if (!turnstile) {
-      setBusy(false);
-      setError({ code: "turnstile", ka: "უსაფრთხოების შემოწმება ჯერ არ დასრულებულა. დაელოდე ან თავიდან ჩატვირთე." });
-      return;
-    }
     const r = await call("verify-start", {
       email: email.trim(),
-      turnstile,
       idem: verifyIdemFor("verify" + email.trim()),
     });
     setBusy(false);
@@ -602,7 +532,7 @@ export default function UploadFlow() {
     setSpamHint(false);
     setResendIn(60);
     setStep("code");
-  }, [email, turnstileToken, showError]);
+  }, [email, showError]);
 
   const checkCode = useCallback(async () => {
     setBusy(true);
@@ -1084,11 +1014,7 @@ export default function UploadFlow() {
   };
 
   const configError =
-    "error" in uploadBase
-      ? "ატვირთვა ამ ბილდში კონფიგურირებული არ არის."
-      : !siteKey.ok
-        ? "დაცვის მოდული კონფიგურირებული არ არის."
-        : "";
+    "error" in uploadBase ? "ატვირთვა ამ ბილდში კონფიგურირებული არ არის." : "";
 
   // Until hydration completes both renders show the manifesto only, so seeding
   // state from sessionStorage cannot produce a hydration mismatch.
@@ -1286,40 +1212,6 @@ export default function UploadFlow() {
               setEmailBrowserValid(e.target.checkValidity());
             }}
           />
-          {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
-            /* data-size="flexible" makes the widget take the container width
-               instead of its fixed 300px, which overflowed a 390px screen once
-               the 16px page padding was counted. data-appearance
-               ="interaction-only" keeps it invisible unless Cloudflare actually
-               wants a challenge, so the common case is one field and a button.
-               The callbacks are what the disabled state reads — see the
-               readiness effect above. */
-            <div
-              className="cf-turnstile mt-3 w-full max-w-full overflow-hidden"
-              data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-              data-action={OWNER_UPLOAD_TURNSTILE_ACTION}
-              data-size="flexible"
-              data-appearance="interaction-only"
-              data-callback="mpTurnstileOk"
-              data-expired-callback="mpTurnstileGone"
-              data-timeout-callback="mpTurnstileGone"
-              data-error-callback="mpTurnstileGone"
-            />
-          ) : null}
-          {turnstileState === "loading" && (
-            <p role="status" className="mt-2 text-xs text-faint">უსაფრთხოების შემოწმება იტვირთება…</p>
-          )}
-          {turnstileState === "waiting" && !turnstileToken && (
-            <p role="status" className="mt-2 text-xs text-faint">უსაფრთხოების შემოწმება მიმდინარეობს…</p>
-          )}
-          {turnstileState === "failed" && (
-            <div className="mt-2 rounded-md bg-clay/10 px-3 py-2 text-sm text-clay-deep">
-              <p>უსაფრთხოების შემოწმება ვერ ჩაიტვირთა.</p>
-              <button type="button" className="mt-1 underline" onClick={() => window.location.reload()}>
-                თავიდან ჩატვირთვა
-              </button>
-            </div>
-          )}
           <button
             type="button"
             data-testid="mp-request-code"
@@ -1327,8 +1219,6 @@ export default function UploadFlow() {
             disabled={
               !canRequestCode({
                 emailValid: emailValid,
-                turnstileToken,
-                turnstileConfigured: siteKey.ok,
                 configOk: !configError,
                 busy,
               })

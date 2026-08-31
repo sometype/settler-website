@@ -270,50 +270,16 @@ export function isSubmittableEmail(value: string): boolean {
 export type EntryGate = {
   /** `isSubmittableEmail` AND the live input's own checkValidity(). */
   emailValid: boolean;
-  /** A token Turnstile actually handed us. Null until then, and cleared on
-   *  expiry/error — an expired token is not a weaker pass, it is no pass. */
-  turnstileToken: string | null;
-  /** Turnstile is configured for this build (or not required off production). */
-  turnstileConfigured: boolean;
-  /** Upload origin + site key present; false disables the whole step. */
+  /** Required runtime configuration is present; false disables the step. */
   configOk: boolean;
   busy: boolean;
 };
 
-/**
- * ⚠️ FAIL CLOSED. Every unknown is a "no": no token yet, token expired, config
- * missing, validity unknown. The button is the last thing standing between a
- * mistyped address and a burnt rate-limit slot, and the bot gate is only a gate
- * if the control it guards cannot be pressed without it (Article VII).
- */
+/** Fail closed on malformed email, missing runtime configuration, or busy state. */
 export function canRequestCode(g: EntryGate): boolean {
   if (g.busy) return false;
   if (!g.configOk) return false;
-  if (!g.emailValid) return false;
-  if (!g.turnstileConfigured) return false;
-  return typeof g.turnstileToken === "string" && g.turnstileToken.length > 0;
-}
-
-/** Turnstile is mandatory in production and fails closed when unset. */
-export function turnstileRequirement(env: EnvLike): {
-  required: boolean;
-  configured: boolean;
-  ok: boolean;
-} {
-  const required = (env.NODE_ENV || "") === "production";
-  const configured = Boolean((env.TURNSTILE_SECRET || "").trim());
-  return { required, configured, ok: configured || !required };
-}
-
-/** Client-side sibling: the widget key must exist in a production build. */
-export function turnstileSiteKeyRequirement(env: EnvLike): {
-  required: boolean;
-  configured: boolean;
-  ok: boolean;
-} {
-  const required = (env.NODE_ENV || "") === "production";
-  const configured = Boolean((env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "").trim());
-  return { required, configured, ok: configured || !required };
+  return g.emailValid;
 }
 
 /* -------------------------------------------------- response field readers */

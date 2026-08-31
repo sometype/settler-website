@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import UploadFlow from "@/components/UploadFlow";
 
 /**
@@ -16,17 +15,9 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const TURNSTILE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
 export default function UploadPage() {
   return (
     <main className="min-h-screen bg-paper">
-      {TURNSTILE_KEY ? (
-        <Script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-          strategy="afterInteractive"
-        />
-      ) : null}
       <UploadFlow />
     </main>
   );

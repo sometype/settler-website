@@ -12,11 +12,6 @@
  * `/api/intake/*` is intercepted in the page, so `verify-start` is counted and
  * answered locally. No network, no provider, no rate-limit slot consumed.
  *
- * Turnstile is stubbed the way the real widget behaves under implicit
- * rendering: it calls the global named callback with a token. That is the
- * contract the component depends on, so stubbing it is legitimate; what is
- * being tested is OUR readiness gate, not Cloudflare's challenge.
- *
  * Usage:  BASE_URL=http://localhost:3000 node scripts/upload-mobile.browser.test.mjs
  * Exit:   0 pass, 1 assertion failure, 2 setup/environment error (never silent).
  */
@@ -149,17 +144,6 @@ export async function run(page, { screenshot } = {}) {
       }
       return realFetch(input, init);
     };
-    // Turnstile stub: implicit rendering invokes the global named callback.
-    window.__solveTurnstile = () => {
-      const el = document.querySelector(".cf-turnstile");
-      const cb = el && el.getAttribute("data-callback");
-      if (cb && typeof window[cb] === "function") window[cb]("stub-turnstile-token");
-    };
-    window.__expireTurnstile = () => {
-      const el = document.querySelector(".cf-turnstile");
-      const cb = el && el.getAttribute("data-expired-callback");
-      if (cb && typeof window[cb] === "function") window[cb]();
-    };
   });
 
   // ---- 0. the live intake must be discoverable --------------------------
@@ -206,7 +190,6 @@ export async function run(page, { screenshot } = {}) {
   await check("invalid email cannot advance", async () => {
     for (const bad of ["", "@", "a@", "a@b", "me@localhost", "no-at-sign", "a b@c.com"]) {
       await emailBox().fill(bad);
-      await page.evaluate(() => window.__solveTurnstile());
       assert.equal(
         await btn().isDisabled(),
         true,
@@ -215,23 +198,17 @@ export async function run(page, { screenshot } = {}) {
     }
   });
 
-  // ---- 2. valid email WITHOUT a token cannot advance --------------------
-  await check("valid email without Turnstile token cannot advance", async () => {
+  // ---- 2. valid email can request the real email code directly ----------
+  await check("valid email can request verification without a bot challenge", async () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await emailBox().fill("owner@example.com");
-    assert.equal(await btn().isDisabled(), true, "button enabled with no token");
-    // and an expired token must revoke readiness, not weaken it
-    await page.evaluate(() => window.__solveTurnstile());
-    assert.equal(await btn().isDisabled(), false, "token should enable");
-    await page.evaluate(() => window.__expireTurnstile());
-    assert.equal(await btn().isDisabled(), true, "expired token must disable again");
+    assert.equal(await btn().isDisabled(), false, "valid email should enable code request");
   });
 
-  // ---- 3. valid email + token invokes verification exactly once ---------
-  await check("valid email + token invokes verify-start exactly once", async () => {
+  // ---- 3. valid email invokes verification exactly once -----------------
+  await check("valid email invokes verify-start exactly once", async () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await emailBox().fill("owner@example.com");
-    await page.evaluate(() => window.__solveTurnstile());
     assert.equal(await btn().isDisabled(), false, "should be enabled");
     await btn().click();
     await page.waitForTimeout(600);
@@ -315,7 +292,6 @@ export async function run(page, { screenshot } = {}) {
     await page.waitForLoadState("domcontentloaded");
     await emailBox().waitFor({ state: "visible", timeout: 10_000 });
     await emailBox().fill("owner@example.com");
-    await page.evaluate(() => window.__solveTurnstile());
     await btn().click();
     const code = page.locator("#mp-code");
     await code.waitFor({ state: "visible", timeout: 10_000 });

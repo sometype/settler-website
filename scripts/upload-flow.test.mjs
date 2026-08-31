@@ -49,9 +49,7 @@ import {
   rejectedTypeNotice,
   UPLOAD_FAILURE_MESSAGES,
   uploadOutcomeMessage,
-  turnstileRequirement,
   uploadedPositions,
-  turnstileSiteKeyRequirement,
 } from "../lib/uploadFlow.ts";
 import { mapIntakeError } from "../lib/uploadErrors.ts";
 import { sanitizeUploadDebug } from "../lib/uploadDebug.ts";
@@ -198,13 +196,12 @@ test("finalization only accepts explicit review states", () => {
   assert.equal(readFinalizeStatus({ status: "duplicate_found" }), "duplicate_found");
 });
 
-test("component routes field errors, exposes Turnstile readiness, and offers recovery actions", () => {
+test("component routes field errors and offers recovery actions", () => {
   assert.match(COMPONENT, /setStep\(next\.step as Step\)/);
   assert.match(COMPONENT, /if \(error\?\.controlId\) return;[\s\S]{0,100}headingRef\.current\?\.focus\(\)/);
   assert.match(COMPONENT, /if \(error\.detailsId\)[\s\S]{0,180}details\.open = true/);
   assert.match(COMPONENT, /control\?\.focus\(\)/);
   assert.match(COMPONENT, /aria-invalid=\{error\?\.controlId === "mp-area"/);
-  assert.match(COMPONENT, /უსაფრთხოების შემოწმება იტვირთება/);
   assert.match(COMPONENT, /თავიდან შემოწმება/);
   assert.match(COMPONENT, /ძველი განცხადების წაშლა და თავიდან დაწყება/);
   assert.match(COMPONENT, /readFinalizeStatus\(r\.data\)/);
@@ -388,26 +385,20 @@ test("cover identity survives retry and removal", () => {
   assert.equal(resolveCover([slot({ id: "x" })], "x"), null);
 });
 
-/* 6. production mode runs without required API/Turnstile configuration */
+/* 6. production mode runs only with the required upload API configuration */
 
 test("wrong state 6: an unconfigured production build fails closed", () => {
   const prod = { NODE_ENV: "production" };
   assert.ok("error" in resolveUploadBase(prod), "no silent production upload fallback");
-  assert.equal(turnstileRequirement(prod).ok, false, "missing Turnstile secret must fail closed");
-  assert.equal(turnstileSiteKeyRequirement(prod).ok, false);
 
   const configured = {
     NODE_ENV: "production",
     NEXT_PUBLIC_INTAKE_UPLOAD_URL: "https://api.example.com/",
-    TURNSTILE_SECRET: "s",
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY: "k",
   };
   assert.deepEqual(resolveUploadBase(configured), { url: "https://api.example.com" });
-  assert.equal(turnstileRequirement(configured).ok, true);
 
   // Development still runs unconfigured.
   assert.ok("url" in resolveUploadBase({ NODE_ENV: "development" }));
-  assert.equal(turnstileRequirement({ NODE_ENV: "development" }).ok, true);
 });
 
 /* 7. unlabeled input or keyboard-inaccessible cover selection */

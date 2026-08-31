@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { validOwnerUploadTurnstile } from "@/lib/turnstile";
 import { signedIntakeCall } from "@/lib/intake";
 import { mapIntakeError } from "@/lib/uploadErrors";
 
@@ -31,7 +30,6 @@ function mapError(status: number, detail: Parameters<typeof mapIntakeError>[1], 
   return mapIntakeError(status, detail, action);
 }
 
-const TURNSTILE_TIMEOUT_MS = 5_000;
 /** Largest command body we will read before parsing. Commands are small JSON
  *  objects; anything larger is rejected without buffering it. */
 const MAX_BODY_BYTES = 16 * 1024;
@@ -56,43 +54,6 @@ function proxyJson(body: unknown, status: number, debugId: string | null) {
     status,
     headers: debugId ? { "X-MP-Debug-ID": debugId } : undefined,
   });
-}
-
-async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
-  const secret = (process.env.TURNSTILE_SECRET || "").trim();
-  if (!secret) {
-    // Production must be configured: an unconfigured bot gate that returns
-    // true is an open door, not a convenience. Development still runs.
-    return process.env.NODE_ENV !== "production";
-  }
-  if (!token) return false;
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TURNSTILE_TIMEOUT_MS);
-  try {
-    const res = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ secret, response: token, remoteip: ip }),
-        signal: ctrl.signal,
-        cache: "no-store",
-      },
-    );
-    const data = (await res.json()) as {
-      success?: boolean;
-      hostname?: string;
-      action?: string;
-    };
-    const expectedHostname = (
-      process.env.TURNSTILE_EXPECTED_HOSTNAME || "mepatrone.com"
-    ).trim();
-    return validOwnerUploadTurnstile(data, expectedHostname);
-  } catch {
-    return false; // Turnstile down or slow = fail closed on the bot gate
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export async function POST(
@@ -131,17 +92,8 @@ export async function POST(
     (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
     "0.0.0.0";
 
-  // Bot gate on the entry step only — the session HMAC covers the rest.
+  // The backend's existing per-IP caps need the trusted platform address.
   if (action === "verify-start") {
-    const token = typeof body.turnstile === "string" ? body.turnstile : "";
-    delete body.turnstile;
-    if (!(await verifyTurnstile(token, ip))) {
-      return proxyJson(
-        { error: { code: "turnstile", ka: "უსაფრთხოების შემოწმება ვერ დასრულდა. თავიდან ჩატვირთე და სცადე." } },
-        403,
-        debugId,
-      );
-    }
     body.client_ip = ip; // the API's per-IP caps key on this
   }
 
