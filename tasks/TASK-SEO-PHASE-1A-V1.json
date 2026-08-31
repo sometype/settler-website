@@ -1,0 +1,81 @@
+{
+  "task_id": "TASK-SEO-PHASE-1A-V1",
+  "status": "frozen_before_implementation",
+  "authority_class": "transaction-bound acceptance",
+  "baseline_commit": "5794001270e0f31e3adddcd9753e0b532b96f911",
+  "owner": "human repository/product owner",
+  "acceptance_author": "independent Codex verifier; may not implement",
+  "problem": "The Georgian listing route inherits streaming loading boundaries, so invalid listings return a soft HTTP 200; valid listings also share generic metadata, have no explicit canonical or selected-cover Open Graph image, and lack useful crawl paths. robots.txt is absent.",
+  "measured_streaming_diagnosis": {
+    "exact_baseline_with_both_loading_boundaries": "GET /listing/not-an-id -> HTTP 200 with noindex/404 UI",
+    "listing_loading_removed_but_parent_loading_present": "GET /listing/not-an-id -> HTTP 200 with noindex/404 UI",
+    "both_listing_and_parent_loading_removed": "GET /listing/not-an-id -> HTTP 404",
+    "metadata_notFound_with_both_boundaries_present": "GET /listing/not-an-id -> HTTP 200",
+    "conclusion": "The cause is the inherited loading-boundary chain. Metadata alone cannot repair the raw status. Preserve catalog loading by moving the catalog page and loading file into a URL-neutral route group, while the listing route inherits no loading boundary."
+  },
+  "approved_wrong_state": "Exact production baseline 5794001270e0f31e3adddcd9753e0b532b96f911: generic shared metadata, streaming soft-404 200, no robots endpoint, no selected-cover OG/canonical authority, no shared metadata/page read, and no district crawl link.",
+  "required_state": [
+    "Every valid Georgian listing has unique Georgian title and description derived only from its real deal, district, room, area and price facts.",
+    "Canonical is exactly https://mepatrone.com/listing/{positive integer id}; query state never enters it.",
+    "Open Graph uses the already-selected first image returned by fetchListing through first-party https://mepatrone.com/img/{id}/{position}; upstream/source/CDN URLs never become OG authority.",
+    "generateMetadata and the page call the same React cache(fetchListing) wrapper, preventing duplicate database reads within a render.",
+    "Invalid IDs and null listings return a raw HTTP 404 before streaming. Database failures remain errors and are never converted to 404. Valid listings never false-404.",
+    "Catalog loading behavior is preserved in a URL-neutral (catalog) route group while the listing route inherits no loading.tsx boundary.",
+    "robots.txt returns 200 through app/robots.ts and does not advertise a sitemap that does not exist.",
+    "Every listing renders ordinary crawlable links to its deal catalog and, when a district code exists, its district-filtered catalog.",
+    "Existing English and Georgian contact, analytics, gallery and product behavior remains unchanged outside these files."
+  ],
+  "required_helper_interface": {
+    "file": "lib/listingSeo.ts",
+    "export": "buildListingSeo",
+    "input": "{ listing: minimal listing facts including id/deal_type/district_code/district/rooms/area/price_usd/street_display, images: selected-cover-first image list }",
+    "output": "{ title, description, canonicalUrl, ogImageUrl, catalogHref, districtHref }"
+  },
+  "allowed_implementation_files": [
+    "app/(ka)/listing/[id]/page.tsx",
+    "app/(ka)/listing/[id]/loading.tsx",
+    "app/(ka)/loading.tsx",
+    "app/(ka)/page.tsx",
+    "app/(ka)/(catalog)/page.tsx",
+    "app/(ka)/(catalog)/loading.tsx",
+    "app/robots.ts",
+    "lib/listingPageData.ts",
+    "lib/listingSeo.ts",
+    "scripts/seo-phase1a.test.mjs"
+  ],
+  "frozen_files_builder_must_not_modify": [
+    "scripts/seo-phase1a-acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-V1.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.freeze.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.baseline-red.txt"
+  ],
+  "execution": {
+    "command": "node --import ./scripts/ts-resolve.mjs scripts/seo-phase1a-acceptance.mjs",
+    "cwd": "exact website repository worktree",
+    "network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "timeout_seconds": 30,
+    "baseline_expected": "4 PASS / 8 RED, exit 8",
+    "candidate_expected": "12 PASS / 0 RED, exit 0"
+  },
+  "required_verifier_runtime_controls": [
+    "After build, start the candidate locally and require raw HTTP 404 for /listing/not-an-id.",
+    "With a deterministic valid listing fixture/environment, require HTTP 200 and listing-specific metadata.",
+    "With a forced database error, require a non-404 failure; SKIPPED is never green when the fixture cannot be provisioned."
+  ],
+  "required_regression_commands": [
+    "npm run test:unit",
+    "npm run lint",
+    "npx tsc --noEmit",
+    "npm run build"
+  ],
+  "not_authorized": [
+    "sitemap generation or submission",
+    "district-page creation",
+    "Search Console access or changes",
+    "push, preview, deployment, production access or mutation",
+    "changes to English/Georgian contact behavior or unrelated website files",
+    "editing the frozen contract, gate or manifest"
+  ]
+}
