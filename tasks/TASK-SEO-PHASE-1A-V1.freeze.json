@@ -1,0 +1,61 @@
+{
+  "task_id": "TASK-SEO-PHASE-1A-V1",
+  "frozen_at": "2026-08-31",
+  "authority_class": "transaction-bound acceptance",
+  "execution_qualifiers": ["isolated-worktree", "offline-gate", "local-runtime-verifier-control"],
+  "baseline_commit": "5794001270e0f31e3adddcd9753e0b532b96f911",
+  "freeze_commit": "SELF_RECORDED_BY_GIT_COMMIT",
+  "frozen_inputs": {
+    "scripts/seo-phase1a-acceptance.mjs": "e65fb3948c7bb7661e0d1e11e21bd4feeab46c5164a26e8aaf962b4f10a34670",
+    "tasks/TASK-SEO-PHASE-1A-V1.json": "97fc798b27fee916ad2ad4c79356759f66f7969b176cee0c7719f8b1840fe91c",
+    "tasks/TASK-SEO-PHASE-1A-V1.baseline-red.txt": "4b7b766f42fce0d47946694acad4d1ccfb2c7aa1f0531db844439d2f3693822d",
+    "scripts/ts-resolve.mjs": "94a7cdb0182764329c93f6b2d3f8c139d239c39d21f7e72f9ea493ed5b1838dc",
+    "package.json": "cbd3a71bdb9ce1689bb86a7a9a78fd6ff76f0ee93c9a2d839debcf7aa63827a3",
+    "package-lock.json": "099ba3a008c5bf9d9dceae19d001cf2aa5f4931c0b3f430c563bf9fd9e03bcc7"
+  },
+  "baseline_subject_hashes": {
+    "app/(ka)/listing/[id]/page.tsx": "a29b18bb64043d1c4385254ef01bcff5fbe0834fc66d1ad86acff446c5cb9a40",
+    "app/(ka)/listing/[id]/loading.tsx": "dc1f6ad8860581c9379a5ad1813559e234b25a756e47d6f70c08fe08b5273bad",
+    "app/(ka)/loading.tsx": "5a0af500691620f3e85d931d091a1f7037a7c37cfdec2f5d2b1502c558a453df",
+    "app/(ka)/page.tsx": "2d4e09dbff210d09367f2d1cd1a15688ca4ac4f0222282560d4930371abbda6e",
+    "app/(ka)/layout.tsx": "a0e63905e47bbaedfbd7cce75fa6ce49898b3f39bee498b977ec647f169e0cb9",
+    "app/(en)/en/listing/[id]/page.tsx": "4b4b2ab8ede286b669f21401063c62c56af27436f3ec35cc40d2e167efbf61e7",
+    "app/(en)/en/rent/page.tsx": "8e9f0ab36b0847416ec85988d8817a5bc16324c41a212bde01e244fd02a487a3",
+    "lib/listings.ts": "5b529ec2ef5d6d20d1a0b1303c5b02f2f971f622455134442c04195fe164196e"
+  },
+  "command": "node --import ./scripts/ts-resolve.mjs scripts/seo-phase1a-acceptance.mjs",
+  "environment": {
+    "cwd": "exact website repository worktree",
+    "gate_network_access": "none",
+    "production_writes": false,
+    "spend_limit_usd": 0,
+    "gate_secrets_required": false,
+    "timeout_seconds": 30
+  },
+  "approved_negative_control": {
+    "subject": "5794001270e0f31e3adddcd9753e0b532b96f911",
+    "expected_and_observed": "4 PASS / 8 RED, exit 8",
+    "findings": [
+      "SEO_HELPER_MISSING_OR_INVALID",
+      "GENERIC_SHARED_METADATA",
+      "QUERY_CANONICAL_POLLUTION",
+      "FAKE_OR_UPSTREAM_OG_IMAGE",
+      "SHARED_CACHED_READ_MISSING",
+      "LISTING_STREAMING_SOFT_404_BOUNDARY_REMAINS",
+      "ROBOTS_ENDPOINT_MISSING",
+      "CRAWLABLE_CATALOG_LINK_MISSING"
+    ]
+  },
+  "streaming_runtime_controls": {
+    "baseline_both_georgian_boundaries": "missing Georgian listing returned HTTP 200",
+    "wrong_repair_remove_only_listing_boundary": "missing Georgian listing still returned HTTP 200 because app/(ka)/loading.tsx remained",
+    "wrong_repair_metadata_notFound_only": "invalid Georgian listing still returned HTTP 200 while both loading boundaries remained",
+    "honest_architecture_control": "with both Georgian listing-chain loading boundaries absent, /listing/999999999 returned HTTP 404 and valid /listing/19172 returned HTTP 200",
+    "restoration_control": "restoring only the listing-level loading boundary returned missing listing to HTTP 200"
+  },
+  "honest_target": "12 PASS / 0 RED, exit 0, plus all three local runtime controls green",
+  "acceptance_owner": "independent Codex verifier",
+  "builder_exclusion": "The acceptance owner may not implement; the builder may not edit the frozen gate, contract, manifest or baseline-red evidence.",
+  "review_trigger": "Any change to listing metadata fields, listing-route loading boundaries, fetchListing/cache interface, robots authority, catalog filters or frozen artifacts.",
+  "expiry": "Named Phase 1A candidate transaction completion or drift in any frozen subject/interface."
+}

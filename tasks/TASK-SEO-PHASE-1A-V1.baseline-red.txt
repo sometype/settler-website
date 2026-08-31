@@ -1,0 +1,14 @@
+RED S1 metadata is unique and made from truthful listing facts :: SEO_HELPER_MISSING_OR_INVALID
+RED S2 Georgian metadata stays Georgian and does not drift to English or Gujarati :: SEO_HELPER_MISSING_OR_INVALID
+RED S3 canonical is the clean production listing URL and ignores query state :: SEO_HELPER_MISSING_OR_INVALID
+RED S4 Open Graph uses the selected first-party cover and never an upstream URL :: SEO_HELPER_MISSING_OR_INVALID
+RED S5 metadata and page share one React-cached listing read :: SHARED_CACHED_READ_MISSING
+RED S6 listing 404 resolves before any inherited streaming loading boundary :: LISTING_STREAMING_SOFT_404_BOUNDARY_REMAINS
+PASS S7 invalid and unpublished/missing listings 404; database errors do not masquerade as 404 :: PASS
+PASS S8 a valid listing is not rejected by a blanket notFound path :: PASS
+RED S9 robots endpoint exists and does not advertise the absent sitemap :: ROBOTS_ENDPOINT_MISSING
+RED S10 listing renders crawlable catalog and district links :: CRAWLABLE_CATALOG_LINK_MISSING
+PASS S11 existing Georgian contact/product behavior remains present :: PASS
+PASS S12 Phase 1A does not create sitemap, district pages, Search Console, or unrelated drift :: PASS
+SUMMARY pass=4 red=8 total=12
+EXIT=8
