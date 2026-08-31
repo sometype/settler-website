@@ -1,0 +1,7 @@
+RED H1 scripts/pagination-hardening.test.mjs follows the catalog route move and changes nothing else :: TEST_ASSERTION_DRIFT_OR_OLD_ROUTE:scripts/pagination-hardening.test.mjs
+RED H2 scripts/pagination.test.mjs follows the catalog route move and changes nothing else :: TEST_ASSERTION_DRIFT_OR_OLD_ROUTE:scripts/pagination.test.mjs
+RED H3 scripts/tracking-phase-a.test.mjs follows the catalog route move and changes nothing else :: TEST_ASSERTION_DRIFT_OR_OLD_ROUTE:scripts/tracking-phase-a.test.mjs
+RED H4 all old route references are gone and every replacement is exact :: STALE_CATALOG_SOURCE_PATH:scripts/pagination-hardening.test.mjs
+PASS H5 H1 frozen law is unchanged and the additive commit cannot touch H1 implementation :: PASS
+SUMMARY pass=1 red=4 total=5
+EXIT=4
