@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchListing, formatPrice, pricePerSqm } from "@/lib/listings";
+import { formatPrice, pricePerSqm } from "@/lib/listings";
+import { getListingPageData } from "@/lib/listingPageData";
+import { buildListingSeo } from "@/lib/listingSeo";
 import { stripHtml } from "@/lib/text";
 import { districtLabel } from "@/lib/districts";
 import { trimDistrictFromLocation } from "@/lib/location";
@@ -44,6 +47,45 @@ function termsFromFacts(facts: DescFacts | null, isRent: boolean): string[] {
 }
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) return {};
+
+  // Errors intentionally propagate. A database failure is not evidence that a
+  // listing is absent and must never be converted into a search-engine 404.
+  const data = await getListingPageData(id);
+  if (!data.listing) return {};
+  const seo = buildListingSeo({ listing: data.listing, images: data.images });
+  const images = seo.ogImageUrl
+    ? [{ url: seo.ogImageUrl, alt: seo.title }]
+    : undefined;
+
+  return {
+    title: seo.title,
+    description: seo.description,
+    alternates: { canonical: seo.canonicalUrl },
+    openGraph: {
+      type: "article",
+      locale: "ka_GE",
+      url: seo.canonicalUrl,
+      title: seo.title,
+      description: seo.description,
+      images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.title,
+      description: seo.description,
+      images: seo.ogImageUrl ? [seo.ogImageUrl] : undefined,
+    },
+  };
+}
 
 function Fact({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -94,7 +136,7 @@ export default async function ListingPage({
 
   let data;
   try {
-    data = await fetchListing(id);
+    data = await getListingPageData(id);
   } catch (err) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-6">
@@ -113,6 +155,7 @@ export default async function ListingPage({
 
   const { listing, images } = data;
   if (!listing) notFound();
+  const seo = buildListingSeo({ listing, images });
 
   const deal = listing.deal_type === "sale" ? "sale" : "rent";
   const contactAttribution: ContactAttribution = {
@@ -177,12 +220,22 @@ export default async function ListingPage({
         }}
       />
 
-      <Link
-        href="/"
-        className="inline-flex items-center gap-1 text-sm font-medium text-mink transition hover:text-ink"
-      >
-        ← მთავარ გვერდზე
-      </Link>
+      <nav aria-label="განცხადების კატალოგი" className="flex flex-wrap items-center gap-3 text-sm">
+        <Link
+          href={seo.catalogHref}
+          className="font-medium text-mink transition hover:text-ink"
+        >
+          ← {deal === "sale" ? "გასაყიდი ბინები" : "გასაქირავებელი ბინები"}
+        </Link>
+        {seo.districtHref && district && (
+          <Link
+            href={seo.districtHref}
+            className="font-medium text-clay transition hover:text-clay-deep"
+          >
+            {deal === "sale" ? "იყიდება" : "ქირავდება"}: {district}
+          </Link>
+        )}
+      </nav>
 
       {/*
         Call-first hierarchy (mobile order):
