@@ -1,5 +1,11 @@
-import { parseDistrictCodes, serializeDistricts } from "./filters";
-import { CURSOR_AFTER_PARAM, CURSOR_BEFORE_PARAM, type SearchParams } from "./filters";
+import {
+  CURSOR_AFTER_PARAM,
+  CURSOR_BEFORE_PARAM,
+  dealParam,
+  parseDistrictCodes,
+  serializeDistricts,
+  type SearchParams,
+} from "./filters";
 
 /**
  * THE RETURN-CONTEXT CONTRACT — carrying a search across the catalogue→detail
@@ -64,10 +70,16 @@ export const CATALOGUE_PATHS: Record<CatalogueRoute, string> = {
  * the visitor gets their search back minus a key nothing reads anyway.
  *
  * ⚠️ WIDENING THIS LIST IS AN AMENDMENT, NOT AN EDIT. The list is the frozen
- * acceptance contract (SEEKEREXPERIENCEDISCUSSION §4.2). Known consequence, left
- * in deliberately: `deal_type`, the legacy alias `parseFilters` still accepts,
- * is NOT here, so a return from a legacy `?deal_type=rent` link restores the
- * default sale tab. Raise it with the contract owner; do not fix it here.
+ * acceptance contract (SEEKEREXPERIENCEDISCUSSION §4.2) and still holds exactly
+ * its 14 keys.
+ *
+ * ⚠️ `deal_type` IS NOT HERE, AND MUST NOT BE ADDED. It is the legacy spelling
+ * of `deal`, not a fifteenth piece of state. A URL carrying it is normalized to
+ * `deal` at collection time through `dealParam` — the same precedence
+ * `parseFilters` applies — so an old link restores the right catalogue while
+ * the wire format keeps one spelling per search. Adding it as a carried key
+ * would widen the contract AND give one search two encodings, which is the
+ * defect the token-canonicality repair exists to prevent.
  */
 const ALLOWED_KEYS = [
   "deal",
@@ -182,10 +194,20 @@ function collectEntries(params: SearchParams): [string, string][] | null {
     // Districts are normalized through the ONE district law, so the repeated-key
     // form (?district=vake&district=saburtalo) and the CSV form collapse to the
     // same carried value and unknown codes are dropped at the door.
+    // Two keys are normalized through the law that owns them rather than read
+    // raw, so that one search has one carried spelling:
+    //   district — the repeated-key form and the CSV form collapse to CSV, and
+    //              unknown codes are dropped at the door;
+    //   deal     — the legacy `?deal_type=` alias resolves to `deal` using
+    //              parseFilters' own precedence, so a return from an old link
+    //              restores the same catalogue instead of the sale default.
+    // Neither re-implements the rule; both call it.
     const value =
       key === "district"
         ? serializeDistricts(parseDistrictCodes(raw)) || undefined
-        : firstValue(raw);
+        : key === "deal"
+          ? dealParam(params)
+          : firstValue(raw);
     if (value === undefined) continue;
     if (value.length > MAX_VALUE_LENGTH || !VALUE_RE.test(value)) return null;
     entries.push([key, value]);

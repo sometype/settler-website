@@ -52,9 +52,26 @@ function num(v: string | string[] | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
 }
 
+/**
+ * The raw deal value a URL asks for, honouring the legacy `deal_type` spelling.
+ *
+ * ⚠️ EXPORTED SO THERE IS ONE PRECEDENCE RULE, NOT TWO. `deal_type` is the old
+ * name and `deal` the current one; a URL carrying both must resolve the same
+ * way everywhere or two surfaces disagree about which catalogue the visitor is
+ * looking at. `lib/returnContext.ts` calls this rather than restating
+ * `?? params.deal_type`, because a second copy of a precedence rule is a second
+ * implementation of one law (Article V) and drifts the moment either is edited.
+ *
+ * Returns the raw string; interpretation (including the `sale` default) stays
+ * in `parseFilters` below.
+ */
+export function dealParam(params: SearchParams): string | undefined {
+  return str(params.deal) ?? str(params.deal_type);
+}
+
 export function parseFilters(params: SearchParams): FeedFilters {
   const rooms = str(params.rooms);
-  const deal = str(params.deal) ?? str(params.deal_type);
+  const deal = dealParam(params);
   // Sale is the homepage's default mode. Keep `deal=rent` explicit so old
   // rental links remain stable; `deal=all` is still the only mixed catalogue.
   const dealType =

@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { parseFilters } from "../lib/filters.ts";
 import {
   CATALOGUE_PATHS,
   RETURN_PARAM,
@@ -287,6 +288,67 @@ test("a search that cannot be carried honestly is not carried at all", () => {
   assert.equal(encodeReturnContext("ka", { district: "vake", rooms: "x".repeat(300) }), null);
   assert.equal(encodeReturnContext("ka", { sort: "price asc" }), null, "space is not admissible");
   assert.equal(encodeReturnContext("ka", { after: "a", before: "b" }), null, "two windows");
+});
+
+/* ------------------------------------- legacy deal spelling, and semantic parity */
+
+/** The restored href, read back as the search params a catalogue page receives. */
+function paramsOf(href) {
+  const q = href.includes("?") ? href.slice(href.indexOf("?") + 1) : "";
+  return Object.fromEntries(new URLSearchParams(q));
+}
+
+test("a legacy ?deal_type= link restores the catalogue it asked for", () => {
+  // ⚠️ THE APPROVED WRONG STATE is 3117d4b, where `deal_type` was read raw,
+  // found nothing under `deal`, and carried no deal at all — so returning from
+  // an old rental link silently dropped the visitor onto the sale default.
+  const restored = decodeReturnContext(
+    encodeReturnContext("ka", { deal_type: "rent", district: "vake" }),
+    "ka"
+  );
+  assert.equal(restored, "/?deal=rent&district=vake");
+  // Normalized, not carried: one search keeps exactly one spelling on the wire.
+  assert.ok(!restored.includes("deal_type"), "the legacy spelling leaked onto the wire");
+});
+
+test("when a URL carries both spellings, the return agrees with parseFilters", () => {
+  // parseFilters resolves `deal` ?? `deal_type`. This must not invent its own
+  // precedence — that would be a second implementation of one rule.
+  const search = { deal: "sale", deal_type: "rent", district: "vake" };
+  const restored = decodeReturnContext(encodeReturnContext("ka", search), "ka");
+  assert.equal(parseFilters(paramsOf(restored)).dealType, parseFilters(search).dealType);
+  assert.equal(restored, "/?deal=sale&district=vake");
+});
+
+test("PROPERTY: a restored search parses to the same filters as the original", () => {
+  // The widest instrument available without a database: compare against the
+  // real interpreter, not against a string this test also wrote. A carried key
+  // that decodes to a different FeedFilters is a silent wrong restoration,
+  // which no href assertion above would catch.
+  const searches = [
+    {},
+    { deal: "rent" },
+    { deal_type: "rent" },
+    { deal: "all" },
+    { deal_type: "sale", district: "vake,saburtalo", rooms: "5+" },
+    { district: ["vake", "saburtalo"], min: "300", max: "900" },
+    { deal: "sale", frame: "white", mina: "40", maxa: "90" },
+    { deal: "rent", sort: "price_desc", page: "4", rs: "42" },
+    { deal: "rent", sort: "price_asc", view: "hot" },
+    { min: "900", max: "300" },
+    { deal: "rent", district: "atlantis" },
+  ];
+  for (const search of searches) {
+    const token = encodeReturnContext("ka", search);
+    assert.ok(token, `refused to carry a legitimate search: ${JSON.stringify(search)}`);
+    const restored = decodeReturnContext(token, "ka");
+    assert.ok(restored, `refused to restore: ${JSON.stringify(search)}`);
+    assert.deepEqual(
+      parseFilters(paramsOf(restored)),
+      parseFilters(search),
+      `restored search parses differently: ${JSON.stringify(search)} -> ${restored}`
+    );
+  }
 });
 
 /* ------------------------------------------- token canonicality (rc spelling) */
