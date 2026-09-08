@@ -26,6 +26,7 @@ import {
   type AnalyticsRail,
   type ContactAttribution,
 } from "@/lib/event-contract";
+import { RETURN_PARAM, returnHref } from "@/lib/returnContext";
 
 /**
  * Rental terms the description worker read out of the owner's own text.
@@ -75,13 +76,29 @@ export default async function ListingPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ src?: string | string[]; sort?: string | string[] }>;
+  searchParams: Promise<{
+    src?: string | string[];
+    sort?: string | string[];
+    [RETURN_PARAM]?: string | string[];
+  }>;
 }) {
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const { src, sort } = await searchParams;
+  const resolvedSearchParams = await searchParams;
+  const { src, sort } = resolvedSearchParams;
+  // Where the visible back control goes. Total by construction: a missing,
+  // stale, crafted, oversized, English or otherwise unusable context yields
+  // "/" — never `router.back()`, never a path built from request text.
+  //
+  // ⚠️ THE CONTEXT IS NAVIGATION ONLY. It is deliberately not read into `rail`,
+  // `openSort`, or any beacon meta below. `trackEvent` transports
+  // `window.location.pathname` and drops the query outright, and
+  // `acquisitionMeta` reads only utm_source/utm_medium/fbclid/gclid by name, so
+  // an unknown `rc` key reaches neither — measured on this tree, and asserted
+  // by scripts/return-context.test.mjs so it stays true.
+  const backHref = returnHref(resolvedSearchParams[RETURN_PARAM], "ka", id);
   const srcValue = Array.isArray(src) ? src[0] : src;
   const rail: AnalyticsRail | null =
     srcValue && RAIL_SOURCES.has(srcValue) ? (srcValue as AnalyticsRail) : null;
@@ -103,7 +120,7 @@ export default async function ListingPage({
           <p className="mx-auto mt-2 max-w-md text-sm text-mink">
             {err instanceof Error ? err.message : "ბაზასთან კავშირის მოულოდნელი შეცდომა."}
           </p>
-          <Link href="/" className="mt-4 inline-block text-sm font-medium text-ink underline">
+          <Link href={backHref} className="mt-4 inline-block text-sm font-medium text-ink underline">
             მთავარ გვერდზე დაბრუნება
           </Link>
         </div>
@@ -177,8 +194,18 @@ export default async function ListingPage({
         }}
       />
 
+      {/*
+        ⚠️ THE LABEL IS UNCHANGED ON PURPOSE. This control now returns to the
+        seeker's exact results when they came from a search, so "← მთავარ
+        გვერდზე" ("to the main page") under-describes it. Approved Georgian copy
+        binds until product review changes it (S9), and the reviewer is not the
+        implementer — the wording is filed as an owed product-review decision on
+        SEEKEREXPERIENCEDISCUSSION, not quietly rewritten here. The string is
+        still exactly right for a direct or shared entry, which is the case that
+        falls back to "/".
+      */}
       <Link
-        href="/"
+        href={backHref}
         className="inline-flex items-center gap-1 text-sm font-medium text-mink transition hover:text-ink"
       >
         ← მთავარ გვერდზე

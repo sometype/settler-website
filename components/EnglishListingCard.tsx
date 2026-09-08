@@ -4,23 +4,32 @@ import { EnglishListingImage } from "./EnglishListingImage";
 import { getEnglishAgentContact } from "@/lib/english-agent-contact";
 import { englishListingPresentation } from "@/lib/english-rent";
 import { resolveImageUrl } from "@/lib/images";
+import { listingAnchorId, withReturnContext } from "@/lib/returnContext";
 import type { Listing, ListingImage } from "@/lib/types";
 
 export function EnglishListingCard({
   listing,
   images,
+  returnContext,
 }: {
   listing: Listing;
   images: ListingImage[];
+  /** The seeker's current English search — see ListingCard's note on this prop. */
+  returnContext?: string | null;
 }) {
   const facts = englishListingPresentation(listing);
   if (!facts) return null;
-  const href = `/en/listing/${listing.id}`;
+  const href = withReturnContext(`/en/listing/${listing.id}`, returnContext);
   const image = images[0] ?? null;
   const agentContact = getEnglishAgentContact(listing.id);
 
   return (
-    <article className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card">
+    // Anchor + focus target for the detail page's back link; see ListingCard.
+    <article
+      id={listingAnchorId(listing.id)}
+      tabIndex={-1}
+      className="flex min-w-0 scroll-mt-24 flex-col overflow-hidden rounded-lg border border-sand bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+    >
       <Link href={href} className="block focus-visible:outline-2 focus-visible:outline-ink">
         <div className="relative aspect-[4/3] overflow-hidden bg-well">
           <EnglishListingImage

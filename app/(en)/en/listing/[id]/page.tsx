@@ -12,6 +12,7 @@ import {
 import { resolveImageUrl } from "@/lib/images";
 import { fetchListing } from "@/lib/listings";
 import { stripHtml } from "@/lib/text";
+import { RETURN_PARAM, returnHref } from "@/lib/returnContext";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,18 @@ function Fact({ label, value }: { label: string; value: string | null | undefine
 
 export default async function EnglishListingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [RETURN_PARAM]?: string | string[] }>;
 }) {
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isInteger(id) || id <= 0) notFound();
+
+  // Falls back to "/en/rent". A Georgian context presented here is refused
+  // rather than translated — see decodeReturnContext.
+  const backHref = returnHref((await searchParams)[RETURN_PARAM], "en", id);
 
   let data;
   try {
@@ -43,7 +50,7 @@ export default async function EnglishListingPage({
       <div className="mx-auto max-w-4xl px-4 py-12 text-center">
         <h1 className="text-2xl font-bold text-ink">Listing could not be loaded</h1>
         <p className="mt-2 text-mink">Please try again in a few minutes.</p>
-        <Link href="/en/rent" className="mt-5 inline-block font-semibold text-ink underline">
+        <Link href={backHref} className="mt-5 inline-block font-semibold text-ink underline">
           Return to rentals
         </Link>
       </div>
@@ -74,7 +81,7 @@ export default async function EnglishListingPage({
         }}
       />
 
-      <Link href="/en/rent" className="inline-flex text-sm font-semibold text-mink hover:text-ink">
+      <Link href={backHref} className="inline-flex text-sm font-semibold text-mink hover:text-ink">
         ← Back to Tbilisi rentals
       </Link>
 

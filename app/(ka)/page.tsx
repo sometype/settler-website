@@ -23,6 +23,7 @@ import {
   serializeDistricts,
   type SearchParams,
 } from "@/lib/filters";
+import { encodeReturnContext } from "@/lib/returnContext";
 import { Hero } from "@/components/Hero";
 import { FilterBar } from "@/components/FilterBar";
 import { ChannelHeading } from "@/components/Channel";
@@ -74,6 +75,14 @@ async function Feed({
   const filters = parseFilters(searchParams);
   const meta = filterMeta(filters);
   const hasFilters = hasActiveFilters(filters);
+  // Minted once for the whole feed, not per card: every card on one render
+  // returns to the same search, and the encoding is pure.
+  //
+  // ⚠️ `searchParams` HERE IS `seededParams` WHEN RAILS ARE SHOWN — the caller
+  // injects `rs` before this component sees it. That is deliberate: carrying the
+  // seed means the rails a seeker returns to are the ones they left, and the
+  // feed's exclusion set is identical, so the restored page is the same page.
+  const returnContext = encodeReturnContext("ka", searchParams);
 
   let result;
   try {
@@ -171,6 +180,7 @@ async function Feed({
             sort={filters.sort}
             page={result.page}
             hasFilters={hasFilters}
+            returnContext={returnContext}
           />
         ))}
       </div>

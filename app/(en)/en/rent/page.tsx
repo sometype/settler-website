@@ -3,6 +3,7 @@ import Link from "next/link";
 import { EnglishListingCard } from "@/components/EnglishListingCard";
 import { DISTRICTS, isKnownDistrictCode } from "@/lib/districts";
 import { fetchDistrictCounts, fetchFeed } from "@/lib/listings";
+import { encodeReturnContext } from "@/lib/returnContext";
 import type { FeedFilters } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,10 @@ export default async function EnglishRentPage({
 }) {
   const params = await searchParams;
   const filters = parseEnglishFilters(params);
+  // One context for the whole grid. The English catalogue reads exactly
+  // district/rooms/min/max/page, all of which the shared allowlist carries, so
+  // an English return restores this page completely.
+  const returnContext = encodeReturnContext("en", params);
 
   let result;
   let districtCounts;
@@ -174,6 +179,7 @@ export default async function EnglishRentPage({
               key={listing.id}
               listing={listing}
               images={result.cardImages.get(listing.id) ?? []}
+              returnContext={returnContext}
             />
           ))}
         </div>

@@ -6,6 +6,7 @@ import { locationLine } from "@/lib/location";
 import { knownConditionLabel, roomsAltKa, roomsLabelKa } from "@/lib/labels";
 import { isHonestRecentSaleDrop } from "@/lib/price-drops";
 import { ageBand, compactAgeKa, relativeTimeKa } from "@/lib/time";
+import { listingAnchorId, withReturnContext } from "@/lib/returnContext";
 import { CardPhotoPeek } from "./CardPhotoPeek";
 import { AgeStamp } from "./AgeStamp";
 import { DealBadge } from "./Badges";
@@ -26,6 +27,7 @@ export function ListingCard({
   sort,
   page,
   hasFilters,
+  returnContext,
 }: {
   listing: Listing;
   images: ListingImageRow[];
@@ -53,6 +55,16 @@ export function ListingCard({
   /** Bounded feed context compensating for pathname-only event transport. */
   page: number;
   hasFilters: boolean;
+  /**
+   * The seeker's current search, minted once per feed render by
+   * `encodeReturnContext` and carried into every detail link on this card.
+   *
+   * ⚠️ NAVIGATION STATE, NOT ANALYTICS. `src` and `sort` above are attribution
+   * and stay exactly as they were; do not fold either into this value or read
+   * this value in a beacon. They answer different questions and a shared field
+   * would make both unanswerable.
+   */
+  returnContext?: string | null;
 }) {
   const price = formatPrice(listing.price_usd, listing.deal_type ?? "rent");
   const unitPrice = pricePerSqm(listing.price_usd, listing.area, listing.deal_type);
@@ -73,10 +85,25 @@ export function ListingCard({
   const q = new URLSearchParams();
   if (src) q.set("src", src);
   if (sort && sort !== "new") q.set("sort", sort);
-  const href = `/listing/${listing.id}${q.size ? `?${q.toString()}` : ""}`;
+  const href = withReturnContext(
+    `/listing/${listing.id}${q.size ? `?${q.toString()}` : ""}`,
+    returnContext
+  );
 
   return (
-    <article className="group flex min-w-0 flex-col overflow-hidden rounded-lg border border-sand bg-card transition duration-150 hover:border-sand-strong">
+    // ⚠️ `id` AND `tabIndex` ARE THE WHOLE SCROLL/FOCUS RESTORATION. The detail
+    // page's back link aims at `#listing-N`; the browser scrolls this element
+    // into view, and because a `tabindex="-1"` element is a valid fragment
+    // focus target it also lands the keyboard here instead of at the top of the
+    // document. No client component, no effect, no sessionStorage — which is
+    // why a refresh, a new tab and a shared link all behave identically.
+    // `scroll-mt-24` keeps the restored card clear of the sticky header;
+    // without it the card lands underneath and reads as the wrong row.
+    <article
+      id={listingAnchorId(listing.id)}
+      tabIndex={-1}
+      className="group flex min-w-0 scroll-mt-24 flex-col overflow-hidden rounded-lg border border-sand bg-card transition duration-150 hover:border-sand-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+    >
       <CardPhotoPeek
         listingId={listing.id}
         images={images}
