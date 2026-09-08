@@ -236,6 +236,15 @@ const hostileContexts = [
   "A".repeat(5000),
 ];
 
+/**
+ * Wrong SPELLINGS of a real token, as opposed to wrong CONTENTS. Kept beside
+ * hostileContexts so the totality property below covers both classes.
+ */
+const malformedTokens = (() => {
+  const t = encodeReturnContext("ka", { district: "vake", page: "2" });
+  return [t + "!!", t + "=", t + "==", " " + t, t + " ", "\t" + t, t + "\n", t + "*", t.slice(0, -1) + "%"];
+})();
+
 test("every crafted context is refused", () => {
   for (const raw of hostileContexts) {
     assert.equal(
@@ -247,7 +256,11 @@ test("every crafted context is refused", () => {
 });
 
 test("PROPERTY: returnHref is total and can only ever produce an internal catalogue path", () => {
-  const inputs = [...hostileContexts, undefined, null, [], ["a", "b"], {}, 5, true];
+  const inputs = [
+    ...hostileContexts,
+    ...malformedTokens,
+    undefined, null, [], ["a", "b"], {}, 5, true,
+  ];
   for (const route of ["ka", "en"]) {
     const prefix = CATALOGUE_PATHS[route];
     for (const raw of inputs) {
@@ -274,6 +287,138 @@ test("a search that cannot be carried honestly is not carried at all", () => {
   assert.equal(encodeReturnContext("ka", { district: "vake", rooms: "x".repeat(300) }), null);
   assert.equal(encodeReturnContext("ka", { sort: "price asc" }), null, "space is not admissible");
   assert.equal(encodeReturnContext("ka", { after: "a", before: "b" }), null, "two windows");
+});
+
+/* ------------------------------------------- token canonicality (rc spelling) */
+
+/**
+ * ⚠️ THE APPROVED WRONG STATE FOR THIS BLOCK is candidate ecd03b56, where the
+ * token went straight into `Buffer.from(value, "base64url")`. Node's decoder
+ * discards out-of-alphabet characters and tolerates padding, so `<token>`,
+ * `<token>=`, `<token>!!` and a token with altered trailing bits all decoded to
+ * the same bytes and all restored the same search. One search had unboundedly
+ * many spellings, and every one of them was input this module never minted.
+ */
+
+/** A canonical token this module actually mints. */
+const CANONICAL = encodeReturnContext("ka", {
+  deal: "rent",
+  district: "saburtalo,vake",
+  min: "300",
+  rooms: "2",
+  sort: "price_asc",
+  page: "3",
+});
+
+/**
+ * A different spelling of CANONICAL's own bytes, found by search rather than
+ * hard-coded, so this test cannot rot into a constant that no longer decodes to
+ * anything. The final character carries spare low bits in any token whose
+ * length is not a multiple of 4; another character sharing those high bits
+ * decodes identically.
+ */
+function nonCanonicalTwin(token) {
+  const bytes = Buffer.from(token, "base64url");
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  for (const ch of alphabet) {
+    if (ch === token[token.length - 1]) continue;
+    const twin = token.slice(0, -1) + ch;
+    if (Buffer.from(twin, "base64url").equals(bytes)) return twin;
+  }
+  return null;
+}
+
+test("the canonical token this module mints is accepted", () => {
+  assert.ok(CANONICAL, "encode must produce a token");
+  assert.match(CANONICAL, /^[A-Za-z0-9_-]+$/, "minted tokens must already be canonical");
+  assert.equal(
+    decodeReturnContext(CANONICAL, "ka"),
+    "/?deal=rent&district=saburtalo%2Cvake&min=300&rooms=2&sort=price_asc&page=3"
+  );
+});
+
+test("a token carrying characters outside the alphabet is refused", () => {
+  for (const suffix of ["!!", "=", "==", "*", "%3D", "+", "/", "."]) {
+    assert.equal(
+      decodeReturnContext(CANONICAL + suffix, "ka"),
+      null,
+      `token + ${JSON.stringify(suffix)} was accepted`
+    );
+  }
+});
+
+test("whitespace anywhere in the token is refused, including at the edges", () => {
+  // ⚠️ NOT TRIMMED FIRST. A space-wrapped token is not canonical base64url, and
+  // nothing this module mints or any browser emits can contain whitespace, so
+  // the only source of one is a hand-built link.
+  const mid = Math.floor(CANONICAL.length / 2);
+  const variants = [
+    " " + CANONICAL,
+    CANONICAL + " ",
+    " " + CANONICAL + " ",
+    "\t" + CANONICAL,
+    CANONICAL + "\n",
+    CANONICAL.slice(0, mid) + " " + CANONICAL.slice(mid),
+    "",
+    "   ",
+  ];
+  for (const raw of variants) {
+    assert.equal(
+      decodeReturnContext(raw, "ka"),
+      null,
+      `whitespace variant was accepted: ${JSON.stringify(raw)}`
+    );
+  }
+});
+
+test("a non-canonical spelling of the same bytes is refused", () => {
+  const twin = nonCanonicalTwin(CANONICAL);
+  // The test must not pass by failing to construct its own wrong case.
+  assert.ok(twin, "could not construct a non-canonical twin — the case went untested");
+  assert.notEqual(twin, CANONICAL);
+  assert.ok(
+    Buffer.from(twin, "base64url").equals(Buffer.from(CANONICAL, "base64url")),
+    "the twin must decode to identical bytes, or it proves nothing"
+  );
+  assert.equal(decodeReturnContext(twin, "ka"), null, "non-canonical spelling was accepted");
+  // And the old, lenient behaviour is what made it dangerous: it round-tripped.
+  assert.equal(decodeReturnContext(CANONICAL, "ka") !== null, true);
+});
+
+test("one search has exactly one spelling", () => {
+  const again = encodeReturnContext("ka", {
+    deal: "rent",
+    district: "saburtalo,vake",
+    min: "300",
+    rooms: "2",
+    sort: "price_asc",
+    page: "3",
+  });
+  assert.equal(again, CANONICAL, "encoding must be stable");
+});
+
+test("tightening the token did not narrow honest restoration", () => {
+  // Byte-exact, both languages, asserted here as well as above so a future
+  // tightening cannot quietly start refusing a legitimate search.
+  const ka = encodeReturnContext("ka", {
+    deal: "rent", district: "saburtalo,vake", min: "300", max: "600", mina: "40",
+    maxa: "90", rooms: "2", sort: "price_asc", page: "3", after: "eyJhIjoxfQ",
+    view: "hot", rs: "42",
+  });
+  assert.equal(
+    decodeReturnContext(ka, "ka"),
+    "/?deal=rent&district=saburtalo%2Cvake&min=300&max=600&mina=40&maxa=90" +
+      "&rooms=2&sort=price_asc&page=3&after=eyJhIjoxfQ&view=hot&rs=42"
+  );
+  const en = encodeReturnContext("en", {
+    district: "vake", rooms: "5+", min: "400", max: "1200", page: "2",
+  });
+  assert.equal(
+    decodeReturnContext(en, "en"),
+    "/en/rent?district=vake&min=400&max=1200&rooms=5%2B&page=2"
+  );
+  assert.equal(returnHref(ka, "ka", 19095).endsWith("#listing-19095"), true);
+  assert.equal(returnHref(en, "en", 19095).endsWith("#listing-19095"), true);
 });
 
 /* -------------------------------------------------- anchor, focus, fallback */

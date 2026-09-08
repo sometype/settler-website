@@ -119,6 +119,46 @@ const MAX_ENCODED_LENGTH = 1024;
 /** Wire form: [version, routeIndex, [[key, value], ...]]. */
 type ReturnPayload = [number, number, [string, string][]];
 
+/** The alphabet a canonical unpadded base64url token may be spelled with. */
+const BASE64URL_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * The token's bytes, or null unless the token is CANONICAL unpadded base64url.
+ *
+ * ⚠️ NODE'S BASE64URL DECODER IS LENIENT, AND THAT LENIENCE IS THE HOLE. It
+ * silently discards characters outside the alphabet and tolerates padding, so
+ * `<token>`, `<token>=`, `<token>!!` and `<tok!en>` all decode to the SAME
+ * bytes and previously all restored the same search. One search therefore had
+ * unboundedly many spellings, which is a defect in three separate ways: a
+ * crafted variant is not something this module ever mints, so accepting it
+ * means accepting input from somewhere else; two spellings of one context
+ * defeat any log, cache key or equality check downstream; and every extra
+ * accepted shape is surface a future reader has to reason about.
+ *
+ * The test is decode-then-re-encode and compare, not a cleverer regex. The
+ * alphabet check alone would still admit non-canonical trailing bits — `QR`
+ * and `QQ` both decode to the single byte 0x41, because the final character's
+ * spare low bits are ignored — and only re-encoding catches that. Both checks
+ * run: the regex rejects the cheap cases without allocating, the round trip
+ * rejects everything else.
+ *
+ * ⚠️ NO TRIMMING HAPPENS BEFORE THIS. A token with a leading or trailing space
+ * is not canonical base64url and is refused. Nothing this module mints can
+ * contain whitespace and no browser emits it unencoded, so the only source of
+ * a padded or space-wrapped token is someone hand-building one.
+ */
+function canonicalBase64UrlBytes(token: string): Buffer | null {
+  if (!BASE64URL_RE.test(token)) return null;
+  const bytes = Buffer.from(token, "base64url");
+  return bytes.toString("base64url") === token ? bytes : null;
+}
+
+/** The raw token as it arrived — deliberately NOT trimmed; see above. */
+function firstRawToken(v: string | string[] | undefined): string | undefined {
+  const s = Array.isArray(v) ? v[0] : v;
+  return typeof s === "string" ? s : undefined;
+}
+
 function firstValue(v: string | string[] | undefined): string | undefined {
   const s = Array.isArray(v) ? v[0] : v;
   if (typeof s !== "string") return undefined;
@@ -205,11 +245,14 @@ export function decodeReturnContext(
   raw: string | string[] | undefined,
   expectedRoute: CatalogueRoute
 ): string | null {
-  const value = firstValue(raw);
+  const value = firstRawToken(raw);
   if (value === undefined || value.length > MAX_ENCODED_LENGTH) return null;
+  // One search has exactly one spelling. Anything else is not a stale link.
+  const bytes = canonicalBase64UrlBytes(value);
+  if (bytes === null) return null;
   let parsed: unknown;
   try {
-    parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8"));
+    parsed = JSON.parse(bytes.toString("utf8"));
   } catch {
     return null;
   }
