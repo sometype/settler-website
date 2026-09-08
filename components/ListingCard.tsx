@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Listing, ListingImage as ListingImageRow } from "@/lib/types";
 import { formatPrice, pricePerSqm } from "@/lib/listings";
 import { districtLabel } from "@/lib/districts";
@@ -11,6 +10,7 @@ import { CardPhotoPeek } from "./CardPhotoPeek";
 import { AgeStamp } from "./AgeStamp";
 import { DealBadge } from "./Badges";
 import { CardCallButton } from "./CardCallButton";
+import { ResultDetailLink } from "./ResultDetailLink";
 
 /**
  * Card as telemetry: a photo, four readings, one loud control.
@@ -91,12 +91,10 @@ export function ListingCard({
   );
 
   return (
-    // ⚠️ `id` AND `tabIndex` ARE THE WHOLE SCROLL/FOCUS RESTORATION. The detail
-    // page's back link aims at `#listing-N`; the browser scrolls this element
-    // into view, and because a `tabindex="-1"` element is a valid fragment
-    // focus target it also lands the keyboard here instead of at the top of the
-    // document. No client component, no effect, no sessionStorage — which is
-    // why a refresh, a new tab and a shared link all behave identically.
+    // The detail page's back link and same-tab native history both aim at this
+    // stable id. ResultFocusRestorer supplies explicit focus because browsers
+    // do not guarantee it for fragment navigation; see that component for the
+    // bounded streamed-layout handling.
     // `scroll-mt-24` keeps the restored card clear of the sticky header;
     // without it the card lands underneath and reads as the wrong row.
     <article
@@ -128,7 +126,8 @@ export function ListingCard({
         </div>
       </CardPhotoPeek>
 
-      <Link
+      <ResultDetailLink
+        listingId={listing.id}
         href={href}
         className="flex min-w-0 flex-1 flex-col focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
       >
@@ -221,7 +220,7 @@ export function ListingCard({
             </p>
           )}
         </div>
-      </Link>
+      </ResultDetailLink>
 
       {/* Call lives outside the link — valid HTML, no preventDefault gymnastics. */}
       {listing.has_phone && (

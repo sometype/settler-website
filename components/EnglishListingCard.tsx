@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { EnglishContact } from "./EnglishContact";
 import { EnglishListingImage } from "./EnglishListingImage";
 import { getEnglishAgentContact } from "@/lib/english-agent-contact";
@@ -6,6 +5,7 @@ import { englishListingPresentation } from "@/lib/english-rent";
 import { resolveImageUrl } from "@/lib/images";
 import { listingAnchorId, withReturnContext } from "@/lib/returnContext";
 import type { Listing, ListingImage } from "@/lib/types";
+import { ResultDetailLink } from "./ResultDetailLink";
 
 export function EnglishListingCard({
   listing,
@@ -30,7 +30,11 @@ export function EnglishListingCard({
       tabIndex={-1}
       className="flex min-w-0 scroll-mt-24 flex-col overflow-hidden rounded-lg border border-sand bg-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
     >
-      <Link href={href} className="block focus-visible:outline-2 focus-visible:outline-ink">
+      <ResultDetailLink
+        listingId={listing.id}
+        href={href}
+        className="block focus-visible:outline-2 focus-visible:outline-ink"
+      >
         <div className="relative aspect-[4/3] overflow-hidden bg-well">
           <EnglishListingImage
             src={image ? resolveImageUrl(image) : null}
@@ -48,7 +52,7 @@ export function EnglishListingCard({
               .join(" · ")}
           </p>
         </div>
-      </Link>
+      </ResultDetailLink>
       {agentContact && (
         <div className="mt-auto border-t border-sand p-3">
           <EnglishContact contact={agentContact} listingId={listing.id} compact />

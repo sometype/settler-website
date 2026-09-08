@@ -102,6 +102,26 @@ test("STRUCTURAL: result cards carry the search and a stable anchor", () => {
   }
 });
 
+test("STRUCTURAL: every same-tab card detail path stamps native history with its origin", () => {
+  const detailLink = codeOf("components/ResultDetailLink.tsx");
+  assert.match(detailLink, /history\.replaceState\(window\.history\.state/);
+  assert.match(detailLink, /current\.hash = listingAnchorId\(listingId\)/);
+  assert.match(detailLink, /event\.button !== 0/);
+  assert.match(codeOf("components/ListingCard.tsx"), /<ResultDetailLink/);
+  assert.match(codeOf("components/EnglishListingCard.tsx"), /<ResultDetailLink/);
+  const photoPeek = codeOf("components/CardPhotoPeek.tsx");
+  assert.match(photoPeek, /rememberResultOrigin\(listingId, event\)/);
+});
+
+test("STRUCTURAL: a document reload cannot emit the same listing_open twice", () => {
+  const beacon = codeOf("components/ListingOpenBeacon.tsx");
+  assert.match(beacon, /performance\.getEntriesByType\("navigation"\)/);
+  assert.match(beacon, /navigation\.type === "reload"/);
+  assert.match(beacon, /reloadSuppressionAvailable = false/);
+  assert.match(beacon, /sessionStorage\.getItem\(key\) === "1"/);
+  assert.match(beacon, /if \(!claimListingOpen\(listingId\)\) return/);
+});
+
 test("STRUCTURAL: both catalogues restore keyboard focus independently of fragment scrolling", () => {
   const restorer = codeOf("components/ResultFocusRestorer.tsx");
   assert.match(restorer, /LISTING_TARGET_RE/);

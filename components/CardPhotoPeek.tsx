@@ -13,6 +13,7 @@ import { resolveImageUrl } from "@/lib/images";
 import { trackEvent } from "@/lib/events";
 import type { CardPhotoContext } from "@/lib/event-contract";
 import { ListingImage } from "./ListingImage";
+import { rememberResultOrigin } from "./ResultDetailLink";
 
 const EXPOSURE_KEY = "mp_card_photo_exposure";
 let exposureClaimedWithoutStorage = false;
@@ -184,9 +185,12 @@ export function CardPhotoPeek({
   }
 
   function onOpen(event: MouseEvent<HTMLAnchorElement>) {
-    if (!suppressClickRef.current) return;
-    event.preventDefault();
-    event.stopPropagation();
+    if (suppressClickRef.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    rememberResultOrigin(listingId, event);
   }
 
   function moveTo(index: number) {
@@ -223,6 +227,7 @@ export function CardPhotoPeek({
           href={href}
           aria-label={`${alt} — განცხადების გახსნა`}
           className="absolute inset-0 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
+          onClick={(event) => rememberResultOrigin(listingId, event)}
         >
           <SlideImage image={slides[0] ?? null} alt={alt} />
         </Link>
