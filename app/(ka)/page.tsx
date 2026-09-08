@@ -37,6 +37,7 @@ import { SortBar } from "@/components/SortBar";
 import { FeedSkeleton } from "@/components/Skeletons";
 import { FeedBeacon } from "@/components/FeedBeacon";
 import { EmptyState } from "@/components/EmptyState";
+import { ResultFocusRestorer } from "@/components/ResultFocusRestorer";
 
 export const dynamic = "force-dynamic";
 
@@ -331,6 +332,7 @@ export default async function HomePage({
 
   return (
     <>
+      <ResultFocusRestorer />
       {/* Instrument chrome is short; a 288–384px pine block was leftover from
           the old magazine hero and flashed a dark void on every load. */}
       <Suspense fallback={<div className="h-[7.5rem] border-b border-sand bg-card sm:h-40" />}>

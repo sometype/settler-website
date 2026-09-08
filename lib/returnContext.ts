@@ -324,13 +324,14 @@ export function listingAnchorId(listingId: number): string {
  * remains the seeker's own affordance and is untouched by any of this; the two
  * paths are tested separately for exactly that reason.
  *
- * The `#listing-N` fragment restores the originating card without JavaScript or
- * storage: the browser scrolls it into view, and because the card carries
- * `tabIndex={-1}` the fragment also becomes the keyboard focus target. When the
- * card is gone from the restored results — sold, hidden, or reordered past the
- * window — the fragment simply matches nothing and the seeker lands at the top
- * of their exact search. That is the intended degradation: restore the query,
- * never fabricate the old inventory order.
+ * The `#listing-N` fragment restores the originating card's position without
+ * storage. Browsers do not reliably move keyboard focus for fragment
+ * navigation, so each catalogue mounts `ResultFocusRestorer` to focus the
+ * validated target after it exists. When the card is gone from the restored
+ * results — sold, hidden, or reordered past the window — the fragment simply
+ * matches nothing and the seeker lands at the top of their exact search. That
+ * is the intended degradation: restore the query, never fabricate the old
+ * inventory order.
  */
 export function returnHref(
   raw: string | string[] | undefined,

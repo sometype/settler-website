@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EnglishListingCard } from "@/components/EnglishListingCard";
+import { ResultFocusRestorer } from "@/components/ResultFocusRestorer";
 import { DISTRICTS, isKnownDistrictCode } from "@/lib/districts";
 import { fetchDistrictCounts, fetchFeed } from "@/lib/listings";
 import { encodeReturnContext } from "@/lib/returnContext";
@@ -84,6 +85,7 @@ export default async function EnglishRentPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <ResultFocusRestorer />
       <section className="max-w-3xl">
         <p className="text-sm font-bold uppercase tracking-[0.14em] text-clay">Long-term rentals</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-ink sm:text-4xl">

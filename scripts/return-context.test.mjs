@@ -102,6 +102,18 @@ test("STRUCTURAL: result cards carry the search and a stable anchor", () => {
   }
 });
 
+test("STRUCTURAL: both catalogues restore keyboard focus independently of fragment scrolling", () => {
+  const restorer = codeOf("components/ResultFocusRestorer.tsx");
+  assert.match(restorer, /LISTING_TARGET_RE/);
+  assert.match(restorer, /scrollIntoView\(\{ block: "center" \}\)/);
+  assert.match(restorer, /target\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(restorer, /MutationObserver/);
+  for (const file of [KA_CATALOGUE, EN_CATALOGUE]) {
+    const src = codeOf(file);
+    assert.match(src, /<ResultFocusRestorer \/>/, `${file} does not mount the focus restorer`);
+  }
+});
+
 test("STRUCTURAL: both catalogues mint and pass the context", () => {
   for (const file of [KA_CATALOGUE, EN_CATALOGUE]) {
     const src = codeOf(file);
