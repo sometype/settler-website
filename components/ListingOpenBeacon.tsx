@@ -3,38 +3,23 @@
 import { useEffect, useRef } from "react";
 import { trackEvent } from "@/lib/events";
 
-const OPEN_RELOAD_PREFIX = "mp_listing_open_reload:";
-let reloadSuppressionAvailable = true;
-
-function isDocumentReload(): boolean {
-  try {
-    const navigation = performance.getEntriesByType("navigation")[0];
-    return navigation instanceof PerformanceNavigationTiming && navigation.type === "reload";
-  } catch {
-    return false;
-  }
-}
+const OPEN_HISTORY_KEY = "__mp_listing_open_id";
 
 /**
- * A reload remounts this component and used to emit the same open again. Keep a
- * tab-scoped marker only for that case; a later real navigation to the same
- * listing is still a new open and remains measurable. Storage failure preserves
+ * Count one open per detail history entry. Reload and browser Forward revisit
+ * the same entry, whose state survives; clicking the listing again creates a
+ * new entry and therefore remains measurable. A history API failure preserves
  * the event instead of silently losing it.
  */
 function claimListingOpen(listingId: number): boolean {
-  const key = `${OPEN_RELOAD_PREFIX}${listingId}`;
   try {
-    // NavigationTiming describes the whole document, so after a reload it keeps
-    // saying "reload" even after later client-side route changes. Consume this
-    // exemption once: the initial remount is suppressed, but a genuine later
-    // reopen in the same document is still counted.
-    if (isDocumentReload() && reloadSuppressionAvailable) {
-      reloadSuppressionAvailable = false;
-      if (sessionStorage.getItem(key) === "1") return false;
-    }
-    sessionStorage.setItem(key, "1");
+    const state = window.history.state;
+    if (state?.[OPEN_HISTORY_KEY] === listingId) return false;
+    const nextState = state && typeof state === "object" ? { ...state } : {};
+    nextState[OPEN_HISTORY_KEY] = listingId;
+    window.history.replaceState(nextState, "", window.location.href);
   } catch {
-    // A blocked store cannot safely prove duplication, so keep the event.
+    // A blocked history API cannot safely prove duplication, so keep the event.
   }
   return true;
 }

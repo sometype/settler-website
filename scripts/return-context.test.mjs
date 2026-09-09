@@ -113,12 +113,11 @@ test("STRUCTURAL: every same-tab card detail path stamps native history with its
   assert.match(photoPeek, /rememberResultOrigin\(listingId, event\)/);
 });
 
-test("STRUCTURAL: a document reload cannot emit the same listing_open twice", () => {
+test("STRUCTURAL: one detail history entry cannot emit listing_open twice", () => {
   const beacon = codeOf("components/ListingOpenBeacon.tsx");
-  assert.match(beacon, /performance\.getEntriesByType\("navigation"\)/);
-  assert.match(beacon, /navigation\.type === "reload"/);
-  assert.match(beacon, /reloadSuppressionAvailable = false/);
-  assert.match(beacon, /sessionStorage\.getItem\(key\) === "1"/);
+  assert.match(beacon, /window\.history\.state/);
+  assert.match(beacon, /state\?\.\[OPEN_HISTORY_KEY\] === listingId/);
+  assert.match(beacon, /window\.history\.replaceState\(nextState/);
   assert.match(beacon, /if \(!claimListingOpen\(listingId\)\) return/);
 });
 
