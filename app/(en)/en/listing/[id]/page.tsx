@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EnglishContact } from "@/components/EnglishContact";
-import { EnglishListingImage } from "@/components/EnglishListingImage";
+import { EnglishGallery } from "@/components/EnglishGallery";
 import { ListingOpenBeacon } from "@/components/ListingOpenBeacon";
 import { getEnglishAgentContact } from "@/lib/english-agent-contact";
 import {
@@ -9,7 +9,6 @@ import {
   englishListingPresentation,
   englishSafeRenderedText,
 } from "@/lib/english-rent";
-import { resolveImageUrl } from "@/lib/images";
 import { fetchListing } from "@/lib/listings";
 import { stripHtml } from "@/lib/text";
 import { RETURN_PARAM, returnHref } from "@/lib/returnContext";
@@ -87,30 +86,7 @@ export default async function EnglishListingPage({
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)] lg:items-start">
         <div className="min-w-0 space-y-5">
-          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-sand bg-well sm:aspect-[16/10]">
-            <EnglishListingImage
-              src={images[0] ? resolveImageUrl(images[0]) : null}
-              alt={facts.title}
-              className="absolute inset-0 h-full w-full object-contain"
-            />
-          </div>
-
-          {images.length > 1 && (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-              {images.slice(1, 11).map((image, index) => (
-                <div
-                  key={`${image.position}-${index}`}
-                  className="relative aspect-[4/3] overflow-hidden rounded border border-sand bg-well"
-                >
-                  <EnglishListingImage
-                    src={resolveImageUrl(image)}
-                    alt={`${facts.title}, photo ${index + 2}`}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          <EnglishGallery key={listing.id} images={images} alt={facts.title} />
 
           <header className="space-y-2">
             <p className="text-3xl font-bold text-ink">{facts.price ?? "Price on request"}</p>

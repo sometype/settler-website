@@ -1,0 +1,31 @@
+{
+  "measured_at": "2026-09-11T10:07:31.030399+00:00",
+  "authority_class": "transaction-bound acceptance",
+  "candidate": {
+    "components/EnglishGallery.tsx": "0d379a31e504f3270878c21d8f42c9473affb6586c9e777aaf0410c51e978d83",
+    "app/(en)/en/listing/[id]/page.tsx": "f1045128fddfe7d12df4ce09e7f16cdb0f5ea4ab7700342fe63b96b24a4b966e"
+  },
+  "independent_result": "PASS source/SSR, exact-diff review, candidate hash parity and cleanup",
+  "source_ssr_rerun_exit": 0,
+  "config_restored": [
+    "next.config.ts"
+  ],
+  "fixture_removed": true,
+  "git_status": " M app/(en)/en/listing/[id]/page.tsx\n?? components/EnglishGallery.tsx\n",
+  "ui_evidence_source": "Builder report supplied in conversation; verifier did not independently execute or inspect CUA transcript/screenshots.",
+  "builder_observed_ui": {
+    "negative_control": "Same photo 3 img click: baseline main remained /img/999999/0, zero buttons; candidate main /img/999999/2, photo 3 pressed.",
+    "selection": "All 13 images selected with matching source and exactly one pressed button.",
+    "failure_recovery": "Photo 2 forced 404 showed English failure; photo 3 healthy selection recovered.",
+    "keyboard": "Enter photo 4 and Space photo 5 selected corresponding buttons.",
+    "desktop": "736x460 main frame stable, no overflow.",
+    "mobile": "390px viewport; main358x268.5 stable across first, failed second and final image; no overflow.",
+    "empty_single": "Zero English placeholder/no controls; one main image/no controls.",
+    "language": "No Georgian text."
+  },
+  "limits": [
+    "UI results are builder-observed, not an independently executed UI PASS.",
+    "Candidate remains uncommitted; final commit/evidence/board integration belongs to integration owner.",
+    "No production test, publication or deployment performed."
+  ]
+}

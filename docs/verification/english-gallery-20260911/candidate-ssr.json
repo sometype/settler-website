@@ -1,0 +1,41 @@
+{
+  "mode": "candidate",
+  "baseline": "3b0d4ae91791d01bf2d6f269418ce8d656426997",
+  "head": "3b0d4ae91791d01bf2d6f269418ce8d656426997",
+  "hashes": {
+    "components/EnglishGallery.tsx": "0d379a31e504f3270878c21d8f42c9473affb6586c9e777aaf0410c51e978d83",
+    "components/EnglishListingImage.tsx": "106cdc2d983241602ea3a5fd9e950a30abef3ba9bf82ddadbef892421464a0ab",
+    "lib/images.ts": "f9e45c2ca972238c423da4f3ec5e6f3408052d7598d6ed386c202580d82b9e47"
+  },
+  "results": [
+    {
+      "name": "13 selectable photos including first and beyond index 10",
+      "status": "PASS"
+    },
+    {
+      "name": "exactly one initial selection; English accessible button names",
+      "status": "PASS"
+    },
+    {
+      "name": "zero-photo English placeholder, no images or selectors",
+      "status": "PASS"
+    },
+    {
+      "name": "single image has healthy initial source, no unusable selector",
+      "status": "PASS"
+    },
+    {
+      "name": "no Georgian in synthetic gallery output; every image has English alt",
+      "status": "PASS"
+    },
+    {
+      "name": "English page wires gallery with listing reset key",
+      "status": "PASS"
+    },
+    {
+      "name": "protected Georgian/contact/image/data source parity",
+      "status": "PASS"
+    }
+  ],
+  "limitations": "SSR only: selection, keyboard, failed-image recovery and layout require CUA; no overall verdict."
+}
