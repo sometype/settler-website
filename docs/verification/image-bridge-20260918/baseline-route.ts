@@ -181,19 +181,7 @@ export async function GET(
     // NaN age (malformed timestamp) falls through to the redirect — the
     // bridge is an exception for provably-young rows, never the default.
     if (ageMs < BRIDGE_WINDOW_MS && data.source_url) {
-      const bridged = await proxyUpstream(data.source_url, BRIDGE_CACHE_CONTROL);
-      if (bridged.ok) return bridged;
-      // The portal may remove or refuse a photo after our worker saved it.
-      // Our stored copy can already be published during the bridge window.
-      // Keep this fallback temporary and uncached while sync catches up.
-      if (!base) return serviceUnavailable();
-      return new Response(null, {
-        status: 307,
-        headers: {
-          Location: `${base}/${data.stored_path}`,
-          "Cache-Control": "no-store",
-        },
-      });
+      return proxyUpstream(data.source_url, BRIDGE_CACHE_CONTROL);
     }
     // A missing/invalid CDN authority is a provider failure, not permission to
     // silently proxy source portals forever.

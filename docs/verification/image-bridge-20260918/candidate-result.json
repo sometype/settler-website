@@ -1,0 +1,46 @@
+{
+  "route": "/private/tmp/settler-english-repair-20260918/app/img/[id]/[pos]/route.ts",
+  "sha256": "0e14acd39a3063d3406f1560542adc87de089867def4bbb9628ca24113578d3e",
+  "results": [
+    {
+      "name": "healthy young bridge remains 200, bytes/type/cache unchanged",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: primary",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: emergency",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: transport failure",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: missing",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: invalid",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: expired",
+      "status": "PASS"
+    },
+    {
+      "name": "old stored image remains 308, no upstream fetch",
+      "status": "PASS"
+    },
+    {
+      "name": "legacy no-stored image still proxies upstream with existing cache",
+      "status": "PASS"
+    },
+    {
+      "name": "legacy upstream failure remains 404 even with storage authority",
+      "status": "PASS"
+    }
+  ]
+}

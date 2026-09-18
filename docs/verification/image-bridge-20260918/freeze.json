@@ -1,0 +1,14 @@
+{
+  "sha256": {
+    "contract.md": "aebe73b3ac2c2b1781480ef5ead92bc0a93fcbd6c234d969314c10642e2a2986",
+    "check.cjs": "f305aed7dc4e5ce206db16c2adc87cfb6e5a759bb4b167980ac82449ccd10a4e",
+    "baseline-route.ts": "a39f246be18747071453affef5bd491e564ff91cedc127c3022c614de855e0ce"
+  },
+  "baseline_command": [
+    "node",
+    "/private/tmp/english-image-bridge-acceptance-20260918/check.cjs",
+    "/private/tmp/settler-english-repair-20260918",
+    "/private/tmp/english-image-bridge-acceptance-20260918/baseline-route.ts"
+  ],
+  "baseline_exit": 1
+}

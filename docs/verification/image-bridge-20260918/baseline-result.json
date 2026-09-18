@@ -1,0 +1,52 @@
+{
+  "route": "/private/tmp/english-image-bridge-acceptance-20260918/baseline-route.ts",
+  "sha256": "a39f246be18747071453affef5bd491e564ff91cedc127c3022c614de855e0ce",
+  "results": [
+    {
+      "name": "healthy young bridge remains 200, bytes/type/cache unchanged",
+      "status": "PASS"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: primary",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 307\n"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: emergency",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 307\n"
+    },
+    {
+      "name": "failed young bridge uses 307 no-store: transport failure",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 307\n"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: missing",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 503\n"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: invalid",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 503\n"
+    },
+    {
+      "name": "failed young bridge without valid authority returns 503: expired",
+      "status": "FAIL",
+      "error": "Expected values to be strictly equal:\n\n404 !== 503\n"
+    },
+    {
+      "name": "old stored image remains 308, no upstream fetch",
+      "status": "PASS"
+    },
+    {
+      "name": "legacy no-stored image still proxies upstream with existing cache",
+      "status": "PASS"
+    },
+    {
+      "name": "legacy upstream failure remains 404 even with storage authority",
+      "status": "PASS"
+    }
+  ]
+}
