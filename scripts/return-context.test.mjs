@@ -67,7 +67,7 @@ const codeOf = (rel) =>
 
 const KA_LISTING = "app/(ka)/listing/[id]/page.tsx";
 const EN_LISTING = "app/(en)/en/listing/[id]/page.tsx";
-const KA_CATALOGUE = "app/(ka)/page.tsx";
+const KA_CATALOGUE = "app/(ka)/(catalog)/page.tsx";
 const EN_CATALOGUE = "app/(en)/en/rent/page.tsx";
 
 /* ------------------------------------------------- the reproduced defect */
