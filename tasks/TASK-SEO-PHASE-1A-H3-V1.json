@@ -1,0 +1,94 @@
+{
+  "task_id": "TASK-SEO-PHASE-1A-H3-V1",
+  "status": "frozen_before_integration",
+  "frozen_at": "2026-09-22",
+  "authority_class": "transaction-bound acceptance (S17 b)",
+  "execution_qualifiers": ["isolated-worktree", "offline", "requires-git-objects f19b6c4 and 8437574"],
+  "purpose": "Integrate SEO Phase 1A candidate 8437574 (built on old baseline 5794001) onto the exact production source capture f19b6c4 without rolling back or replacing production's return-to-results navigation, English gallery/image bridge, English filter repair, or analytics attribution.",
+  "transaction": {
+    "production_baseline": "f19b6c472ee152ebbaf0746d7de30c5513c93c97",
+    "production_baseline_provenance": "commit message of f19b6c4: 196/196 deployment files SHA-1-verified against dpl_BPSBdmP4EfVbf8Rb8SUiBaEu1iKg; tree = 50db52b + uncommitted English filter repair; GitHub main 3b0d4ae lacks them. Recorded by the builder, not re-measured against Vercel by this verifier.",
+    "seo_candidate": "8437574d4216069e60054b41598c1f211ee39101",
+    "seo_commits": ["8b39c2d (H1 gate)", "7ca2015 (implementation)", "8437574 (route-move test repair + H2)"],
+    "seo_old_baseline": "5794001270e0f31e3adddcd9753e0b532b96f911",
+    "integration_branch": "claude/seo-phase1a-integration-v2",
+    "pre_integration_head": "3834e68bd4b8662d75ea130cf580a85a906b71f4"
+  },
+  "frozen_commit": "not recordable in this file without a second commit; reported by the verifier as the commit whose message begins 'verify: freeze SEO Phase 1A integration acceptance (H3)' on the integration branch",
+  "frozen_inputs": {
+    "scripts/seo-phase1a-integration.acceptance.mjs": "759f80f7f3ca68d2689ca8b14fb50d66dcaac0f469f806340b55be06a4409bea"
+  },
+  "baseline_subject_hashes_f19b6c4": {
+    "scripts/return-context.test.mjs": "09e61bbf9f24728e7fa96a983776bf3e72e11b32912fa8a33a8e631f9fd18977",
+    "scripts/pagination-hardening.test.mjs": "02aed384abe08102b0a341c5b08b81c63d8462f45ee6dd1ae62862c0c8b2911c",
+    "scripts/pagination.test.mjs": "70ae1ab568b46575658e68632620e07388275b86d641a539a76f1f921bdedcb9",
+    "scripts/tracking-phase-a.test.mjs": "dfa9412a946beb85ea88be313f93447cd39622d882a98ad8852873ec286dae93",
+    "app/(ka)/page.tsx": "21b7fd063cbd31d3cf011e64faccbb4d862eef9e8fc0b48be6d7cc46dcca1a5a",
+    "app/(ka)/loading.tsx": "5a0af500691620f3e85d931d091a1f7037a7c37cfdec2f5d2b1502c558a453df",
+    "app/(ka)/listing/[id]/page.tsx": "0565af590dd4faacbdec9283491d0b1bad07beddfb8afcd32e20a041a5baa677"
+  },
+  "invocation": {
+    "cwd": "integration worktree root (website repo)",
+    "command": "node --import ./scripts/ts-resolve.mjs scripts/seo-phase1a-integration.acceptance.mjs",
+    "interpreter": "node v25.2.1 (measured); the ts-resolve loader is required",
+    "environment": "none; no secrets, no network, no production access, spend 0",
+    "output": "one PASS/RED line per check, SUMMARY line; exit code = number of RED checks"
+  },
+  "checks": {
+    "I0": "f19b6c4 is an ancestor of HEAD and the SEO candidate object exists.",
+    "I1": "Listing back control: backHref = returnHref(<params>[RETURN_PARAM], \"ka\", id); exactly one '← მთავარ გვერდზე', rendered by <Link href={backHref}>; database-error branch <Link href={backHref}> 'მთავარ გვერდზე დაბრუნება'; no href=\"/\"; real returnHref restores the search with #listing-N and falls back to '/'.",
+    "I2": "SEO catalog and district links (href={seo.catalogHref}, href={seo.districtHref}) exist as plain Link/a anchors in the rendered listing alongside the back control; real buildListingSeo hrefs are internal paths carrying no return context.",
+    "I3.1-I3.4": "return-context, pagination-hardening, pagination and tracking-phase-a tests equal their f19b6c4 bytes with exactly one 'app/(ka)/page.tsx' -> 'app/(ka)/(catalog)/page.tsx' substitution.",
+    "I3.5": "return-context.test.mjs and tracking-phase-a.test.mjs pass on the integrated tree.",
+    "I4.1": "Real buildListingSeo output is deep-equal with and without rc, src, sort, utm_*, gclid, fbclid, page; canonical is https://mepatrone.com/listing/<id>.",
+    "I4.2": "generateMetadata reads no searchParams/return context and sets canonical from seo.canonicalUrl.",
+    "I4.3": "RAIL_SOURCES, srcValue, rail, sortValue, openSort, contactAttribution, the ListingOpenBeacon element and the attribution prop count are whitespace-equal to f19b6c4 and never reference RETURN_PARAM/backHref/returnHref/rc/seo.* (source shape: no callable seam for the server component).",
+    "I4.4": "Real trackEvent (stubbed window/sendBeacon) sends path '/listing/101' without the rc token; acquisitionMeta output carries no token.",
+    "I5": "English listing page, English rent page, image route, EnglishGallery, EnglishRentFilterForm, EnglishListingCard, ListingCard, CardPhotoPeek, ListingOpenBeacon, ResultDetailLink, ResultFocusRestorer, lib/returnContext.ts, lib/filters.ts, lib/events.ts, lib/event-contract.ts, lib/listings.ts are byte-identical to f19b6c4.",
+    "I6": "app/(ka)/page.tsx and app/(ka)/loading.tsx are gone; their (catalog) replacements are f19b6c4's exact bytes; catalog mounts <ResultFocusRestorer />, mints and passes returnContext; ListingCard still renders ResultDetailLink.",
+    "I7": "H1 (4 files) and H2 (4 files) frozen artifacts exist with their frozen sha256 and equal the 8437574 bytes.",
+    "I8": "Every path differing from f19b6c4 (committed, unstaged or untracked) is in the SEO-owned set, the four route readers, or the H1/H2/H3 artifacts; no sitemap/Search Console/district-route files."
+  },
+  "approved_wrong_states": {
+    "pre_integration_3834e68": "7 PASS / 9 RED, exit 9 (RED: I2, I3.1-I3.4, I4.1, I4.2, I6, I7)",
+    "seo_candidate_8437574_as_is": "8 PASS / 8 RED (RED: I0, I1, I2, I3.1, I3.5, I5, I6, I8)",
+    "naive_cherry_pick_7ca2015_accepting_seo_listing_page": "8 PASS / 8 RED (RED: I1, I2, I3.1-I3.5, I7); with the four path substitutions applied: 12 PASS / 4 RED (I1, I2, I3.5 — return-context: hard-coded href and no returnHref — and I7)"
+  },
+  "honest_target": "16 PASS / 0 RED, exit 0, plus npm run test:unit exit 0, lint, tsc and production build on the integrated tree.",
+  "allowed_implementation_files": [
+    "app/(ka)/listing/[id]/page.tsx",
+    "app/(ka)/listing/[id]/loading.tsx (deletion)",
+    "app/(ka)/page.tsx -> app/(ka)/(catalog)/page.tsx (pure rename)",
+    "app/(ka)/loading.tsx -> app/(ka)/(catalog)/loading.tsx (pure rename)",
+    "app/robots.ts",
+    "lib/listingPageData.ts",
+    "lib/listingSeo.ts",
+    "scripts/seo-phase1a.test.mjs",
+    "scripts/return-context.test.mjs (path substitution only)",
+    "scripts/pagination-hardening.test.mjs (path substitution only)",
+    "scripts/pagination.test.mjs (path substitution only)",
+    "scripts/tracking-phase-a.test.mjs (path substitution only)",
+    "H2 frozen artifacts carried byte-identical from 8437574"
+  ],
+  "frozen_files_builder_must_not_modify": [
+    "scripts/seo-phase1a-integration.acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-H3-V1.json",
+    "scripts/seo-phase1a-acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-V1.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.freeze.json",
+    "tasks/TASK-SEO-PHASE-1A-V1.baseline-red.txt",
+    "scripts/seo-phase1a-route-move-tests.acceptance.mjs",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.json",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.freeze.json",
+    "tasks/TASK-SEO-PHASE-1A-H2-V1.baseline-red.txt"
+  ],
+  "known_interactions_with_earlier_gates": [
+    "H1 S12 diffs against 5794001 and will be RED on any f19b6c4-based integration (production files are outside its allowlist). This gate's I8 is the f19b6c4-relative scope check; it does not waive H1 S12, which is a disposition for the human/verifier.",
+    "H2 H5 checks HEAD^..HEAD topology from the original two-commit transaction and may be RED or verdictless after integration; H2 is transaction-bound to 5794001 (S17). I3/I7 re-state its substitution law against f19b6c4 without editing H2."
+  ],
+  "acceptance_owner": "delegated same-provider verifier (Claude, Opus 5); not independent-provider certification",
+  "builder_exclusion": "The acceptance author does not implement or resolve conflicts. The builder may add tests but may not edit, weaken or delete any frozen file listed above.",
+  "not_authorized": ["push", "preview", "deploy", "production access", "Search Console", "sitemap", "district pages", "spend", "discussion-board edits by the verifier"],
+  "review_trigger": "Any change to f19b6c4 as the production identity, to the SEO candidate, to the catalog route move, or to any frozen input.",
+  "expiry": "Completion of this integration transaction, drift in any frozen input, or a change of production baseline."
+}
