@@ -1,0 +1,202 @@
+{
+  "root": "/private/tmp/settler-gallery-release-20260921",
+  "checks": [
+    {
+      "name": "invalid suppresses feed {\"max\":\"1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"1\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"49\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"49\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"49\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"49\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"50001\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"50001\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"50001\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"50001\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"-1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"-1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"-1\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"-1\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"abc\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"abc\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"abc\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"abc\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"1.5\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"1.5\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"1.5\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"1.5\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"max\":\"1e3\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"max\":\"1e3\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"max\":\"1e3\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"max\":\"1e3\"} max",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses feed {\"min\":\"700\",\"max\":\"400\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid suppresses successful results {\"min\":\"700\",\"max\":\"400\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid visible validation {\"min\":\"700\",\"max\":\"400\"}",
+      "pass": false
+    },
+    {
+      "name": "invalid raw retained {\"min\":\"700\",\"max\":\"400\"} min",
+      "pass": true
+    },
+    {
+      "name": "invalid raw retained {\"min\":\"700\",\"max\":\"400\"} max",
+      "pass": true
+    },
+    {
+      "name": "valid feed {}",
+      "pass": true
+    },
+    {
+      "name": "valid feed {\"min\":\"\"}",
+      "pass": true
+    },
+    {
+      "name": "valid feed {\"min\":\"50\"}",
+      "pass": true
+    },
+    {
+      "name": "valid min honored",
+      "pass": true
+    },
+    {
+      "name": "valid feed {\"max\":\"50000\"}",
+      "pass": true
+    },
+    {
+      "name": "valid max honored",
+      "pass": true
+    },
+    {
+      "name": "valid feed {\"min\":\"50\",\"max\":\"50\"}",
+      "pass": true
+    },
+    {
+      "name": "valid min honored",
+      "pass": true
+    },
+    {
+      "name": "valid max honored",
+      "pass": true
+    },
+    {
+      "name": "valid feed {\"district\":\"saburtalo\",\"rooms\":\"2\",\"min\":\"400\",\"max\":\"700\",\"page\":\"2\"}",
+      "pass": true
+    },
+    {
+      "name": "valid min honored",
+      "pass": true
+    },
+    {
+      "name": "valid max honored",
+      "pass": true
+    },
+    {
+      "name": "valid page honored",
+      "pass": true
+    },
+    {
+      "name": "pagination preserves filters",
+      "pass": true
+    },
+    {
+      "name": "backend error remains distinct",
+      "pass": true
+    }
+  ],
+  "passed": 17,
+  "total": 48,
+  "limitations": [
+    "Page React tree and stubbed data dependencies; not browser hydration/navigation or live data."
+  ]
+}

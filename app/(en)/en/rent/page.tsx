@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EnglishRentFilterForm } from "@/components/EnglishRentFilterForm";
 import { EnglishListingCard } from "@/components/EnglishListingCard";
 import { ResultFocusRestorer } from "@/components/ResultFocusRestorer";
 import { DISTRICTS, isKnownDistrictCode } from "@/lib/districts";
@@ -26,6 +27,20 @@ function boundedInt(value: string | undefined, min: number, max: number): number
   if (!value || !/^\d+$/u.test(value)) return undefined;
   const parsed = Number(value);
   return parsed >= min && parsed <= max ? parsed : undefined;
+}
+
+function priceValidationError(params: SearchParams): string | undefined {
+  for (const field of ["min", "max"] as const) {
+    const value = one(params[field]);
+    if (value !== undefined && value !== "" && boundedInt(value, 50, 50_000) === undefined) {
+      return "Enter monthly prices as whole US dollars between $50 and $50,000.";
+    }
+  }
+  const min = boundedInt(one(params.min), 50, 50_000);
+  const max = boundedInt(one(params.max), 50, 50_000);
+  if (min !== undefined && max !== undefined && min > max) {
+    return "Minimum monthly price must not exceed maximum monthly price.";
+  }
 }
 
 function parseEnglishFilters(params: SearchParams): FeedFilters {
@@ -62,6 +77,7 @@ export default async function EnglishRentPage({
 }) {
   const params = await searchParams;
   const filters = parseEnglishFilters(params);
+  const priceError = priceValidationError(params);
   // One context for the whole grid. The English catalogue reads exactly
   // district/rooms/min/max/page, all of which the shared allowlist carries, so
   // an English return restores this page completely.
@@ -71,7 +87,7 @@ export default async function EnglishRentPage({
   let districtCounts;
   try {
     [result, districtCounts] = await Promise.all([
-      fetchFeed(filters),
+      priceError ? Promise.resolve(null) : fetchFeed(filters),
       fetchDistrictCounts("rent"),
     ]);
   } catch {
@@ -96,10 +112,7 @@ export default async function EnglishRentPage({
         </p>
       </section>
 
-      <form
-        action="/en/rent"
-        className="mt-6 grid gap-3 rounded-lg border border-sand bg-card p-4 sm:grid-cols-2 lg:grid-cols-5"
-      >
+      <EnglishRentFilterForm key={pageHref(params, 1)} priceError={priceError}>
         <label className="text-xs font-semibold text-mink">
           District
           <select
@@ -137,7 +150,9 @@ export default async function EnglishRentPage({
           <input
             name="min"
             inputMode="numeric"
-            defaultValue={filters.minPrice ?? ""}
+            defaultValue={one(params.min) ?? ""}
+            aria-invalid={priceError ? true : undefined}
+            aria-describedby={priceError ? "price-error" : undefined}
             placeholder="$ min"
             className="mt-1 block min-h-11 w-full rounded border border-sand-strong bg-card px-3 text-sm text-ink"
           />
@@ -147,7 +162,9 @@ export default async function EnglishRentPage({
           <input
             name="max"
             inputMode="numeric"
-            defaultValue={filters.maxPrice ?? ""}
+            defaultValue={one(params.max) ?? ""}
+            aria-invalid={priceError ? true : undefined}
+            aria-describedby={priceError ? "price-error" : undefined}
             placeholder="$ max"
             className="mt-1 block min-h-11 w-full rounded border border-sand-strong bg-card px-3 text-sm text-ink"
           />
@@ -156,60 +173,71 @@ export default async function EnglishRentPage({
           <button className="min-h-11 flex-1 rounded bg-ink px-4 text-sm font-bold text-card">
             Search
           </button>
-          <Link
+          {/* Full navigation also discards unsaved edits when the URL is already /en/rent. */}
+          <a
             href="/en/rent"
             className="flex min-h-11 items-center rounded border border-sand-strong px-3 text-sm font-semibold text-ink"
           >
             Clear
-          </Link>
+          </a>
         </div>
-      </form>
+      </EnglishRentFilterForm>
 
-      <div className="mt-6 flex items-center justify-between gap-4">
-        <p className="text-sm text-mink">
-          {result.total.toLocaleString("en-US")} current rental listings
+      {priceError && (
+        <p id="price-error" role="alert" className="mt-4 rounded border border-clay bg-card p-4 text-sm text-ink">
+          {priceError}
         </p>
-        <p className="text-xs text-faint">
-          Page {result.page} of {result.pageCount}
-        </p>
-      </div>
-
-      {result.listings.length > 0 ? (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {result.listings.map((listing) => (
-            <EnglishListingCard
-              key={listing.id}
-              listing={listing}
-              images={result.cardImages.get(listing.id) ?? []}
-              returnContext={returnContext}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-8 rounded-lg border border-sand bg-card p-10 text-center">
-          <h2 className="text-lg font-semibold text-ink">No matching rentals</h2>
-          <p className="mt-2 text-sm text-mink">Try removing one or more filters.</p>
-        </div>
       )}
 
-      <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Catalog pages">
-        {result.page > 1 && (
-          <Link
-            href={pageHref(params, result.page - 1)}
-            className="rounded border border-sand-strong bg-card px-4 py-2 text-sm font-semibold text-ink"
-          >
-            Previous
-          </Link>
-        )}
-        {result.page < result.pageCount && (
-          <Link
-            href={pageHref(params, result.page + 1)}
-            className="rounded bg-ink px-4 py-2 text-sm font-bold text-card"
-          >
-            Next
-          </Link>
-        )}
-      </nav>
+      {result && (
+        <>
+          <div className="mt-6 flex items-center justify-between gap-4">
+            <p className="text-sm text-mink">
+              {result.total.toLocaleString("en-US")} current rental listings
+            </p>
+            <p className="text-xs text-faint">
+              Page {result.page} of {result.pageCount}
+            </p>
+          </div>
+
+          {result.listings.length > 0 ? (
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {result.listings.map((listing) => (
+                <EnglishListingCard
+                  key={listing.id}
+                  listing={listing}
+                  images={result.cardImages.get(listing.id) ?? []}
+                  returnContext={returnContext}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-8 rounded-lg border border-sand bg-card p-10 text-center">
+              <h2 className="text-lg font-semibold text-ink">No matching rentals</h2>
+              <p className="mt-2 text-sm text-mink">Try removing one or more filters.</p>
+            </div>
+          )}
+
+          <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Catalog pages">
+            {result.page > 1 && (
+              <Link
+                href={pageHref(params, result.page - 1)}
+                className="rounded border border-sand-strong bg-card px-4 py-2 text-sm font-semibold text-ink"
+              >
+                Previous
+              </Link>
+            )}
+            {result.page < result.pageCount && (
+              <Link
+                href={pageHref(params, result.page + 1)}
+                className="rounded bg-ink px-4 py-2 text-sm font-bold text-card"
+              >
+                Next
+              </Link>
+            )}
+          </nav>
+        </>
+      )}
     </div>
   );
 }

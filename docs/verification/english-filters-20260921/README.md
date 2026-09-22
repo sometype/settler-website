@@ -1,0 +1,11 @@
+# English filter repair — local candidate
+
+Baseline50db52b. Local-only repair authorized by user “ok lets adress those”. Two application files: English catalog page and its client form wrapper. Existing price range50..50000 retained; invalid/reversed prices produce visible validation, preserve raw values, and skip feed lookup/results. Clear deliberately reloads the unfiltered URL; query-keyed form and navigation reset align cached form controls with rendered results.
+
+Frozen acceptance: ACCEPTANCE.md sha256 a4ee4270a0833ac8e2159c551a0f57ad5cd572cefd49835a4fc360e1acf60226. Helper authored contract before implementation; inherited builder context, not external certification. Actual-page oracle: baseline17/48 (expected red), repair48/48. Reproduce: node docs/verification/english-filters-20260921/oracle.cjs <absolute-repo-root>. This executes that working tree; pass /private/tmp/settler-gallery-release-20260921 for preserved baseline or this repair root for candidate. The verifier instrument uses dependencies at /private/tmp/settler-gallery-release-20260921/node_modules, so that local environment is required. SSR dependency stubs do not certify mounted interactions; BROWSER.md records CUA observations/limitations separately.
+
+Final build `npm run build -- --webpack` exit0, including TypeScript. Scoped ESLint exit0. Existing `npm run test:unit`224 passed/0failed. Initial sandbox build failed fetching Google Fonts; authorized network retry passed; existing Google Sans font-override warning retained. No new dependencies.
+
+Restoration: in disposable files applied both candidate sources, restored baseline page and absent wrapper, verified exact baseline bytes/absence, reapplied candidate and verified bytes; PASS. This local drill does not establish production rollback.
+
+Article X applicability: reproduction/repair/baseline red/candidate green/local tests/source preservation/commit apply here. Production checks, live parity, external certification and release authorization are outstanding, not waived or claimed done. No deployment/push/production data changed; Georgian/gallery/contact/data-access source untouched. Owner for release follow-up: integration owner. Full live-data smoke after separately authorized deployment remains owed. This change does not resolve the prior gallery release's GitHub-main synchronization block.

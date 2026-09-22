@@ -1,0 +1,300 @@
+
+> website@0.1.0 test:unit
+> node --import ./scripts/ts-resolve.mjs --test scripts/*.test.mjs
+
+(node:55718) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/images.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ card previews use the same first image as the cover and cap each listing (3.607958ms)
+✔ preview rows are client-safe and source rows are not mutated (0.369083ms)
+✔ invalid or zero preview limits fail soft (0.097084ms)
+✔ card event types are present in TypeScript, API, CHECK and RLS gates (22.949041ms)
+✔ carousel keeps image DOM stable and mounts direct-jump targets before scrolling (1.293125ms)
+✔ detail gallery changes sources without remounting its image layers (0.978625ms)
+✔ failed listing photos show the temporary Georgian outage message (1.666042ms)
+✔ cover choice refresh is public-only and prunes departed listings (1.562875ms)
+✔ cover choice refresh stays version-pinned and private (0.2325ms)
+(node:55720) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/english-rent.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 12411 bathrooms is a live Georgian value, not a presentation-only concern (1.242792ms)
+✔ englishSafeRenderedText drops Georgian and keeps Latin bathroom facts (0.297541ms)
+✔ presentation for 12411 exposes bathrooms as null and stays script-free (50.431583ms)
+✔ reconstructed English detail HTML for 12411 has no Georgian script (0.472916ms)
+✔ English detail route does not interpolate unguarded listing.bathrooms (0.248167ms)
+(node:55721) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/english-rent.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ English rent has a real English document root and bounded routes (1.997917ms)
+✔ listing data cannot leak Georgian into an English presentation (141.09725ms)
+✔ contact is Mepatrone-agent and WhatsApp-first (1.205667ms)
+✔ all English route and component source is Mkhedruli-free (1.3765ms)
+(node:55722) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/english-agent-contact-core.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ approved Mepatrone agent contact is exact and listing-attributed (4.752625ms)
+✔ contact authority fails closed without fallback (0.770459ms)
+(node:55723) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/english-rent.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ containsMkhedruli detects every Georgian block (1.982583ms)
+✔ a Mtavruli description with enough Latin characters is refused (0.210625ms)
+✔ a Mtavruli street is refused rather than rendered (2.57625ms)
+✔ the whole-presentation guard refuses Mtavruli (34.601042ms)
+(node:55724) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/labels.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ accepts a sane recent sale drop, including the exact seven-day boundary (2.017583ms)
+✔ fails closed on stale, invalid, future, missing, and rent timestamps (0.22675ms)
+✔ rejects rises, tiny/huge cuts, and prices outside the sale trust bounds (0.2825ms)
+✔ shows only conditions already translated by the canonical map (0.130708ms)
+(node:55725) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/google-ads-conversion-client.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ WhatsApp and Call use distinct exact Google Ads destinations (2.254167ms)
+✔ unknown actions and unavailable or throwing gtag fail safe (0.148125ms)
+(node:55726) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/google-ads-measurement-core.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the exact Google Ads base tag is limited to the English route (1.484959ms)
+✔ all consent categories default to denied before the single tag config (6.18125ms)
+(node:55727) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/google-ads-measurement-core.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the native English bootstrap executes denied consent before config (4.336875ms)
+✔ the native scripts are in the English head only (0.358792ms)
+✔ only server-side image authorities are accepted and rollback fallback is time-bounded (5.503958ms)
+✔ the bridge matches the installed ten-minute timer and stored images fail closed (4.308291ms)
+✔ CDN authorities require clean credential-free HTTPS origins (4.587208ms)
+✔ failed images use the exact approved outage copy while missing images keep their own label (7.908084ms)
+✔ a failure completed before hydration is promoted to the same React fallback (3.086834ms)
+✔ cards, rails, and populated galleries all retain the canonical ListingImage failure surface (3.375208ms)
+(node:55730) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/supabase.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ GAP 1 — changing district from page 2 drops page, after and before (1.941875ms)
+✔ GAP 1 — after changing district, the query returns the start of the new collection (3.421042ms)
+✔ GAP 1 — changing price from page 2 drops page, after and before (0.23425ms)
+✔ GAP 1 — after changing price, the query returns the start of the new collection (0.758416ms)
+✔ GAP 1 — changing rooms from page 2 drops page, after and before (0.255875ms)
+✔ GAP 1 — after changing rooms, the query returns the start of the new collection (0.62425ms)
+✔ GAP 1 — changing deal from page 2 drops page, after and before (0.213459ms)
+✔ GAP 1 — after changing deal, the query returns the start of the new collection (0.484458ms)
+✔ GAP 1 — changing sort from page 2 drops page, after and before (0.148333ms)
+✔ GAP 1 — after changing sort, the query returns the start of the new collection (0.846167ms)
+✔ GAP 1 — changing clear-all from page 2 drops page, after and before (0.181458ms)
+✔ GAP 1 — after changing clear-all, the query returns the start of the new collection (0.562958ms)
+✔ GAP 1 — a stale cursor that survives a reset is still refused at parse (0.209625ms)
+✔ GAP 1 — every reset surface calls the shared helper (2.707583ms)
+✔ GAP 1 — the helper clears exactly the window params and nothing else (1.214875ms)
+✔ GAP 2 — every injection key is refused by the decoder (0.222209ms)
+✔ GAP 2 — an injection key cannot reach the or= expression (0.955833ms)
+✔ GAP 2 — no expression this module can emit contains a stray delimiter (0.489958ms)
+✔ GAP 2 — a timestamp cursor is rejected under a price sort (0.165208ms)
+✔ GAP 2 — a price cursor is rejected under the newest-first sort (0.106334ms)
+✔ GAP 2 — invalid timestamps are refused (0.147833ms)
+✔ GAP 2 — NaN, Infinity and non-decimal numbers are refused (0.285542ms)
+✔ GAP 2 — a null key is refused for a sort whose column is NOT NULL (0.12425ms)
+✔ GAP 2 — bad ids are refused (0.129125ms)
+✔ GAP 2 — after and before together are refused outright (0.990417ms)
+✔ GAP 2 — an old v1 cursor no longer decodes (0.150708ms)
+✔ GAP 2 — the honest path still works end to end (6.745833ms)
+(node:55731) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/supabase.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ NEGATIVE CONTROL: unstable rail exclusions + offset paging repeat an id (8.424166ms)
+✔ NEGATIVE CONTROL: a changing seed really does change the excluded set (3.859417ms)
+✔ repaired: no id repeats or goes missing across a full paginated walk (4.971917ms)
+✔ repaired: the walk is identical under every shuffle seed (6.955875ms)
+✔ repaired: one seed reproduces byte-identical exclusions on every page (0.794917ms)
+✔ a listing arriving between requests does not shift the next page (24.069833ms)
+✔ a listing removed between requests does not skip its neighbour (41.779ms)
+✔ price_asc: monotonic, deterministic, and free of repeats across pages (1.375083ms)
+✔ price_desc: monotonic, deterministic, and free of repeats across pages (1.308792ms)
+✔ price sorts break ties by id, so equal prices cannot swap between pages (0.410542ms)
+✔ page navigation with rails: forward then back lands on the same rows (1.256167ms)
+✔ rails render the same ids on page 2 as on page 1 for one seed (0.683375ms)
+✔ the feed excludes exactly what the rails rendered — no more, no less (0.465625ms)
+✔ cursors round-trip and refuse anything they cannot reproduce (0.199ms)
+✔ keyset expressions quote timestamps and place nulls last (0.105958ms)
+✔ an undecodable cursor degrades to the legacy offset page, not a random window (0.685833ms)
+✔ the seeded shuffle is a permutation, and the seed parser fails closed (3.837292ms)
+✔ page links carry the cursor, and the seed reaches them (0.822417ms)
+✔ the window is never a filter: cursors stay out of the funnel predicates (0.423167ms)
+✔ the latest effective listings_public still excludes canonical aliases (3.786333ms)
+✔ phone gate changes only visibility, never public columns or their order (1.788167ms)
+✔ phone-gate migration is replay-safe and serving consumers use the gated view (0.337584ms)
+(node:55733) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/prices.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ accepts sale shorthand and full-dollar input as the same budget (13.438917ms)
+✔ keeps rent literal and rejects malformed price input (0.30925ms)
+✔ round-trips real-dollar URL bounds without changing old links (0.19325ms)
+✔ calculates whole-dollar sale price per square metre (0.143ms)
+✔ does not produce a v1 value for rent (0.645334ms)
+✔ never derives from a hidden or invalid total price (0.157416ms)
+✔ never divides by a missing, non-positive, or non-finite area (0.554833ms)
+✔ keeps the existing total-price presentation contract (23.728792ms)
+(node:55734) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/filters.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ STRUCTURAL: neither detail page hard-codes the catalogue back link (2.196917ms)
+✔ STRUCTURAL: both detail pages resolve their back link through the shared parser (1.254916ms)
+✔ STRUCTURAL: result cards carry the search and a stable anchor (0.635084ms)
+✔ STRUCTURAL: every same-tab card detail path stamps native history with its origin (1.300292ms)
+✔ STRUCTURAL: one detail history entry cannot emit listing_open twice (0.366792ms)
+✔ STRUCTURAL: both catalogues restore keyboard focus independently of fragment scrolling (0.758709ms)
+✔ STRUCTURAL: both catalogues mint and pass the context (0.334375ms)
+✔ STRUCTURAL: the visible control never delegates to browser history (0.418791ms)
+✔ STRUCTURAL: return context is inert for analytics and adds no query (0.657459ms)
+✔ a full Georgian search survives the boundary exactly (0.974375ms)
+✔ the English catalogue's every parameter survives (0.233875ms)
+✔ the repeated-key district form collapses to the one canonical spelling (0.132875ms)
+✔ unknown district codes are dropped by the one district law, not re-implemented (0.091042ms)
+✔ an empty search still returns a usable catalogue root (0.078916ms)
+✔ acquisition, tracking and retired keys never cross the boundary (0.096583ms)
+✔ every crafted context is refused (0.17375ms)
+✔ PROPERTY: returnHref is total and can only ever produce an internal catalogue path (0.291209ms)
+✔ a context minted in one language is refused by the other (0.081458ms)
+✔ a search that cannot be carried honestly is not carried at all (0.077542ms)
+✔ a legacy ?deal_type= link restores the catalogue it asked for (0.075208ms)
+✔ when a URL carries both spellings, the return agrees with parseFilters (0.347708ms)
+✔ PROPERTY: a restored search parses to the same filters as the original (1.848458ms)
+✔ the canonical token this module mints is accepted (0.116833ms)
+✔ a token carrying characters outside the alphabet is refused (0.079916ms)
+✔ whitespace anywhere in the token is refused, including at the edges (0.091709ms)
+✔ a non-canonical spelling of the same bytes is refused (0.208208ms)
+✔ one search has exactly one spelling (0.060375ms)
+✔ tightening the token did not narrow honest restoration (0.188792ms)
+✔ the originating card is the return target, and only with a real id (0.113291ms)
+✔ a direct or shared entry lands on the catalogue root, never elsewhere (0.040875ms)
+✔ the anchor a card renders is the anchor a return link aims at (0.052875ms)
+✔ withReturnContext preserves existing analytics parameters (0.071667ms)
+(node:55735) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/events.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ acquisition meta stores bounded categories, never raw campaign identifiers (4.820167ms)
+✔ acquisition classification uses honest unattributed, referral and click-id buckets (0.306625ms)
+✔ contact contract preserves the row while dropping unsafe attribution (0.527459ms)
+✔ contact contract hard-rejects only missing listing and unknown surface (0.147083ms)
+✔ paid_click needs real paid evidence — fbclid alone is not it (0.336208ms)
+✔ the Android Google app is Google, not a referral (0.477667ms)
+✔ a pathological contact payload has globally bounded safe notices and is still written (0.757ms)
+✔ session contract accepts legacy meta but rejects query and unbounded values (0.306042ms)
+✔ every event path is pathname-only in both client and API (8.593417ms)
+✔ card-photo and sort contexts are bounded and legacy photo rows survive rollout (0.3485ms)
+✔ owned emitters carry compensating bounded context (4.764167ms)
+✔ compatibility SQL never guesses direct acquisition for legacy starts (1.918666ms)
+(node:55736) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/turnstile.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ owner upload accepts a token bound to the exact site and action (1.123458ms)
+✔ owner upload rejects a token issued for another hostname (0.101208ms)
+✔ owner upload rejects a token issued for another action (0.075042ms)
+✔ owner upload rejects incomplete and unsuccessful responses (0.075917ms)
+✔ an explicitly configured preview hostname is still exact (0.081208ms)
+(node:55737) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///private/tmp/settler-english-filter-repair-20260921/lib/labels.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /private/tmp/settler-english-filter-repair-20260921/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ diagnostic trace is opt-in, structured, and cannot contain owner data or credentials (3.033833ms)
+✔ wrong state 1: a draft cannot be created before the owner declares (0.64175ms)
+✔ validation identity survives and routes to the correcting control (0.343792ms)
+✔ owner-friendly numeric input normalizes without silently changing value (0.1315ms)
+✔ facts parity rejects values the API will reject (0.303666ms)
+✔ persisted state cannot restore an unknown or completed screen (0.326541ms)
+✔ finalization only accepts explicit review states (0.085041ms)
+✔ component routes field errors and offers recovery actions (0.340417ms)
+✔ wrong state 1b: owner_declared is never a constant in the component (0.282083ms)
+✔ wrong state 2: missing, empty or non-numeric identifiers are rejected (0.223416ms)
+✔ wrong state 3: refresh restores facts, text, declaration and gallery (0.213667ms)
+✔ wrong state 4: never more than two uploads run at once (0.235542ms)
+✔ wrong state 5: a failed photo can be removed and does not block finishing (0.273291ms)
+✔ wrong state 5b: positions are reused so removal never leaves a hole (0.185125ms)
+✔ photo workers reserve distinct positions synchronously before their first await (0.221292ms)
+✔ a held retry reserves its original position (0.114334ms)
+✔ UploadFlow publishes the reserved snapshot before requesting a ticket (0.2615ms)
+✔ cover identity survives retry and removal (0.163458ms)
+✔ wrong state 6: an unconfigured production build fails closed (0.113666ms)
+✔ wrong state 7: every control is labelled and the cover is a real button (0.596084ms)
+✔ wrong state 8: a lost create response replays the same idempotency key (0.221834ms)
+✔ excess files and unsupported types are reported (0.154292ms)
+✔ product 1+6: an unchecked declaration cannot create or finalize (0.156209ms)
+✔ product 2+5: description is required and reaches the stored submission (0.0755ms)
+✔ product 7: a missing property condition blocks the step and the request (0.392583ms)
+✔ product 7b: floor uses two number fields while preserving the API value (0.315334ms)
+✔ product 3: no blanket claim that nothing was lost (0.168584ms)
+✔ product 4: a failed HEIC or corrupt photo is rejected and removable (0.283583ms)
+✔ product 5b: no raw internal status is ever rendered (0.405167ms)
+✔ product 8+9: concise truthful manifesto without portal brands (0.392042ms)
+✔ product 8b: facts and declaration copy are short and natural (0.16575ms)
+✔ product 10: main-photo selection is keyboard operable and labelled (0.295583ms)
+✔ product 10b: five numbered steps, never n/6 (0.065959ms)
+✔ product 9b: informal email copy without English Promotions (0.190541ms)
+✔ position 1: a known failure at 0 releases it, three successes take 0,1,2 (0.186583ms)
+✔ position 2: an ambiguous transport failure holds its position (0.093375ms)
+✔ position 3: only the exact already-ingested 409 settles a slot as done (0.067209ms)
+✔ position 4: retry after a lost successful response settles the same slot (0.067584ms)
+✔ position 5: a pre-ingest failure releases without holding (0.08675ms)
+✔ session expiry at ticket or finalize keeps the draft and the gallery (0.470541ms)
+✔ accountless recovery: verified email can resume or abandon its server draft (0.435166ms)
+✔ owner portfolio: three active listings are allowed but the fourth stops early (0.194041ms)
+✔ copy: phone collision remains generic and does not promise foreign recovery (0.068209ms)
+✔ copy: concise photo limits, ქუჩა label, spaced countdown units (0.218916ms)
+✔ recovery: a lost response where the server DID store settles the same slot (0.342042ms)
+✔ recovery: a lost response where the server did NOT store releases it (0.075333ms)
+✔ recovery: a new file can never inherit an old held position (0.107ms)
+✔ recovery: held slots survive restoration; unstartable ones do not (0.117417ms)
+✔ recovery: session expiry during a held retry keeps position and hold (0.08475ms)
+✔ recovery: malformed, foreign or duplicated status responses are refused (0.085292ms)
+✔ recovery: a committed server position lost during refresh is adopted (0.079375ms)
+✔ recovery: local claims done but the server lacks the position (0.058417ms)
+✔ recovery: three completed uploads refresh and finalize unchanged (0.092583ms)
+✔ recovery: a gallery with an unresolved hold can never finalize (0.091667ms)
+✔ recovery wiring: status errors keep polling and reset fences stale responses (0.529667ms)
+✔ copy: every outcome's message agrees with the controls it offers (0.179708ms)
+✔ copy: the removable-failure sentence never reaches a held slot (0.083834ms)
+✔ copy: rejected file types state the rule, not phone settings advice (0.14475ms)
+✔ copy: Grok-approved strings survive verbatim (0.265292ms)
+✔ copy: forbidden promises stay absent (0.439625ms)
+✔ race 1: a 503 then status before the worker finishes keeps the hold (0.149875ms)
+✔ race 2: a new file cannot claim a pending position (0.134791ms)
+✔ race 3: if the old worker commits, status settles the original slot (0.094792ms)
+✔ race 4: once the horizon expires with no commit, the position releases (0.121791ms)
+✔ race 6: overlapping, duplicate, foreign or missing sets fail closed (0.09075ms)
+✔ race 6b: a pending server position lost during refresh is held and polled (0.259375ms)
+✔ race 7: finalization is blocked while any pending hold exists (0.101167ms)
+✔ parity: every structured field the listing page displays has an owner payload path (0.6915ms)
+✔ parity: every canonical displayed amenity key has an owner path (0.240708ms)
+✔ parity: every rental term the page renders from desc_facts has an owner path (0.275375ms)
+✔ parity: the amenity checkboxes render from the registry import, not a copied list (0.451125ms)
+✔ unchecked amenities stay unknown: no amenities key at all (0.0825ms)
+✔ a checked subset sends exactly that subset — never false for the rest (0.066667ms)
+✔ rental terms never leak into a sale payload, even from stale state (0.071333ms)
+✔ unknown numeric values fail closed instead of being coerced (0.106042ms)
+✔ unset parity fields are omitted — absent means unknown, not empty (0.057333ms)
+✔ an old saved draft (no parity fields) restores safely and still submits (0.138875ms)
+✔ corrupted stored parity fields reset to unknown rather than poisoning the payload (0.077292ms)
+ℹ tests 224
+ℹ suites 0
+ℹ pass 224
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 856.913584
