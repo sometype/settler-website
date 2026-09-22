@@ -49,7 +49,7 @@ export function buildListingSeo({ listing, images }: ListingSeoInput): ListingSe
   // facts stay first, where search results and people actually see them.
   const title = `${[dealLabel, ...facts].join(" · ")} | Mepatrone #${listing.id}`;
   const description = [
-    `${dealLabel} ბინა პირდაპირ პატრონისგან.`,
+    `${dealLabel} ბინა.`,
     facts.length > 0 ? `${facts.join(" · ")}.` : null,
     "ფოტოები და განცხადების დეტალები Mepatrone-ზე.",
   ]
